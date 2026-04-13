@@ -1,0 +1,269 @@
+Je veux crééer une solution d'assistance aux experts 
+judiciares multi-domaines santé (psychologie, psychiatrie, Médecine légale)
+et autres (batiments, compatabilité, informatique, cybersécurité, ...).
+
+Il fonctionnera avec :
+- une application web locale  
+tournant sur le PC de l'expert
+- une application web centrale 
+tournant dans AWS comprenant un site de gestion et download des modules domaine
+- un dépôt d'images ECR contenant les images docker des composants
+
+0. Compréhension du workflow expertise
+Le workflow de traitement d'un dossier d'expertise est le suivant sur l'application web locale
+Step1 :
+- l'expert fournit en entrée la réquisition tribunal 
+contenant les questions auxquelles l'expertise doit répondre (QT)
+
+- l'applicaiton fournit un plan d'entretien (QMEC) sur la base d'un trame d'entretien configurée préalablement par l'expert. Ce paln reprend la trame et suggère une lsite de questions 
+
+Step2 :  entretien  et analyse hos application
+- L'expert réalise l'entretien et receuille des notes d'entretien sous forme télégraphique dans un doc NE (notes résumées à metrtre en forme)
+- l'expert réalise son analyse et prépare un rapprot d'expertise brut REB contenant 
+la liste de réponses aux QT, argumentée sur les bases des NE
+
+Step3 :
+- l'expert soumet au logiciel les NE et son REB
+- l'application génère un rapport final (REF) en utilisant le REB, les QT initiales, les NE, et produit aussi une analyse auxiliaire dans un document RAUX. Ce document comprend 2 partie :
+Partie 1 une analyse du REF qui  dit met en évidence d'éventuelles contestations possible sur la base de son Corpus domaine en suggérant des précisions ou reformulation fu RFE
+Partie 2 : une remise en forme le REF2 pour tenir compte de la partie 1.
+
+1. L'application web locale  :
+
+1.0 général 
+
+- charte professionelle, soignée et attractive, PWA en react/Next.js et python, BD
+
+- Page acceuil : ouver directement dur Dossiers
+
+- header :  menu -> Logo Judi-expert Local (texte) , Dossiers, Configuration, Site_central (lien externe), FAQ (liens externe)
+- footer : menu copyrirght ItechSource 2026               CHU(lein extrene), Mentions léales, CGU(lien externe) Conatct (lein externe)
+
+
+1.1 strucuration technique
+- fonctionne avec des images docker (4 a prioti) 
+-> la souche : site web local, DBD locale
+-> le LLM
+-> la RAG : bDB RAG avec le corpus commun du doamine
+
+
+1.1 Installation
+- l'expert après inscription et connexion) télécharge l'applicaiton souche
+
+- l'installation est déclnchée par l'expert sur son PC
+- Le programme d'isntallation utilise une solution gratuite
+-> vérifie que les condtions requises du PC sont assurées (CPU, RAM, Disque, chiffrage disque)
+-> insalle tous les composnats système nécessaire à l'exécution :
+on utilisera docker avec un runtime gratuit
+- l'application doit être lancée simpklement comme une application stan,drad, le runtime est lancé avant par l'amorce avant d'exécuter l'application
+
+
+
+1.2 Configration application locale : 
+- au démarrage l'image RAG est absentre, et la configuration est obligatoire
+
+- au pemier lancement de l'applicaiton 
+l'expert doit définir un mote de passe local et son domaine d'expertise
+(pas de laision avec le central)
+
+- l'expert lance ensuite le téléchargement du RAG domaine :
+l'image RAG est choisie via un menu de configuration de l'applicaiton locale :
+l'expert visualise les versions du module mises à disposition sur le centarl
+et peut développer le contenu de chaque version ;
+après sélection du module l'image est téchargée et démarée 
+l'expert peut à tout moemnt remplacer la verison mdoule par une autre disponible en ligen
+
+- puis l'expert ajoute l'enrichissement RAG en introduisant 2 fichiers en entrée:
+le template Plan entretetion (TPE.tpl), et le template en word du rapport final
+La BD RAG est enricihier avec ces éléments.
+
+-> l'expert peut à tout moement voir les documenets chargés et 
+recharegr ces 2 template 
+
+1.3 Achat du ticket expertise
+L'expert doit s'inscrire, se connecter sur le site cnetral et acheter un ticket d'expertise.
+Ce tieckt est un ficheir électronqiue à usage unique transmis par email contenant le domaine déclarée en central par l'expert.
+
+1.4 Exécution d'une expertise
+- L'expert va dans le menu dossiers et crée un nouveau dossier
+il doit fournir un nom de ossier et un ticket valide.
+L'application local transmet le tiocket au central poru vérification,, le cntral vaide et bûle le ticket comme utilisé dans sa base ou répond tiecke tinvale ou déjà utilisé
+Si le ticket est valide le dossier est créé et ajouté à la liste des dossiers visibles dans l'ordre chronologique invere (le plus récent en premier)
+
+- l'expert sélectionne le dossier qui affiche les steps 1 et 2 avec leur état (initial, réalisé, validé) et un lien pour entre dans le step
+
+- step0: Extraction - c'est un step technique de préparation
+L'expert doit introduire la réquisition d'input en PDF-scan et dispose d'un bouton 'Extraction'
+Ce bouton déclench un processus de conversion PDF-Scan vers .md et ajouet un bouton 'Visualiser' lorsque le traitement est terminé. Le ficheir est à un emplacement connu indiquié dans le résultat ou l'expert peut apporter des retouches.
+
+- Step 1 : 
+Au départ affichage du status 'initial' et un seul  bouton 'Execute' : il produit le PEMEC
+Une fois le traitement fini, l'application affiche terminé , actualise status à réalisé, un douton downlaod pour télécharger le PEQMEC et un bouton 'Valider'. 
+Le passage à valider permet de passer au step 2 
+
+- Step2 :
+Affiche status à 'Initial' et permet de técharger les NE et RAB.
+Puis 'Valider' pour bloque ce step et autoriser le step3
+
+- Step3:
+La page affiche status initial et un bouton 'Execute'.
+Poruit le RAF et RAFAUX. à téléchargéer. et un bouton 'Valider'.
+
+Une fois le step3 validé, on ne peut plus rien exécuter ni revenir en arrire? La parocédure avec ses divers ficheirs intermédiaire finalisés est archivées dans un répertoi en format zip.
+
+1.5 ChatBot :
+Un chatBot sera intégrée à l'application locale, il utilisera le LLM avec le RG qui sera complété avec : contenu site, Mentions légales, CGU, user-guide.md
+
+1.6 : FAQ/CGU/Mentieons légale
+L'application local connetient des leins vers le site central pour FAQ,  mentions légales et CGU
+
+2. Le site central:
+
+2.1 général
+- déployable en local pour test et sur AWS en produciton
+
+- containeurisée
+
+- charte professionelle, soignée et attractive, PWA en react/Next.js et python, BD 
+- headeer : Logo   Judi-expert, Corpus, FAQ Connexion/Inscription, FAQ Mon Espace (une fois connecté)
+
+- footer: copytriigth ITechSource 2026   Mentions légales, CGU, FAW, Contact
+
+2.2 Page pricipale
+
+- section  d'accueil : Présentation du service
+Une image inscrustée gratuite avec avocat ou Juge
+Messages : 
+Principal -> Réduisez de 50% votre temps de production des dossiers d'expertise avec l'IA
+Autres : 
+Augmentez la qualité de vos rapport tout en garadnt le contrôle, strictement respectueux du RGPD et de l'AI act
+Domaines : Santé (psychologie, psychiatrie, Médecine légale), Batiment, Compatbiité, ....
+Une approche totalement transprente avec les instance judiciares
+
+
+- section :  Comment ça marche ?
+la solution combine cloud et application locale sécurisée.
+Le site Web sur lequel l'expert s'enregsitre.
+Il téléchargee une pallication packagée pour s'installer automatiquement sur le PC expert (un minimum de condtions sont à statisfaire). Puis après configuration de son isntallation personnelle il achète des tickets de droit de gestin de dossier sur le site central.
+Le ticket transmis par email permette à l'expert de créer un dossier et de commencer son expertsie.
+L'application locale suit un workflwows générique et assite l'expert dans la produciton de son rapport d'expertise final.
+Toutes les données d'expertises restent sur le disque du PC expert et ne sont jamais transmlises en central.
+
+- section : le workflow d'expertise
+Schéma d'un workflow d'expertise (exempole cs expertise psychologique)
+Sur l'applicaiton locale (rien ne sour du PC expert!)
+Setp0 -> step1 -> step3
+
+- section : conformité règlementaire
+AI act
+
+2.2 Pages
+- /connexion :
+Formulaire classique : email, passowrd Captha Google V2
+Prendre modèle sur www.viamalin.com/login
+
+- /inscription :
+Nom, Prénom, adresse, domaine d'expertise (menu déroulant)
+utilisation de cognito pour l'isncription et authentification.
+ Le formulaire d'insciption propose plusieurs checkbox à cocher:
+ -> acception Mentions leagles
+ -> acception CGU
+ -> engagement de la responsabité de l'expert sur la protections de données sur son PC (botlocker ou autre) selon le respect des règle de sécurité générales (ref.article)
+ -> (optionnel) acceptation emails et newsletter
+pour un module métier donné
+
+Prendre modèle sur www.viamalin.com/register
+
+
+- /downloads :
+ met à disposition le package application locale souche à télécharger dans un menu downlaods
+
+- Corps/ :
+montre les divers corpus par domaine avece leur version et pour chaque version 
+
+-  /contact
+Prendre modèle sur www.viamalin.com/register
+Sélection domaine : liste déroulate domaine + général
+
+Objet : Liste déroulante = Problème, demande améloration, autre
+
+
+- /monespace :
+Présnete une liste d'inglet pour naviguer dansses pages,
+
+- /monspespace/profil :
+-> pésentete ses paraèmtres d'isncriptions
+-> chnagement de paswword
+-> suppression de compte
+
+- /monspace/tickets :
+Liste les  tickets achetés par l'expert avec les dates et montants
+
+
+Les domaines sont définis dans le repo comme suit :
+- un folder domaines/
+- un ficher domaines.yaml contenet une liste 
+d'entérées nom, répertoire, corpus/documents, 
+, corpus/urls,  actif (booléen : Trie/False)
+- au départ seuls 3 domaines : psychologie, psychiatrie, médecine_légale, batiment, comptabilité
+sont définis en .yaml
+- seul psychologie est complété avec dorpus/documents/ et corpus/urls/ 
+
+2.3 : FAQ/CGU/Mentieons légale/Politique de confidentialité
+Ecrire les Mentions légales, CGU, FAQ , Polique de confidentialité pour répondre au exigences légales.
+Prendre modèle sur www.viamalin.com/cgu , /faq, /mentions-legales, confidentialite
+
+L'application local connetient des leins vers le site central pour FAQ,  mentions légales et CGU
+
+2.4 Adminsitration
+Un seul compte admin est prédéfi dans l'applicaiton avec l'email admin@judi-expert.fr
+et un mote de passe <chage-me> au déploiement AWS 
+
+- header : comprend en plus une entrée adminsitration 
+Sur la page administration des onglets pour afficher les divereses pages d'admin
+- Experts
+-affcihe la lsite des experts inscrits et leur domaine d'expertise, date d'inscription
+- statisitiques tickets
+Sélection domaoine (dropdown lsit) ou Tous
+affiche liste des achats tickets  pour la sélection sur le jour actuel, 
+sur le mois courant et sur les mois passés depuis la création
+
+3. Technique
+
+3.1 Stack
+- La stack technique: Python et applcation locale et cloud PWA, front React/Ntxt.js)
+- BD cloud RDS ou autre ?
+- le LLM et la BD-RAG doivenet être optimisés pour taille 
+mimnimale et un qualité optimale
+-> solution paiement Stripe
+
+3.2. Organisation du repo judi-expert
+
+docs/ : contient les dos en français en format .md
+architecture, developement, exploitation, stripe, GCU, mentiosn_legales,  user-guide
+methodologie
+
+methodologie.md : document destiné à présernter la solution, son usage, sa conformité aux exigences. Tout rapport doit faire expmlicitement mention de l'usage de l'IA comme assitant à l'expert selon la mtéthodologie définies dans ce document.
+Il rappelera en début à quoi sont autorisés les expertes jusdiciare dans la rédaction de leur rapports en citant les sources.
+
+Il est téléchargeable sur le site central en format PDF dans la page downloads/
+
+corpus/<domaine>/
+contenu.yaml
+docs/
+
+-> site-central/local 
+scripts/  : scipts bash pu .py de gestion du site locla (build, control start/stop restrat iamges, ...)
+web/
+rag/
+.env
+
+->  site-central/aws
+terraform/
+scripts/ buildl, deploy, ...
+web/
+app_locale_package/
+.env
+
+
+

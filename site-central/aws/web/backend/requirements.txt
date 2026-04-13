@@ -1,0 +1,13 @@
+# Judi-Expert Site Central — Backend Dependencies
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+sqlalchemy==2.0.36
+alembic==1.14.1
+stripe==11.4.1
+boto3==1.35.81
+httpx==0.28.1
+psycopg2-binary==2.9.10
+asyncpg==0.30.0
+python-jose[cryptography]==3.3.0
+pydantic[email]==2.10.3
+bcrypt==4.2.1

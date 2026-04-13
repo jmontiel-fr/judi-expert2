@@ -1,0 +1,36 @@
+domaines:
+  - nom: psychologie
+    repertoire: corpus/psychologie
+    actif: true
+    corpus:
+      documents: corpus/psychologie/documents/
+      urls: corpus/psychologie/urls/urls.yaml
+    contenu: corpus/psychologie/contenu.yaml
+
+  - nom: psychiatrie
+    repertoire: corpus/psychiatrie
+    actif: false
+    corpus:
+      documents: corpus/psychiatrie/documents/
+      urls: corpus/psychiatrie/urls/urls.yaml
+
+  - nom: medecine_legale
+    repertoire: corpus/medecine_legale
+    actif: false
+    corpus:
+      documents: corpus/medecine_legale/documents/
+      urls: corpus/medecine_legale/urls/urls.yaml
+
+  - nom: batiment
+    repertoire: corpus/batiment
+    actif: false
+    corpus:
+      documents: corpus/batiment/documents/
+      urls: corpus/batiment/urls/urls.yaml
+
+  - nom: comptabilite
+    repertoire: corpus/comptabilite
+    actif: false
+    corpus:
+      documents: corpus/comptabilite/documents/
+      urls: corpus/comptabilite/urls/urls.yaml

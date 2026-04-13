@@ -1,0 +1,121 @@
+# Judi-Expert — Application Locale Docker Compose
+# Orchestre les 4 conteneurs de l'Application Locale.
+# Exigences : 2.1 (4 conteneurs Docker), 2.2 (orchestration démarrage)
+
+services:
+  # ── judi-llm ─────────────────────────────────────────────
+  # LLM local : Ollama + Mistral 7B Instruct v0.3
+  # Le script d'entrypoint démarre Ollama puis télécharge
+  # automatiquement le modèle au premier lancement.
+  judi-llm:
+    image: ollama/ollama:latest
+    container_name: judi-llm
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./ollama-entrypoint.sh:/ollama-entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/ollama-entrypoint.sh"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ── judi-rag ─────────────────────────────────────────────
+  # Base vectorielle Qdrant pour le corpus domaine
+  judi-rag:
+    image: qdrant/qdrant:latest
+    container_name: judi-rag
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── judi-ocr ─────────────────────────────────────────────
+  # Service OCR : Tesseract + pdf2image + PyMuPDF
+  judi-ocr:
+    build:
+      context: ./ocr
+      dockerfile: Dockerfile
+    container_name: judi-ocr
+    ports:
+      - "8001:8001"
+    volumes:
+      - ocr_tmp:/tmp/ocr
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── judi-web (backend) ──────────────────────────────────
+  # Backend FastAPI (port 8000) + base SQLite locale
+  # Dépend de judi-llm, judi-rag et judi-ocr pour le workflow complet.
+  judi-web-backend:
+    build:
+      context: ./web/backend
+      dockerfile: Dockerfile
+    container_name: judi-web-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - web_data:/app/data
+      - dossiers_data:/app/data/dossiers
+    env_file:
+      - .env
+    depends_on:
+      judi-llm:
+        condition: service_healthy
+      judi-rag:
+        condition: service_healthy
+      judi-ocr:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ── judi-web (frontend) ─────────────────────────────────
+  # Frontend Next.js PWA (port 3000)
+  # Dépend du backend pour les appels API.
+  judi-web-frontend:
+    build:
+      context: ./web/frontend
+      dockerfile: Dockerfile
+    container_name: judi-web-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://judi-web-backend:8000
+    depends_on:
+      judi-web-backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+    driver: local
+  web_data:
+    driver: local
+  dossiers_data:
+    driver: local
+  qdrant_data:
+    driver: local
+  ocr_tmp:
+    driver: local

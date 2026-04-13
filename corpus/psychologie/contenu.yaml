@@ -1,0 +1,164 @@
+# Contenu du corpus — Domaine Psychologie Judiciaire
+# Ce fichier décrit l'ensemble des ressources du corpus psychologie.
+
+contenu:
+  # --- Templates ---
+
+  - nom: TPE_psychologie.tpl
+    description: >
+      Trame de plan d'entretien par défaut pour le domaine psychologie judiciaire.
+      Structurée selon les bonnes pratiques : identification, motif de l'expertise,
+      anamnèse, examen clinique, tests psychométriques, analyse et conclusions.
+    type: template
+    date_ajout: "2025-01-01"
+
+  - nom: template_rapport_psychologie.docx
+    description: >
+      Template Word du rapport d'expertise finale pour le domaine psychologie.
+      Contient les champs de fusion (placeholders) pour destinataire, QT,
+      réponses argumentées, analyse et conclusions. Ne contient pas d'identité
+      en dur.
+    type: template
+    date_ajout: "2025-01-01"
+
+  # --- Documents PDF de référence ---
+
+  - nom: documents/guide_methodologique_expertise_psychologique_penale.pdf
+    description: >
+      Guide méthodologique pour la conduite d'expertises psychologiques dans
+      le cadre pénal. Source : Ministère de la Justice. Couvre la méthodologie
+      d'entretien, les outils d'évaluation et la rédaction du rapport.
+    type: document
+    date_ajout: "2025-07-14"
+
+  - nom: documents/code_deontologie_psychologues.pdf
+    description: >
+      Code de déontologie des psychologues (version consolidée 2012).
+      Source : CNCDP. Définit les principes éthiques fondamentaux applicables
+      à la pratique de l'expertise psychologique judiciaire.
+    type: document
+    date_ajout: "2025-07-14"
+
+  - nom: documents/referentiel_has_evaluation_psychologique.pdf
+    description: >
+      Recommandations de bonnes pratiques de la HAS relatives à l'évaluation
+      psychologique, incluant les outils psychométriques validés et les
+      protocoles d'évaluation standardisés.
+    type: document
+    date_ajout: "2025-07-14"
+
+  - nom: documents/textes_reglementaires_expertise_judiciaire.pdf
+    description: >
+      Compilation des articles du Code de procédure pénale relatifs à
+      l'expertise judiciaire (articles 156 à 169-1). Source : Légifrance.
+      Conditions de désignation, obligations de l'expert, cadre procédural.
+    type: document
+    date_ajout: "2025-07-14"
+
+  - nom: documents/guide_bonnes_pratiques_expertise_personnalite.pdf
+    description: >
+      Référentiel de bonnes pratiques pour l'évaluation de la personnalité
+      dans le cadre de l'expertise judiciaire. Source : SFP. Tests
+      psychométriques recommandés (MMPI-2, Rorschach, TAT) et protocoles.
+    type: document
+    date_ajout: "2025-07-14"
+
+  # --- URLs publiques de référence ---
+
+  - nom: urls/urls.yaml — Ministère de la Justice — Experts judiciaires
+    description: >
+      Page officielle du ministère de la Justice consacrée aux experts
+      judiciaires : cadre réglementaire, listes d'experts, procédures.
+    type: url
+    date_ajout: "2025-07-14"
+
+  - nom: urls/urls.yaml — Haute Autorité de Santé (HAS) — Recommandations
+    description: >
+      Catalogue des recommandations de bonnes pratiques de la HAS,
+      incluant les référentiels applicables à l'évaluation psychologique.
+    type: url
+    date_ajout: "2025-07-14"
+
+  - nom: urls/urls.yaml — CNCDP (Code de déontologie des psychologues)
+    description: >
+      Site officiel de la Commission Nationale Consultative de Déontologie
+      des Psychologues : code de déontologie, avis rendus, principes éthiques.
+    type: url
+    date_ajout: "2025-07-14"
+
+  - nom: urls/urls.yaml — FFPP (Fédération Française des Psychologues)
+    description: >
+      Fédération Française des Psychologues et de Psychologie : ressources
+      professionnelles, formations, actualités de la profession.
+    type: url
+    date_ajout: "2025-07-14"
+
+  - nom: urls/urls.yaml — Société Française de Psychologie (SFP)
+    description: >
+      Société savante de référence en psychologie en France : publications,
+      recommandations, groupes de travail sur l'expertise psychologique.
+    type: url
+    date_ajout: "2025-07-14"
+
+  - nom: urls/urls.yaml — Légifrance — Code de procédure pénale (Expertise)
+    description: >
+      Articles 156 à 169-1 du Code de procédure pénale relatifs à l'expertise
+      judiciaire : désignation, mission, obligations, récusation, honoraires.
+    type: url
+    date_ajout: "2025-07-14"
+
+  - nom: urls/urls.yaml — Légifrance — Code de procédure civile (Mesures d'instruction)
+    description: >
+      Articles 232 à 284-1 du Code de procédure civile relatifs aux mesures
+      d'instruction exécutées par un technicien (expert judiciaire).
+    type: url
+    date_ajout: "2025-07-14"
+
+  - nom: urls/urls.yaml — Légifrance — Loi sur le titre de psychologue
+    description: >
+      Loi n°85-772 du 25 juillet 1985 portant sur la protection du titre
+      de psychologue.
+    type: url
+    date_ajout: "2025-07-14"
+
+  - nom: urls/urls.yaml — Légifrance — Décret relatif aux experts judiciaires
+    description: >
+      Décret n°2004-1463 du 23 décembre 2004 relatif aux experts judiciaires,
+      conditions d'inscription sur les listes et obligations.
+    type: url
+    date_ajout: "2025-07-14"
+
+  - nom: urls/urls.yaml — Cairn.info — Revue Pratiques Psychologiques
+    description: >
+      Revue scientifique francophone de référence en psychologie appliquée,
+      publiant des articles sur l'expertise psychologique judiciaire.
+    type: url
+    date_ajout: "2025-07-14"
+
+  - nom: urls/urls.yaml — Cairn.info — Revue L'Évolution Psychiatrique
+    description: >
+      Revue scientifique couvrant la psychiatrie et la psychologie clinique,
+      avec des articles sur l'expertise médico-légale et psycho-légale.
+    type: url
+    date_ajout: "2025-07-14"
+
+  - nom: urls/urls.yaml — HAL — Archives ouvertes (psychologie légale)
+    description: >
+      Archive ouverte pluridisciplinaire HAL : publications scientifiques
+      en accès libre sur la psychologie légale et l'expertise judiciaire.
+    type: url
+    date_ajout: "2025-07-14"
+
+  - nom: urls/urls.yaml — Persée — Revues en psychologie
+    description: >
+      Portail de revues scientifiques françaises numérisées en accès libre.
+      Collection de psychologie incluant des articles méthodologiques.
+    type: url
+    date_ajout: "2025-07-14"
+
+  - nom: urls/urls.yaml — OpenEdition — Revues en sciences humaines
+    description: >
+      Plateforme de revues en sciences humaines et sociales en accès ouvert.
+      Inclut des publications en psychologie clinique et légale.
+    type: url
+    date_ajout: "2025-07-14"

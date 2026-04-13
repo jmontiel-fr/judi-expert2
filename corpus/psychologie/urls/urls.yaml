@@ -1,0 +1,124 @@
+# URLs publiques de référence — Corpus Psychologie Judiciaire
+# Toutes les URLs pointent vers des ressources publiques accessibles sans authentification.
+
+urls:
+  # --- Sites institutionnels ---
+
+  - nom: "Ministère de la Justice — Experts judiciaires"
+    url: "https://www.justice.gouv.fr/justice-civile/experts-judiciaires"
+    description: >
+      Page officielle du ministère de la Justice consacrée aux experts judiciaires :
+      cadre réglementaire, listes d'experts, procédures d'inscription.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  - nom: "Haute Autorité de Santé (HAS) — Recommandations"
+    url: "https://www.has-sante.fr/jcms/fc_2875171/fr/liste-des-recommandations-de-bonne-pratique"
+    description: >
+      Catalogue des recommandations de bonnes pratiques de la HAS,
+      incluant les référentiels applicables à l'évaluation psychologique.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  - nom: "Commission Nationale Consultative de Déontologie des Psychologues (CNCDP)"
+    url: "http://www.cncdp.fr"
+    description: >
+      Site officiel de la CNCDP : code de déontologie des psychologues,
+      avis rendus, principes éthiques applicables à l'expertise judiciaire.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  - nom: "Ordre des psychologues — Fédération Française des Psychologues et de Psychologie (FFPP)"
+    url: "https://www.ffpp.net"
+    description: >
+      Fédération Française des Psychologues et de Psychologie : ressources
+      professionnelles, formations, actualités de la profession.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  - nom: "Société Française de Psychologie (SFP)"
+    url: "https://www.sfpsy.org"
+    description: >
+      Société savante de référence en psychologie en France : publications,
+      recommandations, groupes de travail sur l'expertise psychologique.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  # --- Bases documentaires juridiques publiques ---
+
+  - nom: "Légifrance — Code de procédure pénale (Expertise)"
+    url: "https://www.legifrance.gouv.fr/codes/section_lc/LEGITEXT000006071154/LEGISCTA000006167469"
+    description: >
+      Articles 156 à 169-1 du Code de procédure pénale relatifs à l'expertise
+      judiciaire : désignation, mission, obligations, récusation, honoraires.
+    type: juridique
+    date_ajout: "2025-07-14"
+
+  - nom: "Légifrance — Code de procédure civile (Mesures d'instruction)"
+    url: "https://www.legifrance.gouv.fr/codes/section_lc/LEGITEXT000006070716/LEGISCTA000006149642"
+    description: >
+      Articles 232 à 284-1 du Code de procédure civile relatifs aux mesures
+      d'instruction exécutées par un technicien (expert judiciaire).
+    type: juridique
+    date_ajout: "2025-07-14"
+
+  - nom: "Légifrance — Loi sur le titre de psychologue"
+    url: "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000000521846"
+    description: >
+      Loi n°85-772 du 25 juillet 1985 portant diverses dispositions d'ordre
+      social, incluant l'article 44 sur la protection du titre de psychologue.
+    type: juridique
+    date_ajout: "2025-07-14"
+
+  - nom: "Légifrance — Décret relatif aux experts judiciaires"
+    url: "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000000464648"
+    description: >
+      Décret n°2004-1463 du 23 décembre 2004 relatif aux experts judiciaires,
+      fixant les conditions d'inscription sur les listes et les obligations.
+    type: juridique
+    date_ajout: "2025-07-14"
+
+  # --- Ressources académiques en psychologie légale ---
+
+  - nom: "Cairn.info — Revue Pratiques Psychologiques"
+    url: "https://www.cairn.info/revue-pratiques-psychologiques.htm"
+    description: >
+      Revue scientifique francophone de référence en psychologie appliquée,
+      publiant des articles sur l'expertise psychologique judiciaire.
+      Accès libre aux résumés et à certains articles.
+    type: academique
+    date_ajout: "2025-07-14"
+
+  - nom: "Cairn.info — Revue L'Évolution Psychiatrique"
+    url: "https://www.cairn.info/revue-l-evolution-psychiatrique.htm"
+    description: >
+      Revue scientifique couvrant la psychiatrie et la psychologie clinique,
+      avec des articles sur l'expertise médico-légale et psycho-légale.
+      Accès libre aux résumés.
+    type: academique
+    date_ajout: "2025-07-14"
+
+  - nom: "HAL — Archives ouvertes (psychologie légale)"
+    url: "https://hal.science/search/index/?q=psychologie+expertise+judiciaire"
+    description: >
+      Archive ouverte pluridisciplinaire HAL : publications scientifiques
+      en accès libre sur la psychologie légale et l'expertise judiciaire.
+    type: academique
+    date_ajout: "2025-07-14"
+
+  - nom: "Persée — Revues en psychologie"
+    url: "https://www.persee.fr/collection/psy"
+    description: >
+      Portail de revues scientifiques françaises numérisées en accès libre.
+      Collection de psychologie incluant des articles historiques et
+      méthodologiques sur l'expertise psychologique.
+    type: academique
+    date_ajout: "2025-07-14"
+
+  - nom: "OpenEdition — Revues en sciences humaines"
+    url: "https://journals.openedition.org"
+    description: >
+      Plateforme de revues en sciences humaines et sociales en accès ouvert.
+      Inclut des publications en psychologie clinique et légale.
+    type: academique
+    date_ajout: "2025-07-14"

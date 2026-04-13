@@ -1,0 +1,63 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# ── Node.js ──
+node_modules/
+.next/
+out/
+
+# ── Docker ──
+*.tar
+*.tar.gz
+
+# ── Binaires ──
+*.exe
+*.msi
+*.dmg
+
+# ── Environment ──
+.env
+.env.local
+.env.*.local
+
+# ── IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Tests ──
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# ── Build artifacts ──
+site-central/aws/app_locale_package/.staging/
+site-central/aws/app_locale_package/output/*.exe
+site-central/aws/app_locale_package/output/*.sh
+
+# ── Data (local dev) ──
+*.db
+data/
+
+# ── Terraform ──
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl

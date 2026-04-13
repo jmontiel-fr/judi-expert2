@@ -1,0 +1,5 @@
+# Installateurs générés
+output/
+
+# Répertoire de staging temporaire
+.staging/
