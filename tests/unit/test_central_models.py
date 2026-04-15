@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 # Charger les modèles du Site Central en manipulant sys.path et sys.modules
 # pour éviter les conflits avec le module 'models' de l'Application Locale.
-_central_backend = str(Path(__file__).resolve().parents[2] / "site-central" / "aws" / "web" / "backend")
+_central_backend = str(Path(__file__).resolve().parents[2] / "central-site" / "web" / "backend")
 
 # Sauvegarder et nettoyer les modules 'models' existants
 _saved_modules = {k: sys.modules.pop(k) for k in list(sys.modules) if k == "models" or k.startswith("models.")}

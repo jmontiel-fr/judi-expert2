@@ -4,6 +4,8 @@
 
 Ce document décrit l'architecture technique complète du système Judi-Expert, composé de deux parties principales : l'**Application Locale** installée sur le PC de l'expert et le **Site Central** déployé sur AWS.
 
+> Pour la définition des termes et acronymes, consultez le [Glossaire & Workflow](glossaire-workflow.md).
+
 ---
 
 ## Vue d'ensemble

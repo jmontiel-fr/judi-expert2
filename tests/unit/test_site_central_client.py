@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "site-central" / "local" / "web" / "backend"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "local-site" / "web" / "backend"))
 
 from services.site_central_client import (
     SiteCentralClient,

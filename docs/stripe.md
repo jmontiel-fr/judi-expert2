@@ -251,7 +251,7 @@ Stripe fournit un environnement de test complet avec des clés dédiées (`sk_te
 
 ```bash
 # Terminal 1 : démarrer le backend
-cd site-central/aws/web/backend
+cd central-site/web/backend
 uvicorn main:app --reload --port 8000
 
 # Terminal 2 : écouter les événements Stripe

@@ -252,13 +252,13 @@ corpus/<domaine>/
 contenu.yaml
 docs/
 
--> site-central/local 
+-> local-site/ 
 scripts/  : scipts bash pu .py de gestion du site locla (build, control start/stop restrat iamges, ...)
 web/
 rag/
 .env
 
-->  site-central/aws
+->  central-site/
 terraform/
 scripts/ buildl, deploy, ...
 web/

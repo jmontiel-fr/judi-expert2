@@ -13,7 +13,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "site-central" / "local" / "web" / "backend"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "local-site" / "web" / "backend"))
 
 from models import Base
 from database import get_db

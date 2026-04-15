@@ -31,8 +31,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 _central_backend = str(
     Path(__file__).resolve().parents[2]
-    / "site-central"
-    / "aws"
+    / "central-site"
     / "web"
     / "backend"
 )
@@ -127,6 +126,9 @@ newsletter_flag = st.booleans()
     nom=non_empty_text,
     prenom=non_empty_text,
     adresse=non_empty_text,
+    ville=non_empty_text,
+    code_postal=non_empty_text,
+    telephone=non_empty_text,
     domaine=domaines,
     email=valid_emails,
     password=valid_passwords,
@@ -136,6 +138,9 @@ def test_valid_form_succeeds_regardless_of_newsletter(
     nom: str,
     prenom: str,
     adresse: str,
+    ville: str,
+    code_postal: str,
+    telephone: str,
     domaine: str,
     email: str,
     password: str,
@@ -150,6 +155,9 @@ def test_valid_form_succeeds_regardless_of_newsletter(
         nom=nom,
         prenom=prenom,
         adresse=adresse,
+        ville=ville,
+        code_postal=code_postal,
+        telephone=telephone,
         domaine=domaine,
         accept_mentions_legales=True,
         accept_cgu=True,
@@ -160,6 +168,9 @@ def test_valid_form_succeeds_regardless_of_newsletter(
     assert req.nom == nom.strip()
     assert req.prenom == prenom.strip()
     assert req.adresse == adresse.strip()
+    assert req.ville == ville.strip()
+    assert req.code_postal == code_postal.strip()
+    assert req.telephone == telephone.strip()
     assert req.domaine == domaine.strip()
     assert req.accept_mentions_legales is True
     assert req.accept_cgu is True
@@ -180,16 +191,22 @@ def test_valid_form_succeeds_regardless_of_newsletter(
     nom=non_empty_text,
     prenom=non_empty_text,
     adresse=non_empty_text,
+    ville=non_empty_text,
+    code_postal=non_empty_text,
+    telephone=non_empty_text,
     domaine=domaines,
     email=valid_emails,
     password=valid_passwords,
-    field_to_blank=st.sampled_from(["nom", "prenom", "adresse", "domaine"]),
+    field_to_blank=st.sampled_from(["nom", "prenom", "adresse", "ville", "code_postal", "telephone", "domaine"]),
     blank_value=blank_text,
 )
 def test_missing_required_field_fails(
     nom: str,
     prenom: str,
     adresse: str,
+    ville: str,
+    code_postal: str,
+    telephone: str,
     domaine: str,
     email: str,
     password: str,
@@ -204,6 +221,9 @@ def test_missing_required_field_fails(
         "nom": nom,
         "prenom": prenom,
         "adresse": adresse,
+        "ville": ville,
+        "code_postal": code_postal,
+        "telephone": telephone,
         "domaine": domaine,
         "accept_mentions_legales": True,
         "accept_cgu": True,
@@ -229,6 +249,9 @@ def test_missing_required_field_fails(
     nom=non_empty_text,
     prenom=non_empty_text,
     adresse=non_empty_text,
+    ville=non_empty_text,
+    code_postal=non_empty_text,
+    telephone=non_empty_text,
     domaine=domaines,
     email=valid_emails,
     password=valid_passwords,
@@ -242,6 +265,9 @@ def test_unchecked_required_checkbox_fails(
     nom: str,
     prenom: str,
     adresse: str,
+    ville: str,
+    code_postal: str,
+    telephone: str,
     domaine: str,
     email: str,
     password: str,
@@ -255,6 +281,9 @@ def test_unchecked_required_checkbox_fails(
         "nom": nom,
         "prenom": prenom,
         "adresse": adresse,
+        "ville": ville,
+        "code_postal": code_postal,
+        "telephone": telephone,
         "domaine": domaine,
         "accept_mentions_legales": True,
         "accept_cgu": True,
@@ -345,6 +374,9 @@ async def test_app(async_engine):
     nom=non_empty_text,
     prenom=non_empty_text,
     adresse=non_empty_text,
+    ville=non_empty_text,
+    code_postal=non_empty_text,
+    telephone=non_empty_text,
     domaine=domaines,
     password=valid_passwords,
     newsletter=newsletter_flag,
@@ -355,6 +387,9 @@ async def test_newsletter_does_not_affect_registration_via_api(
     nom: str,
     prenom: str,
     adresse: str,
+    ville: str,
+    code_postal: str,
+    telephone: str,
     domaine: str,
     password: str,
     newsletter: bool,
@@ -374,6 +409,9 @@ async def test_newsletter_does_not_affect_registration_via_api(
                 "nom": nom,
                 "prenom": prenom,
                 "adresse": adresse,
+                "ville": ville,
+                "code_postal": code_postal,
+                "telephone": telephone,
                 "domaine": domaine,
                 "accept_mentions_legales": True,
                 "accept_cgu": True,

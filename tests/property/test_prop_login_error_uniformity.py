@@ -25,8 +25,7 @@ from httpx import ASGITransport, AsyncClient
 
 _central_backend = str(
     Path(__file__).resolve().parents[2]
-    / "site-central"
-    / "aws"
+    / "central-site"
     / "web"
     / "backend"
 )

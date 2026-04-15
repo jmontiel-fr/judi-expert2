@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Ajouter le backend au path pour les imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "site-central" / "local" / "web" / "backend"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "local-site" / "web" / "backend"))
 
 from models import Base, ChatMessage, Dossier, LocalConfig, Step, StepFile
 

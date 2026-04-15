@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 # Module isolation: load Site Central backend without polluting sys.modules
 # ---------------------------------------------------------------------------
 _central_backend = str(
-    Path(__file__).resolve().parents[2] / "site-central" / "aws" / "web" / "backend"
+    Path(__file__).resolve().parents[2] / "central-site" / "web" / "backend"
 )
 
 _modules_to_isolate = [
@@ -173,6 +173,7 @@ async def test_contact_submit_success(unauth_client: AsyncClient):
         "domaine": "psychologie",
         "objet": "Problème",
         "message": "J'ai un problème avec mon compte.",
+        "captcha_token": "test-captcha-token",
     })
     assert resp.status_code == 201
     data = resp.json()

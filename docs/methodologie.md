@@ -4,6 +4,8 @@
 
 Ce document présente la solution Judi-Expert, son usage de l'intelligence artificielle comme assistant à l'expert judiciaire, et sa conformité aux exigences réglementaires en vigueur. Il est destiné à accompagner l'expert dans la justification de l'usage de l'IA auprès des instances judiciaires.
 
+> Pour la définition des termes et acronymes utilisés dans ce document, consultez le [Glossaire & Workflow](glossaire-workflow.md).
+
 ---
 
 ## 1. Autorisations des experts judiciaires en matière de rédaction de rapports

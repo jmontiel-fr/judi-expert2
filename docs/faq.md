@@ -3,6 +3,8 @@
 **Judi-Expert — ITechSource**
 **Dernière mise à jour : 1er janvier 2026**
 
+> Pour la définition des termes et acronymes, consultez le [Glossaire & Workflow](glossaire-workflow.md).
+
 ---
 
 ## Général

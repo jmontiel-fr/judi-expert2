@@ -17,7 +17,7 @@ import pytest
 
 # Root of the local backend source code (resolve relative to project root)
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
-LOCAL_BACKEND_ROOT = _PROJECT_ROOT / "site-central" / "local" / "web" / "backend"
+LOCAL_BACKEND_ROOT = _PROJECT_ROOT / "local-site" / "web" / "backend"
 
 # Files that are expected to make outbound HTTP calls to SITE_CENTRAL_URL
 # These are the ONLY files allowed to call the Site Central
@@ -39,8 +39,7 @@ SITE_CENTRAL_REF_PATTERN = re.compile(r"SITE_CENTRAL_URL")
 # Add local backend to sys.path for middleware imports
 _BACKEND_PATH = str(
     Path(__file__).resolve().parents[2]
-    / "site-central"
-    / "local"
+    / "local-site"
     / "web"
     / "backend"
 )

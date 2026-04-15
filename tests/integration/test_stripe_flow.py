@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 _central_backend = str(
     Path(__file__).resolve().parents[2]
-    / "site-central" / "aws" / "web" / "backend"
+    / "central-site" / "web" / "backend"
 )
 
 _modules_to_isolate = [

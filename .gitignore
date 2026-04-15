@@ -48,9 +48,9 @@ htmlcov/
 .mypy_cache/
 
 # ── Build artifacts ──
-site-central/aws/app_locale_package/.staging/
-site-central/aws/app_locale_package/output/*.exe
-site-central/aws/app_locale_package/output/*.sh
+central-site/app_locale_package/.staging/
+central-site/app_locale_package/output/*.exe
+central-site/app_locale_package/output/*.sh
 
 # ── Data (local dev) ──
 *.db

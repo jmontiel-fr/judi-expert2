@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 _local_backend = str(
     Path(__file__).resolve().parents[2]
-    / "site-central" / "local" / "web" / "backend"
+    / "local-site" / "web" / "backend"
 )
 sys.path.insert(0, _local_backend)
 

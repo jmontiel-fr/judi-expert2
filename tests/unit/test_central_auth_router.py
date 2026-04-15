@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 # Module isolation: load Site Central backend without polluting sys.modules
 # ---------------------------------------------------------------------------
 _central_backend = str(
-    Path(__file__).resolve().parents[2] / "site-central" / "aws" / "web" / "backend"
+    Path(__file__).resolve().parents[2] / "central-site" / "web" / "backend"
 )
 
 _modules_to_isolate = [
@@ -90,7 +90,10 @@ def _valid_register_payload(**overrides):
         "password": "SecureP@ss1",
         "nom": "Dupont",
         "prenom": "Jean",
-        "adresse": "12 rue de la Paix, 75001 Paris",
+        "adresse": "12 rue de la Paix",
+        "ville": "Paris",
+        "code_postal": "75001",
+        "telephone": "0612345678",
         "domaine": "psychologie",
         "accept_mentions_legales": True,
         "accept_cgu": True,

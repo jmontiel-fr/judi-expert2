@@ -15,7 +15,7 @@ import pytest
 
 # Ajouter le backend au path
 sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "site-central" / "local" / "web" / "backend")
+    0, str(Path(__file__).resolve().parents[2] / "local-site" / "web" / "backend")
 )
 
 from services.llm_service import (

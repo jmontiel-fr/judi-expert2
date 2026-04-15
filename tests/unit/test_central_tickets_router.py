@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 # Module isolation: load Site Central backend without polluting sys.modules
 # ---------------------------------------------------------------------------
 _central_backend = str(
-    Path(__file__).resolve().parents[2] / "site-central" / "aws" / "web" / "backend"
+    Path(__file__).resolve().parents[2] / "central-site" / "web" / "backend"
 )
 
 _modules_to_isolate = [

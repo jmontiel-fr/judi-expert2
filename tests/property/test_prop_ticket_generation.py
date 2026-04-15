@@ -29,8 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 _central_backend = str(
     Path(__file__).resolve().parents[2]
-    / "site-central"
-    / "aws"
+    / "central-site"
     / "web"
     / "backend"
 )

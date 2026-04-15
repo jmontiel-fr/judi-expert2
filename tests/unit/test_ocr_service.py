@@ -19,7 +19,7 @@ _saved_main = sys.modules.pop("main", None)
 _saved_path = sys.path[:]
 
 # Ajouter le service OCR au path pour les imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "site-central" / "local" / "ocr"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "local-site" / "ocr"))
 
 import main as _ocr_main  # noqa: E402
 from main import _is_text_pdf, app as ocr_app  # noqa: E402

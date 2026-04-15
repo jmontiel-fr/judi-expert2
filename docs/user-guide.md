@@ -6,6 +6,8 @@ Ce guide décrit l'utilisation complète de l'Application Locale Judi-Expert, de
 
 Toutes vos données d'expertise restent exclusivement sur votre PC. Seuls les tickets d'expertise transitent entre votre application et le Site Central.
 
+> Pour la définition des termes et acronymes (QT, TPE, PEMEC, QMEC, NE, REB, REF, RAUX, etc.), consultez le [Glossaire & Workflow](glossaire-workflow.md).
+
 ---
 
 ## 1. Installation et premier lancement (Amorce)

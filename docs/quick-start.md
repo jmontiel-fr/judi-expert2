@@ -2,6 +2,27 @@
 
 Guide de démarrage rapide pour lancer le Site Central (en local ou sur AWS) et installer/configurer l'Application Locale.
 
+> Pour la définition des termes et acronymes, consultez le [Glossaire & Workflow](glossaire-workflow.md).
+
+---
+
+## Organisation du dépôt
+
+Le dépôt contient **deux applications distinctes** dans des dossiers de premier niveau :
+
+| Dossier | Application | Rôle | Tourne sur |
+|---------|-------------|------|------------|
+| `local-site/` | **Application Locale** | Workflow d'expertise (OCR, LLM, RAG, rapports). Toutes les données restent sur le PC. | PC de l'expert (Docker Compose) |
+| `central-site/` | **Site Central** | Inscription, paiements Stripe, distribution corpus, administration. | AWS (prod) **ou** en local via `docker-compose.dev.yml` (dev) |
+
+### Les trois environnements exécutables
+
+| Environnement | Commande de lancement | URL |
+|---------------|----------------------|-----|
+| Application Locale | `local-site/scripts/start.sh` | `localhost:3000` (web) / `:8000` (api) |
+| Site Central — dev local | `docker compose -f central-site/docker-compose.dev.yml up -d` | `localhost:3001` |
+| Site Central — prod AWS | `central-site/scripts/deploy.sh` | Domaine AWS configuré |
+
 ---
 
 ## Table des matières
@@ -60,10 +81,10 @@ cd judi-expert
 ### 2.2 Configurer l'environnement
 
 ```bash
-cp site-central/aws/.env site-central/aws/.env.local
+cp central-site/.env central-site/.env.local
 ```
 
-Éditer `site-central/aws/.env.local` avec les valeurs de test :
+Éditer `central-site/.env.local` avec les valeurs de test :
 
 ```dotenv
 # Base de données locale (PostgreSQL via Docker)
@@ -97,7 +118,7 @@ Créer un fichier `docker-compose.dev.yml` à la racine du projet (ou utiliser c
 
 ```bash
 # Depuis la racine du projet
-docker compose -f site-central/aws/docker-compose.dev.yml up -d
+docker compose -f central-site/docker-compose.dev.yml up -d
 ```
 
 Ou lancer manuellement les composants :
@@ -112,7 +133,7 @@ docker run -d --name judi-db \
   postgres:16-alpine
 
 # 2. Lancer les migrations
-cd site-central/aws/web/backend
+cd central-site/web/backend
 pip install -r requirements.txt
 alembic upgrade head
 
@@ -120,7 +141,7 @@ alembic upgrade head
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 # 4. Démarrer le frontend (dans un autre terminal)
-cd site-central/aws/web/frontend
+cd central-site/web/frontend
 npm install
 npm run dev
 ```
@@ -137,7 +158,7 @@ npm run dev
 
 ### 3.1 Configurer les variables AWS
 
-Éditer `site-central/aws/.env` :
+Éditer `central-site/.env` :
 
 ```dotenv
 AWS_REGION=eu-west-3
@@ -161,7 +182,7 @@ APP_URL=https://www.judi-expert.fr
 ### 3.2 Déployer l'infrastructure Terraform
 
 ```bash
-cd site-central/aws/scripts
+cd central-site/scripts
 
 # Déployer VPC, RDS, ECS, Cognito, ALB, CloudFront, ECR, etc.
 ./deploy.sh
@@ -172,7 +193,7 @@ Le script exécute `terraform init`, `plan` et `apply`. Les outputs Terraform fo
 ### 3.3 Build et push des images Docker
 
 ```bash
-cd site-central/aws/scripts
+cd central-site/scripts
 
 # Build des images de production
 ./build.sh v1.0.0
@@ -184,7 +205,7 @@ cd site-central/aws/scripts
 ### 3.4 Publier le module RAG psychologie
 
 ```bash
-cd site-central/aws/scripts
+cd central-site/scripts
 
 # Build et push de l'image RAG du domaine psychologie
 ./update-rag.sh psychologie v1.0.0
@@ -193,7 +214,7 @@ cd site-central/aws/scripts
 ### 3.5 Vérifier le déploiement
 
 ```bash
-cd site-central/aws/scripts
+cd central-site/scripts
 
 # Vérifier l'état des services
 ./site-status.sh
@@ -233,7 +254,7 @@ Le scheduler EventBridge gère automatiquement l'arrêt à 20h et le démarrage 
 ### 4.1 Build des images Docker locales
 
 ```bash
-cd site-central/local/scripts
+cd local-site/scripts
 
 # Build des 3 images custom (judi-web-backend, judi-web-frontend, judi-ocr)
 ./build.sh
@@ -243,7 +264,7 @@ Les images `ollama/ollama:latest` (judi-llm) et `qdrant/qdrant:latest` (judi-rag
 
 ### 4.2 Configurer l'environnement local
 
-Éditer `site-central/local/.env` :
+Éditer `local-site/.env` :
 
 ```dotenv
 # Base de données locale (SQLite)
@@ -267,7 +288,7 @@ DOMAINE=psychologie
 ### 4.3 Démarrer l'Application Locale
 
 ```bash
-cd site-central/local/scripts
+cd local-site/scripts
 
 # Démarrer les 4 conteneurs
 ./start.sh
@@ -303,7 +324,7 @@ Toutes les données d'expertise restent exclusivement en local.
 
 ### 5.1 Pointer vers le Site Central local (développement)
 
-Si le Site Central tourne en local, éditer `site-central/local/.env` :
+Si le Site Central tourne en local, éditer `local-site/.env` :
 
 ```dotenv
 # Pointer vers le Site Central local
@@ -323,7 +344,7 @@ services:
 
 ### 5.2 Pointer vers le Site Central AWS (production)
 
-Pour la production, éditer `site-central/local/.env` :
+Pour la production, éditer `local-site/.env` :
 
 ```dotenv
 # Pointer vers le Site Central AWS
@@ -333,7 +354,7 @@ SITE_CENTRAL_URL=https://www.judi-expert.fr
 ### 5.3 Redémarrer après modification
 
 ```bash
-cd site-central/local/scripts
+cd local-site/scripts
 ./restart.sh
 ```
 
@@ -386,10 +407,10 @@ python -m pytest tests/smoke/ -v
 
 | Commande | Description |
 |----------|-------------|
-| `site-central/local/scripts/build.sh` | Build des images Docker locales |
-| `site-central/local/scripts/start.sh` | Démarrer tous les conteneurs |
-| `site-central/local/scripts/stop.sh` | Arrêter tous les conteneurs |
-| `site-central/local/scripts/restart.sh` | Redémarrer tous les conteneurs |
+| `local-site/scripts/build.sh` | Build des images Docker locales |
+| `local-site/scripts/start.sh` | Démarrer tous les conteneurs |
+| `local-site/scripts/stop.sh` | Arrêter tous les conteneurs |
+| `local-site/scripts/restart.sh` | Redémarrer tous les conteneurs |
 | `docker logs judi-web-backend` | Logs du backend |
 | `docker logs judi-llm` | Logs du LLM (Ollama) |
 
@@ -397,13 +418,13 @@ python -m pytest tests/smoke/ -v
 
 | Commande | Description |
 |----------|-------------|
-| `site-central/aws/scripts/build.sh [tag]` | Build des images de production |
-| `site-central/aws/scripts/push-ecr.sh [tag]` | Push vers ECR |
-| `site-central/aws/scripts/deploy.sh` | Déploiement Terraform |
-| `site-central/aws/scripts/update-rag.sh <domaine> [tag]` | Mise à jour image RAG |
-| `site-central/aws/scripts/site-start.sh` | Démarrer le Site Central |
-| `site-central/aws/scripts/site-stop.sh` | Arrêter le Site Central |
-| `site-central/aws/scripts/site-status.sh` | État des services AWS |
+| `central-site/scripts/build.sh [tag]` | Build des images de production |
+| `central-site/scripts/push-ecr.sh [tag]` | Push vers ECR |
+| `central-site/scripts/deploy.sh` | Déploiement Terraform |
+| `central-site/scripts/update-rag.sh <domaine> [tag]` | Mise à jour image RAG |
+| `central-site/scripts/site-start.sh` | Démarrer le Site Central |
+| `central-site/scripts/site-stop.sh` | Arrêter le Site Central |
+| `central-site/scripts/site-status.sh` | État des services AWS |
 
 ### Dépannage
 
