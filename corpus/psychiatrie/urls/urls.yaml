@@ -1,0 +1,86 @@
+# URLs publiques de référence — Corpus Psychiatrie Judiciaire
+
+urls:
+  # --- Sites institutionnels ---
+
+  - nom: "Ministère de la Justice — Experts judiciaires"
+    url: "https://www.justice.gouv.fr/justice-civile/experts-judiciaires"
+    description: >
+      Page officielle du ministère de la Justice consacrée aux experts
+      judiciaires : cadre réglementaire, listes d'experts, procédures.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  - nom: "HAS — Recommandations en psychiatrie"
+    url: "https://www.has-sante.fr/jcms/fc_2875171/fr/liste-des-recommandations-de-bonne-pratique"
+    description: >
+      Recommandations de bonnes pratiques de la HAS applicables à la
+      psychiatrie et à l'évaluation psychiatrique médico-légale.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  - nom: "Conseil National de l'Ordre des Médecins (CNOM)"
+    url: "https://www.conseil-national.medecin.fr"
+    description: >
+      Site officiel du CNOM : code de déontologie médicale, avis et
+      recommandations applicables à l'expertise psychiatrique.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  - nom: "Fédération Française de Psychiatrie (FFP)"
+    url: "https://www.psydoc-france.fr/conf&rm/conf/confexperts/expertintro.html"
+    description: >
+      Conférences de consensus et recommandations de la FFP sur
+      l'expertise psychiatrique pénale.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  # --- Bases juridiques ---
+
+  - nom: "Légifrance — Article 122-1 du Code pénal (irresponsabilité pénale)"
+    url: "https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000006417213"
+    description: >
+      Article 122-1 du Code pénal relatif à l'irresponsabilité pénale
+      pour cause de trouble mental au moment des faits.
+    type: juridique
+    date_ajout: "2025-07-14"
+
+  - nom: "Légifrance — Code de procédure pénale (Expertise)"
+    url: "https://www.legifrance.gouv.fr/codes/section_lc/LEGITEXT000006071154/LEGISCTA000006167469"
+    description: >
+      Articles 156 à 169-1 du CPP relatifs à l'expertise judiciaire.
+    type: juridique
+    date_ajout: "2025-07-14"
+
+  - nom: "Légifrance — Loi du 27 juin 1990 (hospitalisation sous contrainte)"
+    url: "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000000349384"
+    description: >
+      Loi relative aux droits et à la protection des personnes hospitalisées
+      en raison de troubles mentaux.
+    type: juridique
+    date_ajout: "2025-07-14"
+
+  # --- Ressources académiques ---
+
+  - nom: "Cairn.info — Revue L'Évolution Psychiatrique"
+    url: "https://www.cairn.info/revue-l-evolution-psychiatrique.htm"
+    description: >
+      Revue scientifique de référence en psychiatrie clinique et médico-légale.
+    type: academique
+    date_ajout: "2025-07-14"
+
+  - nom: "Cairn.info — Revue L'Information Psychiatrique"
+    url: "https://www.cairn.info/revue-l-information-psychiatrique.htm"
+    description: >
+      Revue professionnelle couvrant la pratique psychiatrique, incluant
+      des articles sur l'expertise judiciaire.
+    type: academique
+    date_ajout: "2025-07-14"
+
+  - nom: "HAL — Archives ouvertes (psychiatrie légale)"
+    url: "https://hal.science/search/index/?q=psychiatrie+expertise+judiciaire"
+    description: >
+      Publications scientifiques en accès libre sur la psychiatrie légale
+      et l'expertise psychiatrique judiciaire.
+    type: academique
+    date_ajout: "2025-07-14"

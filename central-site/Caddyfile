@@ -1,0 +1,23 @@
+# Caddyfile — Reverse proxy HTTPS pour Judi-Expert
+# Caddy gère automatiquement les certificats Let's Encrypt.
+# Remplacer judi-expert.fr par votre domaine.
+
+judi-expert.fr {
+    # API backend
+    handle /api/* {
+        reverse_proxy judi-central-backend:8000
+    }
+
+    # Frontend Next.js
+    handle {
+        reverse_proxy judi-central-frontend:3000
+    }
+
+    # Headers de sécurité
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+}

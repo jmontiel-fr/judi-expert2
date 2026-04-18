@@ -1,0 +1,80 @@
+# URLs publiques de référence — Corpus Comptabilité
+
+urls:
+  # --- Sites institutionnels ---
+
+  - nom: "Ministère de la Justice — Experts judiciaires"
+    url: "https://www.justice.gouv.fr/justice-civile/experts-judiciaires"
+    description: >
+      Page officielle du ministère de la Justice consacrée aux experts
+      judiciaires : cadre réglementaire, listes d'experts, procédures.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  - nom: "Ordre des Experts-Comptables (OEC)"
+    url: "https://www.experts-comptables.fr"
+    description: >
+      Site officiel de l'Ordre des experts-comptables : normes
+      professionnelles, déontologie, ressources pour l'expertise.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  - nom: "Compagnie Nationale des Commissaires aux Comptes (CNCC)"
+    url: "https://www.cncc.fr"
+    description: >
+      Normes d'audit et de contrôle des comptes. Référentiel applicable
+      à l'analyse comptable dans le cadre judiciaire.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  - nom: "Autorité des Normes Comptables (ANC)"
+    url: "https://www.anc.gouv.fr"
+    description: >
+      Autorité en charge de l'élaboration des normes comptables
+      françaises. Plan Comptable Général et règlements.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  # --- Bases juridiques ---
+
+  - nom: "Légifrance — Code de commerce (Comptabilité)"
+    url: "https://www.legifrance.gouv.fr/codes/section_lc/LEGITEXT000005634379/LEGISCTA000006133171"
+    description: >
+      Dispositions du Code de commerce relatives aux obligations
+      comptables des commerçants et des sociétés.
+    type: juridique
+    date_ajout: "2025-07-14"
+
+  - nom: "Légifrance — Code de procédure civile (Mesures d'instruction)"
+    url: "https://www.legifrance.gouv.fr/codes/section_lc/LEGITEXT000006070716/LEGISCTA000006149642"
+    description: >
+      Articles 232 à 284-1 du CPC relatifs aux mesures d'instruction
+      exécutées par un technicien (expert judiciaire).
+    type: juridique
+    date_ajout: "2025-07-14"
+
+  - nom: "Légifrance — Code général des impôts"
+    url: "https://www.legifrance.gouv.fr/codes/id/LEGITEXT000006069577"
+    description: >
+      Code général des impôts : dispositions fiscales pertinentes
+      pour l'expertise comptable judiciaire.
+    type: juridique
+    date_ajout: "2025-07-14"
+
+  # --- Ressources académiques ---
+
+  - nom: "Cairn.info — Revue Comptabilité Contrôle Audit"
+    url: "https://www.cairn.info/revue-comptabilite-controle-audit.htm"
+    description: >
+      Revue scientifique francophone de référence en comptabilité,
+      contrôle et audit.
+    type: academique
+    date_ajout: "2025-07-14"
+
+  - nom: "HAL — Archives ouvertes (expertise comptable)"
+    url: "https://hal.science/search/index/?q=expertise+comptable+judiciaire"
+    description: >
+      Publications scientifiques en accès libre sur l'expertise
+      comptable et financière judiciaire.
+    type: academique
+    date_ajout: "2025-07-14"

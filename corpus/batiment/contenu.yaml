@@ -1,0 +1,37 @@
+# Contenu du corpus — Domaine Bâtiment
+# Ce fichier décrit l'ensemble des ressources du corpus bâtiment.
+
+contenu:
+  # --- Documents PDF de référence ---
+
+  - nom: documents/guide_expertise_judiciaire_batiment.pdf
+    description: >
+      Guide méthodologique pour l'expertise judiciaire en bâtiment et
+      construction. Couvre les désordres structurels, les malfaçons,
+      les non-conformités et la méthodologie d'investigation.
+    type: document
+    date_ajout: "2025-07-14"
+
+  - nom: documents/DTU_normes_construction_synthese.pdf
+    description: >
+      Synthèse des principaux Documents Techniques Unifiés (DTU) et
+      normes NF applicables à la construction. Référentiel technique
+      pour l'évaluation des désordres.
+    type: document
+    date_ajout: "2025-07-14"
+
+  - nom: documents/responsabilites_constructeurs_decennale.pdf
+    description: >
+      Guide juridique sur les responsabilités des constructeurs :
+      garantie décennale, garantie biennale, garantie de parfait
+      achèvement. Articles 1792 et suivants du Code civil.
+    type: document
+    date_ajout: "2025-07-14"
+
+  - nom: documents/methodologie_constat_desordres.pdf
+    description: >
+      Méthodologie de constat et de description des désordres en
+      bâtiment : fissures, infiltrations, affaissements, défauts
+      d'isolation. Protocoles de mesure et d'investigation.
+    type: document
+    date_ajout: "2025-07-14"

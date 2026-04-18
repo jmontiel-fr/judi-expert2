@@ -1,0 +1,78 @@
+# URLs publiques de référence — Corpus Médecine Légale
+
+urls:
+  # --- Sites institutionnels ---
+
+  - nom: "Ministère de la Justice — Experts judiciaires"
+    url: "https://www.justice.gouv.fr/justice-civile/experts-judiciaires"
+    description: >
+      Page officielle du ministère de la Justice consacrée aux experts
+      judiciaires : cadre réglementaire, listes d'experts, procédures.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  - nom: "HAS — Recommandations en évaluation du dommage corporel"
+    url: "https://www.has-sante.fr/jcms/fc_2875171/fr/liste-des-recommandations-de-bonne-pratique"
+    description: >
+      Recommandations de bonnes pratiques de la HAS applicables à
+      l'évaluation médico-légale du dommage corporel.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  - nom: "Conseil National de l'Ordre des Médecins (CNOM)"
+    url: "https://www.conseil-national.medecin.fr"
+    description: >
+      Code de déontologie médicale, avis et recommandations applicables
+      à l'expertise médico-légale.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  - nom: "Association Nationale des Médecins Conseils (ANMC)"
+    url: "https://www.medecin-conseil.fr"
+    description: >
+      Ressources professionnelles pour les médecins-conseils et experts
+      en dommage corporel.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  # --- Bases juridiques ---
+
+  - nom: "Légifrance — Code de procédure pénale (Expertise)"
+    url: "https://www.legifrance.gouv.fr/codes/section_lc/LEGITEXT000006071154/LEGISCTA000006167469"
+    description: >
+      Articles 156 à 169-1 du CPP relatifs à l'expertise judiciaire.
+    type: juridique
+    date_ajout: "2025-07-14"
+
+  - nom: "Légifrance — Code de procédure civile (Mesures d'instruction)"
+    url: "https://www.legifrance.gouv.fr/codes/section_lc/LEGITEXT000006070716/LEGISCTA000006149642"
+    description: >
+      Articles 232 à 284-1 du CPC relatifs aux mesures d'instruction
+      exécutées par un technicien.
+    type: juridique
+    date_ajout: "2025-07-14"
+
+  - nom: "Légifrance — Loi Badinter (accidents de la circulation)"
+    url: "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000000693680"
+    description: >
+      Loi n°85-677 du 5 juillet 1985 tendant à l'amélioration de la
+      situation des victimes d'accidents de la circulation.
+    type: juridique
+    date_ajout: "2025-07-14"
+
+  # --- Ressources académiques ---
+
+  - nom: "Cairn.info — Revue Médecine & Droit"
+    url: "https://www.cairn.info/revue-medecine-et-droit.htm"
+    description: >
+      Revue scientifique de référence en médecine légale et droit médical.
+    type: academique
+    date_ajout: "2025-07-14"
+
+  - nom: "HAL — Archives ouvertes (médecine légale)"
+    url: "https://hal.science/search/index/?q=medecine+legale+expertise"
+    description: >
+      Publications scientifiques en accès libre sur la médecine légale
+      et l'expertise judiciaire.
+    type: academique
+    date_ajout: "2025-07-14"

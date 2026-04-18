@@ -1,0 +1,72 @@
+# ============================================
+# Judi-Expert — Site Central (production Lightsail)
+# ============================================
+# Déployé sur une instance AWS Lightsail avec Docker Compose.
+# La base de données PostgreSQL est sur AWS RDS (externe).
+#
+# Usage : docker compose -f docker-compose.prod.yml up -d
+#
+# Services :
+#   - backend  : FastAPI (Site Central API)
+#   - frontend : Next.js (Site Central UI)
+#   - caddy    : Reverse proxy HTTPS (Let's Encrypt auto)
+#
+# La DB PostgreSQL est sur RDS (pas dans Docker).
+# ============================================
+
+name: judi-central-prod
+
+services:
+  backend:
+    build:
+      context: ./web/backend
+      dockerfile: Dockerfile
+    container_name: judi-central-backend
+    expose:
+      - "8000"
+    env_file:
+      - .env.prod
+    restart: unless-stopped
+    volumes:
+      - corpus_data:/data/corpus
+      - domaines_data:/data/domaines:ro
+      - app_package:/data/app_locale_package/output:ro
+
+  frontend:
+    build:
+      context: ./web/frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: "${APP_URL}"
+        NEXT_PUBLIC_RECAPTCHA_SITE_KEY: "${RECAPTCHA_SITE_KEY}"
+        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "${STRIPE_PUBLISHABLE_KEY}"
+    container_name: judi-central-frontend
+    expose:
+      - "3000"
+    env_file:
+      - .env.prod
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: judi-central-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+volumes:
+  corpus_data:
+  domaines_data:
+  app_package:
+  caddy_data:
+  caddy_config:

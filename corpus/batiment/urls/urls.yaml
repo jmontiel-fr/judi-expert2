@@ -1,0 +1,80 @@
+# URLs publiques de référence — Corpus Bâtiment
+
+urls:
+  # --- Sites institutionnels ---
+
+  - nom: "Ministère de la Justice — Experts judiciaires"
+    url: "https://www.justice.gouv.fr/justice-civile/experts-judiciaires"
+    description: >
+      Page officielle du ministère de la Justice consacrée aux experts
+      judiciaires : cadre réglementaire, listes d'experts, procédures.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  - nom: "Centre Scientifique et Technique du Bâtiment (CSTB)"
+    url: "https://www.cstb.fr"
+    description: >
+      Organisme public de référence pour la recherche et l'expertise
+      technique dans le domaine du bâtiment. Avis techniques, normes.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  - nom: "Agence Qualité Construction (AQC)"
+    url: "https://qualiteconstruction.com"
+    description: >
+      Observatoire de la qualité de la construction : fiches pathologie,
+      retours d'expérience, statistiques des sinistres.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  - nom: "Fédération Française du Bâtiment (FFB)"
+    url: "https://www.ffbatiment.fr"
+    description: >
+      Fédération professionnelle du bâtiment : réglementation, normes,
+      bonnes pratiques de construction.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  # --- Bases juridiques ---
+
+  - nom: "Légifrance — Code civil (Responsabilité des constructeurs)"
+    url: "https://www.legifrance.gouv.fr/codes/section_lc/LEGITEXT000006070721/LEGISCTA000006150232"
+    description: >
+      Articles 1792 à 1792-6 du Code civil relatifs à la responsabilité
+      des constructeurs : garantie décennale, biennale, parfait achèvement.
+    type: juridique
+    date_ajout: "2025-07-14"
+
+  - nom: "Légifrance — Code de la construction et de l'habitation"
+    url: "https://www.legifrance.gouv.fr/codes/id/LEGITEXT000006074096"
+    description: >
+      Code de la construction et de l'habitation : réglementation
+      applicable aux ouvrages de bâtiment.
+    type: juridique
+    date_ajout: "2025-07-14"
+
+  - nom: "Légifrance — Code de procédure civile (Mesures d'instruction)"
+    url: "https://www.legifrance.gouv.fr/codes/section_lc/LEGITEXT000006070716/LEGISCTA000006149642"
+    description: >
+      Articles 232 à 284-1 du CPC relatifs aux mesures d'instruction
+      exécutées par un technicien (expert judiciaire).
+    type: juridique
+    date_ajout: "2025-07-14"
+
+  # --- Ressources techniques ---
+
+  - nom: "Boutique AFNOR — Normes NF DTU"
+    url: "https://www.boutique.afnor.org"
+    description: >
+      Catalogue des normes françaises et DTU applicables à la
+      construction. Référentiel technique pour l'expertise bâtiment.
+    type: institutionnel
+    date_ajout: "2025-07-14"
+
+  - nom: "HAL — Archives ouvertes (génie civil)"
+    url: "https://hal.science/search/index/?q=expertise+judiciaire+batiment"
+    description: >
+      Publications scientifiques en accès libre sur le génie civil
+      et l'expertise judiciaire en bâtiment.
+    type: academique
+    date_ajout: "2025-07-14"

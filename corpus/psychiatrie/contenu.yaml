@@ -1,0 +1,37 @@
+# Contenu du corpus — Domaine Psychiatrie Judiciaire
+# Ce fichier décrit l'ensemble des ressources du corpus psychiatrie.
+
+contenu:
+  # --- Documents PDF de référence ---
+
+  - nom: documents/guide_expertise_psychiatrique_penale.pdf
+    description: >
+      Guide méthodologique pour la conduite d'expertises psychiatriques
+      en matière pénale. Couvre l'évaluation de la responsabilité pénale,
+      la dangerosité et l'aptitude à comparaître.
+    type: document
+    date_ajout: "2025-07-14"
+
+  - nom: documents/referentiel_has_prise_en_charge_psychiatrique.pdf
+    description: >
+      Recommandations de la HAS relatives à la prise en charge psychiatrique,
+      incluant les protocoles d'évaluation clinique et les outils diagnostiques
+      standardisés (DSM-5, CIM-11).
+    type: document
+    date_ajout: "2025-07-14"
+
+  - nom: documents/code_deontologie_medicale_expertise.pdf
+    description: >
+      Extraits du Code de déontologie médicale applicables à l'exercice
+      de l'expertise psychiatrique judiciaire. Principes d'indépendance,
+      de secret médical et d'impartialité.
+    type: document
+    date_ajout: "2025-07-14"
+
+  - nom: documents/textes_reglementaires_irresponsabilite_penale.pdf
+    description: >
+      Compilation des articles du Code pénal relatifs à l'irresponsabilité
+      pénale pour trouble mental (article 122-1) et aux mesures de sûreté.
+      Source : Légifrance.
+    type: document
+    date_ajout: "2025-07-14"

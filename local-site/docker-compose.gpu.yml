@@ -1,0 +1,12 @@
+# Override GPU pour judi-llm — appliqué automatiquement si GPU NVIDIA détecté.
+# Usage : docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+
+services:
+  judi-llm:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

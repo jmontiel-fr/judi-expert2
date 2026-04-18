@@ -1,0 +1,37 @@
+# Contenu du corpus — Domaine Comptabilité
+# Ce fichier décrit l'ensemble des ressources du corpus comptabilité.
+
+contenu:
+  # --- Documents PDF de référence ---
+
+  - nom: documents/guide_expertise_comptable_judiciaire.pdf
+    description: >
+      Guide méthodologique pour l'expertise comptable judiciaire.
+      Couvre l'analyse financière, la détection de fraudes, l'évaluation
+      de préjudices économiques et la méthodologie d'investigation.
+    type: document
+    date_ajout: "2025-07-14"
+
+  - nom: documents/normes_exercice_professionnel_expertise_comptable.pdf
+    description: >
+      Normes d'exercice professionnel applicables aux experts-comptables
+      dans le cadre de missions judiciaires. Source : Ordre des
+      experts-comptables.
+    type: document
+    date_ajout: "2025-07-14"
+
+  - nom: documents/guide_evaluation_prejudice_economique.pdf
+    description: >
+      Méthodologie d'évaluation du préjudice économique : perte de
+      chiffre d'affaires, perte de marge, préjudice de carrière,
+      méthodes de capitalisation.
+    type: document
+    date_ajout: "2025-07-14"
+
+  - nom: documents/plan_comptable_general_synthese.pdf
+    description: >
+      Synthèse du Plan Comptable Général (PCG) et des normes comptables
+      françaises. Référentiel pour l'analyse des comptes dans le cadre
+      de l'expertise judiciaire.
+    type: document
+    date_ajout: "2025-07-14"

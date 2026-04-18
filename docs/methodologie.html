@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<title>Méthodologie — Judi-Expert</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #1e293b; line-height: 1.6; }
+  h1 { color: #1e40af; border-bottom: 2px solid #2563eb; padding-bottom: 8px; }
+  h2 { color: #1e40af; margin-top: 32px; }
+  h3 { color: #334155; }
+  blockquote { border-left: 4px solid #2563eb; padding-left: 16px; color: #475569; font-style: italic; }
+  ul { padding-left: 24px; }
+  li { margin-bottom: 4px; }
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+  strong { color: #1e293b; }
+  @media print { body { margin: 20px; } }
+</style>
+</head>
+<body>
+<h1>Méthodologie — Judi-Expert</h1>
+<br/>
+<h2>Introduction</h2>
+<br/>
+<p>Ce document présente la solution Judi-Expert, son usage de l'intelligence artificielle comme assistant à l'expert judiciaire, et sa conformité aux exigences réglementaires en vigueur. Il est destiné à accompagner l'expert dans la justification de l'usage de l'IA auprès des instances judiciaires.</p>
+<br/>
+<blockquote>Pour la définition des termes et acronymes utilisés dans ce document, consultez le [Glossaire & Workflow](glossaire-workflow.md).</blockquote>
+<br/>
+<hr/>
+<br/>
+<h2>1. Autorisations des experts judiciaires en matière de rédaction de rapports</h2>
+<br/>
+<h3>Cadre juridique applicable</h3>
+<br/>
+<p>L'expert judiciaire exerce sa mission dans un cadre légal précis, défini par les textes suivants :</p>
+<br/>
+<p><strong>En matière pénale — Code de procédure pénale (articles 156 à 169) :</strong></p>
+<br/>
+<ul>
+<li>**Article 156** : Le juge d'instruction ou la juridiction de jugement peut ordonner une expertise. L'expert est choisi parmi les personnes inscrites sur les listes d'experts judiciaires.</li>
+<li>**Article 157** : Les experts sont choisis parmi les personnes physiques ou morales figurant sur la liste nationale ou sur une liste dressée par chaque cour d'appel.</li>
+<li>**Article 158** : La décision qui ordonne l'expertise précise la mission confiée à l'expert et fixe le délai dans lequel le rapport doit être déposé.</li>
+<li>**Article 160** : L'expert doit remplir sa mission personnellement. Toutefois, il peut se faire assister par des personnes qualifiées sous sa responsabilité.</li>
+<li>**Article 166** : L'expert rédige un rapport qui contient la description des opérations pratiquées, les conclusions motivées et les réponses aux questions posées.</li>
+<li>**Article 169** : L'expert dépose son rapport au greffe de la juridiction qui l'a commis.</li>
+</ul>
+<br/>
+<p><strong>En matière civile — Code de procédure civile (articles 232 à 284) :</strong></p>
+<br/>
+<ul>
+<li>**Article 232** : Le juge peut commettre toute personne de son choix pour l'éclairer par des constatations, une consultation ou une expertise sur une question de fait qui requiert les lumières d'un technicien.</li>
+<li>**Article 233** : Le technicien commis doit accomplir sa mission avec conscience, objectivité et impartialité.</li>
+<li>**Article 237** : Le technicien commis doit donner son avis sur les points pour l'examen desquels il a été commis. Il ne peut répondre à d'autres questions.</li>
+<li>**Article 238** : Le technicien doit donner son avis sur les points pour l'examen desquels il a été commis. Son rapport doit être clair, précis et motivé.</li>
+<li>**Article 276** : L'expert doit prendre en considération les observations des parties et, lorsqu'elles sont écrites, les joindre à son avis.</li>
+<li>**Article 282** : Le rapport de l'expert est déposé au greffe de la juridiction.</li>
+</ul>
+<br/>
+<h3>Liberté méthodologique de l'expert</h3>
+<br/>
+<p>Les textes précités confèrent à l'expert judiciaire une <strong>liberté méthodologique</strong> dans la conduite de ses opérations d'expertise, sous réserve de respecter les principes fondamentaux suivants :</p>
+<br/>
+<p>1. <strong>Mission personnelle</strong> : l'expert accomplit sa mission personnellement (art. 160 CPP)</p>
+<p>2. <strong>Conscience et objectivité</strong> : l'expert agit avec conscience, objectivité et impartialité (art. 233 CPC)</p>
+<p>3. <strong>Rapport motivé</strong> : le rapport doit être clair, précis et motivé (art. 238 CPC)</p>
+<p>4. <strong>Réponse aux questions</strong> : l'expert répond aux questions posées par la juridiction (art. 237 CPC)</p>
+<br/>
+<p>L'expert est libre de choisir les outils et méthodes qu'il juge appropriés pour accomplir sa mission, y compris des outils informatiques d'assistance, dès lors que :</p>
+<ul>
+<li>Il conserve la maîtrise intellectuelle de ses conclusions</li>
+<li>Il assume la responsabilité de l'intégralité de son rapport</li>
+<li>Les outils utilisés ne se substituent pas à son jugement professionnel</li>
+</ul>
+<br/>
+<hr/>
+<br/>
+<h2>2. Présentation de Judi-Expert</h2>
+<br/>
+<h3>Description de la solution</h3>
+<br/>
+<p>Judi-Expert est un système d'assistance aux experts judiciaires qui automatise les tâches répétitives du processus d'expertise tout en laissant à l'expert le contrôle total de ses conclusions.</p>
+<br/>
+<p>Le système se compose de deux parties :</p>
+<br/>
+<ul>
+<li>**Application Locale** : installée sur le PC de l'expert, elle gère le workflow d'expertise en 4 étapes (extraction OCR, plan d'entretien, collecte de données, génération de rapport). Toutes les données d'expertise restent exclusivement sur le PC de l'expert.</li>
+</ul>
+<br/>
+<ul>
+<li>**Site Central** : plateforme web de gestion des inscriptions, des tickets d'expertise et de la distribution des modules de connaissances par domaine.</li>
+</ul>
+<br/>
+<h3>Workflow d'expertise assisté par l'IA</h3>
+<br/>
+<p>| Étape | Nom | Rôle de l'IA | Rôle de l'expert |</p>
+<p>|-------|-----|-------------|------------------|</p>
+<p>| Step0 | Extraction | Conversion OCR du PDF-scan + structuration en Markdown | Vérification et correction du texte extrait |</p>
+<p>| Step1 | PEMEC | Génération d'un plan d'entretien à partir de la réquisition | Validation, adaptation et utilisation du plan |</p>
+<p>| Step2 | Upload | Aucun | Rédaction des notes d'entretien et du rapport brut |</p>
+<p>| Step3 | REF + RAUX | Génération du rapport final et analyse des contestations | Relecture, validation et dépôt du rapport |</p>
+<br/>
+<p>À chaque étape, l'expert conserve la possibilité de modifier, corriger et valider les productions de l'IA avant de passer à l'étape suivante.</p>
+<br/>
+<hr/>
+<br/>
+<h2>3. Usage de l'IA comme assistant à l'expert</h2>
+<br/>
+<h3>Principe fondamental</h3>
+<br/>
+<p>L'intelligence artificielle intégrée à Judi-Expert est utilisée exclusivement comme <strong>outil d'assistance</strong> à l'expert judiciaire. Elle ne se substitue en aucun cas au jugement professionnel de l'expert.</p>
+<br/>
+<h3>Rôle de l'IA</h3>
+<br/>
+<p>L'IA intervient dans les tâches suivantes :</p>
+<br/>
+<p>1. <strong>Extraction et structuration de texte</strong> (Step0) : conversion des documents scannés en texte exploitable via OCR et structuration automatique en Markdown. L'expert vérifie et corrige le résultat.</p>
+<br/>
+<p>2. <strong>Génération de plan d'entretien</strong> (Step1) : proposition d'un plan d'entretien structuré à partir des questions du tribunal et de la trame d'entretien de l'expert. L'expert adapte le plan à son contexte.</p>
+<br/>
+<p>3. <strong>Génération de rapport</strong> (Step3) : production d'un rapport final à partir des éléments fournis par l'expert (notes d'entretien, rapport brut, questions du tribunal). L'expert valide le rapport avant dépôt.</p>
+<br/>
+<p>4. <strong>Analyse de contestations</strong> (Step3 — RAUX) : identification des points de contestation possibles et proposition d'une version révisée. L'expert décide des modifications à retenir.</p>
+<br/>
+<p>5. <strong>Assistant conversationnel</strong> (ChatBot) : réponses aux questions de l'expert sur le domaine d'expertise et l'utilisation du système.</p>
+<br/>
+<h3>Garanties méthodologiques</h3>
+<br/>
+<ul>
+<li>**L'expert reste maître de ses conclusions** : chaque production de l'IA est soumise à la validation de l'expert avant d'être intégrée au dossier</li>
+<li>**Traçabilité complète** : tous les fichiers intermédiaires sont conservés et archivés</li>
+<li>**Transparence** : l'expert peut consulter et modifier chaque document généré</li>
+<li>**Pas de boîte noire** : le LLM utilisé (Mistral 7B) est un modèle open-source dont le fonctionnement est documenté</li>
+</ul>
+<br/>
+<h3>Modèle d'IA utilisé</h3>
+<br/>
+<p>| Caractéristique | Détail |</p>
+<p>|----------------|--------|</p>
+<p>| Modèle | Mistral 7B Instruct v0.3 |</p>
+<p>| Licence | Apache 2.0 (open-source) |</p>
+<p>| Exécution | Locale (sur le PC de l'expert, via Ollama) |</p>
+<p>| Paramètres | 7.25 milliards |</p>
+<p>| Langue | Optimisé pour le français |</p>
+<p>| Connexion internet | Non requise pour l'inférence |</p>
+<br/>
+<h3>Base de connaissances (RAG)</h3>
+<br/>
+<p>Le système utilise une base de connaissances vectorielle (RAG — Retrieval-Augmented Generation) spécialisée par domaine d'expertise. Cette base contient :</p>
+<br/>
+<ul>
+<li>Des documents de référence publics (guides méthodologiques, textes réglementaires, référentiels de bonnes pratiques)</li>
+<li>Des URLs de ressources institutionnelles et académiques</li>
+<li>Le TPE (trame d'entretien) et le template de rapport de l'expert</li>
+</ul>
+<br/>
+<p>La base RAG enrichit les réponses de l'IA avec des informations factuelles et à jour, réduisant les risques d'hallucination.</p>
+<br/>
+<hr/>
+<br/>
+<h2>4. Conformité réglementaire</h2>
+<br/>
+<h3>RGPD (Règlement Général sur la Protection des Données)</h3>
+<br/>
+<p>Judi-Expert est conçu dans le respect du RGPD :</p>
+<br/>
+<p>| Principe RGPD | Mise en œuvre |</p>
+<p>|---------------|--------------|</p>
+<p>| <strong>Minimisation des données</strong> | Seuls les tickets transitent entre l'Application Locale et le Site Central. Aucune donnée d'expertise n'est transmise. |</p>
+<p>| <strong>Localisation des données</strong> | Toutes les données d'expertise sont stockées exclusivement sur le PC de l'expert. |</p>
+<p>| <strong>Chiffrement</strong> | Le chiffrement du disque (BitLocker/FileVault) est exigé à l'installation. |</p>
+<p>| <strong>Droit à l'effacement</strong> | L'expert peut supprimer ses dossiers localement. Sur le Site Central, la suppression de compte est possible. |</p>
+<p>| <strong>Consentement</strong> | L'inscription sur le Site Central requiert l'acceptation explicite des CGU et des mentions légales. |</p>
+<p>| <strong>Sous-traitance</strong> | Le LLM fonctionne localement. Aucun sous-traitant n'a accès aux données d'expertise. |</p>
+<br/>
+<h3>AI Act (Règlement européen sur l'intelligence artificielle)</h3>
+<br/>
+<p>Le Règlement (UE) 2024/1689 du 13 juin 2024 (AI Act) établit un cadre réglementaire pour les systèmes d'intelligence artificielle dans l'Union européenne.</p>
+<br/>
+<p><strong>Classification du système :</strong></p>
+<br/>
+<p>Judi-Expert est un système d'IA utilisé comme outil d'assistance à la décision dans un contexte judiciaire. Selon l'AI Act, les systèmes d'IA utilisés dans l'administration de la justice peuvent être classés comme systèmes à <strong>haut risque</strong> (Annexe III, point 8).</p>
+<br/>
+<p><strong>Mesures de conformité :</strong></p>
+<br/>
+<p>| Exigence AI Act | Mise en œuvre |</p>
+<p>|----------------|--------------|</p>
+<p>| <strong>Transparence</strong> | L'expert est informé qu'il utilise un système d'IA. Les documents générés sont identifiés comme produits avec assistance IA. |</p>
+<p>| <strong>Supervision humaine</strong> | L'expert valide chaque étape. L'IA ne produit aucun document final sans validation humaine. |</p>
+<p>| <strong>Exactitude et robustesse</strong> | Le RAG enrichit les réponses avec des sources vérifiables. L'expert vérifie et corrige les productions. |</p>
+<p>| <strong>Documentation technique</strong> | Le présent document et la documentation technique du projet sont disponibles. |</p>
+<p>| <strong>Gestion des risques</strong> | Le workflow séquentiel avec validation à chaque étape limite les risques d'erreur. |</p>
+<p>| <strong>Qualité des données</strong> | Le corpus RAG est constitué de documents publics de référence, vérifiés et à jour. |</p>
+<p>| <strong>Traçabilité</strong> | Tous les fichiers intermédiaires sont conservés et archivés dans un ZIP immuable. |</p>
+<br/>
+<h3>Protection des données d'expertise</h3>
+<br/>
+<p>L'architecture de Judi-Expert garantit la protection des données d'expertise par conception :</p>
+<br/>
+<p>1. <strong>Exécution locale du LLM</strong> : le modèle d'IA fonctionne sur le PC de l'expert, sans connexion à un service cloud</p>
+<p>2. <strong>Base RAG locale</strong> : la base de connaissances vectorielle est stockée localement</p>
+<p>3. <strong>Aucune transmission de données</strong> : les documents d'expertise ne quittent jamais le PC de l'expert</p>
+<p>4. <strong>Chiffrement obligatoire</strong> : le chiffrement du disque est vérifié à l'installation</p>
+<p>5. <strong>Archivage immuable</strong> : les dossiers finalisés sont archivés en ZIP et ne peuvent plus être modifiés</p>
+<br/>
+<hr/>
+<br/>
+<h2>5. Responsabilité de l'expert</h2>
+<br/>
+<p>L'utilisation de Judi-Expert ne modifie en rien la responsabilité de l'expert judiciaire :</p>
+<br/>
+<ul>
+<li>L'expert **assume l'intégralité de la responsabilité** de son rapport d'expertise</li>
+<li>L'expert **valide personnellement** chaque étape du workflow et chaque document produit</li>
+<li>L'IA est un **outil d'assistance** qui ne se substitue pas au jugement professionnel</li>
+<li>L'expert peut à tout moment **modifier, corriger ou rejeter** les productions de l'IA</li>
+<li>Le rapport final déposé au greffe est celui **validé par l'expert**, qui en est l'auteur</li>
+</ul>
+<br/>
+<hr/>
+<br/>
+<h2>6. Références juridiques</h2>
+<br/>
+<ul>
+<li>Code de procédure pénale, articles 156 à 169 (expertise en matière pénale)</li>
+<li>Code de procédure civile, articles 232 à 284 (mesures d'instruction confiées à un technicien)</li>
+<li>Règlement (UE) 2016/679 du 27 avril 2016 (RGPD)</li>
+<li>Règlement (UE) 2024/1689 du 13 juin 2024 (AI Act)</li>
+<li>Loi n° 71-498 du 29 juin 1971 relative aux experts judiciaires</li>
+<li>Décret n° 2004-1463 du 23 décembre 2004 relatif aux experts judiciaires</li>
+</ul>
+<br/>
+</body>
+</html>

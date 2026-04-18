@@ -1,0 +1,37 @@
+# Contenu du corpus — Domaine Médecine Légale
+# Ce fichier décrit l'ensemble des ressources du corpus médecine légale.
+
+contenu:
+  # --- Documents PDF de référence ---
+
+  - nom: documents/guide_expertise_medico_legale_corporelle.pdf
+    description: >
+      Guide méthodologique pour l'expertise médico-légale du dommage
+      corporel. Couvre l'évaluation des préjudices, la nomenclature
+      Dintilhac et les barèmes d'indemnisation.
+    type: document
+    date_ajout: "2025-07-14"
+
+  - nom: documents/nomenclature_dintilhac.pdf
+    description: >
+      Nomenclature des postes de préjudices corporels (rapport Dintilhac).
+      Référentiel utilisé par les juridictions pour l'indemnisation
+      des victimes de dommages corporels.
+    type: document
+    date_ajout: "2025-07-14"
+
+  - nom: documents/bareme_evaluation_medico_legale.pdf
+    description: >
+      Barème indicatif d'évaluation des taux d'incapacité en droit commun.
+      Outil de référence pour la quantification des séquelles par l'expert
+      médico-légal.
+    type: document
+    date_ajout: "2025-07-14"
+
+  - nom: documents/code_deontologie_medicale_expertise.pdf
+    description: >
+      Extraits du Code de déontologie médicale applicables à l'exercice
+      de l'expertise médico-légale. Principes d'indépendance, de secret
+      médical et d'impartialité.
+    type: document
+    date_ajout: "2025-07-14"
