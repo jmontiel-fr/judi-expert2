@@ -190,3 +190,32 @@ L'utilisation de Judi-Expert ne modifie en rien la responsabilité de l'expert j
 - Règlement (UE) 2024/1689 du 13 juin 2024 (AI Act)
 - Loi n° 71-498 du 29 juin 1971 relative aux experts judiciaires
 - Décret n° 2004-1463 du 23 décembre 2004 relatif aux experts judiciaires
+
+
+---
+
+## 8. Sécurité et protection des données
+
+### Architecture sécurisée
+
+L'application locale Judi-Expert est conçue avec une architecture de sécurité en profondeur :
+
+- **Isolation réseau** : les conteneurs IA (LLM, OCR, RAG) fonctionnent dans un réseau Docker interne sans accès à Internet. Les données d'expertise ne peuvent physiquement pas fuiter vers l'extérieur.
+- **Chiffrement** : le disque du PC expert doit être chiffré (BitLocker sous Windows 11 Pro). Les communications avec le Site Central utilisent HTTPS/TLS 1.3.
+- **Intégrité** : chaque dossier finalisé est archivé avec un hash SHA-256 pour garantir la non-altération des documents.
+- **Authentification** : JWT local avec vérification des credentials via le Site Central (AWS Cognito).
+
+### Conformité RGPD
+
+- Toutes les données d'expertise restent sur le PC de l'expert
+- Seuls les tokens de tickets transitent vers le cloud
+- Droit à l'effacement garanti (suppression complète des dossiers)
+- Pas de transfert de données personnelles vers des services tiers
+
+### Conformité AI Act
+
+- L'IA est un outil d'assistance, pas un décideur
+- L'expert valide chaque étape du workflow
+- Modèle open-source (Mistral 7B, Apache 2.0), inférence 100% locale
+
+Pour le détail complet des mesures de sécurité, voir [securite.md](securite.md).

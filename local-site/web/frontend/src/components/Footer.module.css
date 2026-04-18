@@ -1,7 +1,7 @@
 .footer {
   background-color: var(--color-footer-bg);
   color: var(--color-footer-text);
-  padding: 24px 0;
+  padding: 12px 0;
   margin-top: auto;
 }
 
@@ -10,8 +10,8 @@
   margin: 0 auto;
   padding: 0 24px;
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
 }
 

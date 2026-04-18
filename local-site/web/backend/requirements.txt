@@ -11,5 +11,6 @@ fastembed==0.4.2
 httpx==0.28.1
 passlib[bcrypt]==1.7.4
 python-jose[cryptography]==3.3.0
+pydantic[email]==2.10.3
 aiosqlite==0.20.0
 python-multipart==0.0.18

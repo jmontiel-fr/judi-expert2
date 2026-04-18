@@ -20,10 +20,10 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 OLLAMA_URL: str = os.environ.get("OLLAMA_URL", "http://judi-llm:11434")
-LLM_MODEL: str = os.environ.get("LLM_MODEL", "mistral:7b-instruct-v0.3")
+LLM_MODEL: str = os.environ.get("LLM_MODEL", "mistral:7b-instruct-v0.3-q4_0")
 
 # Timeout élevé : l'inférence locale sur CPU peut être lente
-LLM_TIMEOUT: float = float(os.environ.get("LLM_TIMEOUT", "300"))
+LLM_TIMEOUT: float = float(os.environ.get("LLM_TIMEOUT", "1800"))
 
 # ---------------------------------------------------------------------------
 # Prompts système
@@ -144,6 +144,67 @@ PROMPT_GENERATION_RAUX_P2: str = (
     "Réponds uniquement avec le REF révisé en Markdown."
 )
 
+PROMPT_GENERATION_RE_PROJET: str = (
+    "Tu es un expert psychologue judiciaire expérimenté chargé de rédiger le RE-Projet "
+    "(Rapport d'Expertise Projet). Tu disposes des éléments suivants :\n\n"
+    "- Le **NEA** (Notes d'Entretien et Analyse) rédigé par l'expert.\n"
+    "- La **Réquisition** structurée en Markdown (questions du tribunal, parties, contexte).\n"
+    "- Le **Template de Rapport** définissant la structure et la mise en forme attendues.\n\n"
+    "Consignes :\n"
+    "1. Respecte scrupuleusement la structure du Template de Rapport fourni.\n"
+    "2. Intègre les informations du NEA dans les sections correspondantes du template.\n"
+    "3. Assure-toi que chaque Question du Tribunal reçoit une réponse argumentée, "
+    "claire et étayée par les éléments cliniques du NEA.\n"
+    "4. Utilise un style rédactionnel professionnel, objectif et conforme aux normes de "
+    "rédaction des rapports d'expertise judiciaire en psychologie.\n"
+    "5. Les conclusions doivent être nuancées, fondées sur les données cliniques, et "
+    "formulées avec la prudence déontologique requise.\n"
+    "6. N'invente aucune donnée clinique. Utilise uniquement les informations fournies "
+    "dans le NEA.\n\n"
+    "Réponds uniquement avec le contenu du rapport structuré selon le template."
+)
+
+PROMPT_GENERATION_RE_PROJET_AUXILIAIRE: str = (
+    "Tu es un avocat spécialisé en droit de l'expertise judiciaire et en psychologie "
+    "légale. Tu dois analyser le RE-Projet (Rapport d'Expertise Projet) ci-dessous et "
+    "produire un document auxiliaire d'analyse.\n\n"
+    "Tu disposes également du **NEA** (Notes d'Entretien et Analyse) de l'expert.\n\n"
+    "Consignes :\n"
+    "1. Examine chaque section du RE-Projet et identifie les points faibles, les "
+    "affirmations insuffisamment étayées, les biais méthodologiques potentiels et les "
+    "conclusions contestables.\n"
+    "2. Pour chaque point identifié, indique :\n"
+    "   - La section du RE-Projet concernée\n"
+    "   - La nature de l'observation (méthodologique, factuelle, déontologique, juridique)\n"
+    "   - L'argumentation détaillée\n"
+    "3. Propose des améliorations concrètes pour renforcer le rapport.\n"
+    "4. Évalue le niveau de priorité de chaque observation (élevé, moyen, faible).\n"
+    "5. Sois exhaustif et rigoureux.\n\n"
+    "Réponds uniquement avec l'analyse structurée en Markdown."
+)
+
+PROMPT_GENERATION_REF_PROJET: str = (
+    "Tu es un expert psychologue judiciaire expérimenté chargé de rédiger le REF-Projet "
+    "(Rapport d'Expertise Final). Tu disposes des éléments suivants :\n\n"
+    "- Le **NEA** (Notes d'Entretien et Analyse) rédigé par l'expert.\n"
+    "- La **Réquisition** structurée en Markdown (questions du tribunal, parties, contexte).\n"
+    "- Le **Template de Rapport** définissant la structure et la mise en forme attendues.\n\n"
+    "Consignes :\n"
+    "1. Respecte scrupuleusement la structure du Template de Rapport fourni.\n"
+    "2. Intègre les informations du NEA dans les sections correspondantes du template.\n"
+    "3. Assure-toi que chaque Question du Tribunal reçoit une réponse argumentée, "
+    "claire et étayée par les éléments cliniques du NEA.\n"
+    "4. Utilise un style rédactionnel professionnel, objectif et conforme aux normes de "
+    "rédaction des rapports d'expertise judiciaire en psychologie.\n"
+    "5. Les conclusions doivent être nuancées, fondées sur les données cliniques, et "
+    "formulées avec la prudence déontologique requise.\n"
+    "6. N'invente aucune donnée clinique. Utilise uniquement les informations fournies "
+    "dans le NEA.\n"
+    "7. Ce rapport est le rapport final d'expertise — il doit être complet, structuré "
+    "et prêt pour soumission au tribunal.\n\n"
+    "Réponds uniquement avec le contenu du rapport structuré selon le template."
+)
+
 PROMPT_CHATBOT: str = (
     "Tu es l'assistant virtuel de Judi-Expert, une application d'aide à la rédaction "
     "de rapports d'expertise judiciaire en psychologie. Tu assistes l'expert dans "
@@ -220,6 +281,9 @@ class LLMService:
             "model": self.model,
             "messages": full_messages,
             "stream": False,
+            "options": {
+                "num_ctx": 16384,
+            },
         }
 
         try:
@@ -266,6 +330,9 @@ class LLMService:
             "model": self.model,
             "prompt": prompt,
             "stream": False,
+            "options": {
+                "num_ctx": 16384,
+            },
         }
 
         try:
@@ -372,6 +439,115 @@ class LLMService:
         )
         messages = [{"role": "user", "content": contenu}]
         return await self.chat(messages, system_prompt=PROMPT_GENERATION_RAUX_P2)
+
+    async def generer_re_projet(
+        self, nea_content: str, requisition_md: str, template: str
+    ) -> str:
+        """Step2 — Génère le RE-Projet à partir du NEA, de la réquisition et du template.
+
+        Valide : Exigence 3.4
+        """
+        contenu = (
+            "## NEA (Notes d'Entretien et Analyse)\n\n"
+            f"{nea_content}\n\n"
+            "## Réquisition (Markdown structuré)\n\n"
+            f"{requisition_md}\n\n"
+            "## Template de Rapport\n\n"
+            f"{template}"
+        )
+        messages = [{"role": "user", "content": contenu}]
+        return await self.chat(messages, system_prompt=PROMPT_GENERATION_RE_PROJET)
+
+    async def generer_re_projet_auxiliaire(
+        self, nea_content: str, re_projet: str
+    ) -> str:
+        """Step2 — Génère le RE-Projet-Auxiliaire en complément du RE-Projet.
+
+        Valide : Exigence 3.5
+        """
+        contenu = (
+            "## NEA (Notes d'Entretien et Analyse)\n\n"
+            f"{nea_content}\n\n"
+            "## RE-Projet (Rapport d'Expertise Projet)\n\n"
+            f"{re_projet}"
+        )
+        messages = [{"role": "user", "content": contenu}]
+        return await self.chat(
+            messages, system_prompt=PROMPT_GENERATION_RE_PROJET_AUXILIAIRE
+        )
+
+    async def generer_ref_projet(
+        self, nea_content: str, requisition_md: str, template: str
+    ) -> str:
+        """Step3 — Génère le REF-Projet (rapport d'expertise final) à partir du NEA.
+
+        Valide : Exigence 4.3
+        """
+        contenu = (
+            "## NEA (Notes d'Entretien et Analyse)\n\n"
+            f"{nea_content}\n\n"
+            "## Réquisition (Markdown structuré)\n\n"
+            f"{requisition_md}\n\n"
+            "## Template de Rapport\n\n"
+            f"{template}"
+        )
+        messages = [{"role": "user", "content": contenu}]
+        return await self.chat(messages, system_prompt=PROMPT_GENERATION_REF_PROJET)
+
+    async def chat_stream(
+        self,
+        messages: list[dict[str, str]],
+        system_prompt: str | None = None,
+    ):
+        """Appelle ``POST /api/chat`` en mode streaming.
+
+        Yields des chunks de texte au fur et à mesure de la génération.
+        """
+        full_messages: list[dict[str, str]] = []
+        if system_prompt:
+            full_messages.append({"role": "system", "content": system_prompt})
+        full_messages.extend(messages)
+
+        payload = {
+            "model": self.model,
+            "messages": full_messages,
+            "stream": True,
+            "options": {
+                "num_ctx": 16384,
+            },
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url}/api/chat",
+                    json=payload,
+                ) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if not line.strip():
+                            continue
+                        import json as _json
+                        try:
+                            chunk = _json.loads(line)
+                        except _json.JSONDecodeError:
+                            continue
+                        content = chunk.get("message", {}).get("content", "")
+                        if content:
+                            yield content
+        except httpx.TimeoutException:
+            raise LLMTimeoutError("Le LLM n'a pas répondu dans le délai imparti.")
+        except httpx.ConnectError:
+            raise LLMConnectionError("Impossible de se connecter au LLM.")
+
+    async def chatbot_stream(
+        self, messages: list[dict[str, str]], contexte_rag: str
+    ):
+        """ChatBot streaming — Yields des chunks de réponse."""
+        system_prompt = PROMPT_CHATBOT.replace("{contexte_rag}", contexte_rag)
+        async for chunk in self.chat_stream(messages, system_prompt=system_prompt):
+            yield chunk
 
     async def chatbot(
         self, messages: list[dict[str, str]], contexte_rag: str

@@ -20,13 +20,14 @@ export default function HomePage() {
               d&apos;expertise avec l&apos;IA
             </h1>
             <p className={styles.heroSubtitle}>
-              Une solution d&apos;assistance aux experts judiciaires
+              Une solution d&apos;assistance aux experts judiciaires,
               multi-domaines, garantissant qualité professionnelle, conformité
-              RGPD et respect de l&apos;AI Act européen.
+              RGPD et strict respect de l&apos;AI Act européen.
             </p>
             <p className={styles.heroSubtitle}>
               Vos données d&apos;expertise restent exclusivement sur votre PC.
-              Aucune donnée sensible ne transite par nos serveurs.
+              Aucune donnée sensible ne transite par nos serveurs ni par
+              Internet.
             </p>
             <span className={styles.heroBadge}>
               🕐 Le site est ouvert pendant les horaires bureau de 8h à 20h
@@ -157,19 +158,19 @@ export default function HomePage() {
             <span className={styles.workflowArrow}>→</span>
             <div className={styles.workflowStep}>
               <div className={styles.workflowBadge}>Step 2</div>
-              <p className={styles.workflowStepTitle}>Upload Notes</p>
+              <p className={styles.workflowStepTitle}>Mise en forme RE-Projet</p>
               <p className={styles.workflowStepDesc}>
-                Collecte des notes d&apos;entretien et du rapport brut rédigés
-                par l&apos;expert
+                Upload du NEA (Notes d&apos;Entretien et Analyse) et production
+                du RE-Projet et RE-Projet-Auxiliaire par l&apos;IA
               </p>
             </div>
             <span className={styles.workflowArrow}>→</span>
             <div className={styles.workflowStep}>
               <div className={styles.workflowBadge}>Step 3</div>
-              <p className={styles.workflowStepTitle}>Génération finale</p>
+              <p className={styles.workflowStepTitle}>Upload / Compression dossier final</p>
               <p className={styles.workflowStepDesc}>
-                Génération du rapport final et du rapport auxiliaire
-                d&apos;analyse
+                Upload du REF (rapport d&apos;expertise final) par l&apos;expert,
+                génération de l&apos;archive et du timbre à horodater.
               </p>
             </div>
           </div>

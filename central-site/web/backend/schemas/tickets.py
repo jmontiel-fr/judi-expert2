@@ -24,19 +24,21 @@ class TicketResponse(BaseModel):
 
     id: int
     ticket_code: str
+    ticket_token: Optional[str] = None
     domaine: str
     statut: str
     montant: Decimal
     created_at: datetime
+    expires_at: Optional[datetime] = None
     used_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
 
 class TicketVerifyRequest(BaseModel):
-    """Requête de vérification d'un ticket."""
+    """Requête de vérification d'un token ticket signé."""
 
-    ticket_code: str
+    ticket_token: str
 
 
 class TicketVerifyResponse(BaseModel):
@@ -45,3 +47,18 @@ class TicketVerifyResponse(BaseModel):
     success: bool
     ticket_code: str
     error: Optional[str] = None
+
+
+class TicketPriceResponse(BaseModel):
+    """Prix actuel du ticket (public)."""
+
+    prix_ht: Decimal
+    tva_rate: Decimal
+    prix_ttc: Decimal
+
+
+class TicketConfigUpdate(BaseModel):
+    """Requête de mise à jour de la configuration du prix."""
+
+    prix_ht: Optional[Decimal] = None
+    tva_rate: Optional[Decimal] = None

@@ -8,7 +8,7 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 # Import all models to register them with Base.metadata
-from models import Base, ContactMessage, CorpusVersion, Domaine, Expert, Ticket  # noqa: F401
+from models import Base, ContactMessage, CorpusVersion, Domaine, Expert, Ticket, TicketConfig  # noqa: F401
 from database import DATABASE_URL
 
 # Alembic Config object

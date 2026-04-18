@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -24,5 +24,12 @@ class StepFile(Base):
     file_type: Mapped[str] = mapped_column(String(50))
     file_size: Mapped[int] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(default=func.now())
+
+    # Versioning fields
+    is_modified: Mapped[bool] = mapped_column(default=False)
+    original_file_path: Mapped[Optional[str]] = mapped_column(
+        String(500), nullable=True
+    )
+    updated_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
 
     step: Mapped["Step"] = relationship(back_populates="files")

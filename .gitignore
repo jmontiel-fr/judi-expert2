@@ -26,6 +26,7 @@ out/
 
 # ── Environment ──
 .env
+.env.dev
 .env.local
 .env.*.local
 
@@ -43,6 +44,7 @@ desktop.ini
 
 # ── Tests ──
 .pytest_cache/
+.hypothesis/
 .coverage
 htmlcov/
 .mypy_cache/

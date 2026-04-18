@@ -22,6 +22,11 @@ export default function Footer() {
             </Link>
           </li>
           <li>
+            <Link href="/securite" className={styles.link}>
+              Sécurité
+            </Link>
+          </li>
+          <li>
             <Link href="/faq" className={styles.link}>
               FAQ
             </Link>

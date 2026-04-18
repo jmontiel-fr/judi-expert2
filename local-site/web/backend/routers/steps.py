@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 import os
-import zipfile
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
@@ -60,6 +59,10 @@ class ExtractResponse(BaseModel):
     md_path: str
 
 
+class Step0ValidateResponse(BaseModel):
+    message: str
+
+
 class QmecResponse(BaseModel):
     qmec: str
 
@@ -78,8 +81,8 @@ class Step2ValidateResponse(BaseModel):
 
 
 class Step3ExecuteResponse(BaseModel):
-    ref: str
-    raux: str
+    message: str
+    filenames: list[str]
 
 
 class Step3ValidateResponse(BaseModel):
@@ -155,6 +158,13 @@ async def step0_extract(
 ):
     """Upload un PDF-scan, lance l'OCR puis structure en Markdown via LLM."""
 
+    # 0. Vérifier que l'étape n'est pas verrouillée (validée)
+    await workflow_engine.require_step_not_validated(dossier_id, 0, db)
+
+    # 0b. Marquer le step comme "en_cours"
+    await workflow_engine.start_step(dossier_id, 0, db)
+    await db.commit()
+
     # 1. Vérifier que le fichier est un PDF
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(
@@ -218,21 +228,58 @@ async def step0_extract(
         markdown = await llm.structurer_markdown(texte_brut)
     except Exception as exc:
         logger.error("Erreur LLM lors de la structuration Markdown : %s", exc)
+        await workflow_engine.fail_step(dossier_id, 0, db)
+        await db.commit()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Service LLM indisponible — essayez de redémarrer le conteneur judi-llm",
         )
 
-    # 7. Sauvegarder le fichier Markdown
+    # 6b. Nettoyer le markdown (supprimer les blocs ``` ajoutés par le LLM)
+    markdown = markdown.strip()
+    if markdown.startswith("```markdown"):
+        markdown = markdown[len("```markdown"):].strip()
+    elif markdown.startswith("```md"):
+        markdown = markdown[len("```md"):].strip()
+    elif markdown.startswith("```"):
+        markdown = markdown[3:].strip()
+    if markdown.endswith("```"):
+        markdown = markdown[:-3].strip()
+
+    # 7. Sauvegarder le fichier Markdown (usage interne pour Step1)
     md_path = os.path.join(step_dir, "requisition.md")
     with open(md_path, "w", encoding="utf-8") as f:
         f.write(markdown)
 
+    # 7b. Générer le .docx pour l'expert
+    from docx import Document as DocxDocument
+    docx_path = os.path.join(step_dir, "requisition.docx")
+    doc = DocxDocument()
+    for line in markdown.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith("### "):
+            doc.add_heading(stripped[4:], level=3)
+        elif stripped.startswith("## "):
+            doc.add_heading(stripped[3:], level=2)
+        elif stripped.startswith("# "):
+            doc.add_heading(stripped[2:], level=1)
+        elif stripped.startswith("- "):
+            doc.add_paragraph(stripped[2:], style="List Bullet")
+        elif stripped:
+            doc.add_paragraph(stripped)
+    doc.save(docx_path)
+
     # 8. Créer les entrées StepFile en base
     step = await _get_step(dossier_id, 0, db)
 
+    # Supprimer les anciens StepFile de step0 (ré-extraction)
+    for old_file in list(step.files):
+        await db.delete(old_file)
+    await db.flush()
+
     pdf_size = len(pdf_content)
     md_size = len(markdown.encode("utf-8"))
+    docx_size = os.path.getsize(docx_path)
 
     step_file_pdf = StepFile(
         step_id=step.id,
@@ -248,10 +295,18 @@ async def step0_extract(
         file_type="markdown",
         file_size=md_size,
     )
+    step_file_docx = StepFile(
+        step_id=step.id,
+        filename="requisition.docx",
+        file_path=docx_path,
+        file_type="docx",
+        file_size=docx_size,
+    )
     db.add(step_file_pdf)
     db.add(step_file_md)
+    db.add(step_file_docx)
 
-    # 9. Marquer step0 comme "réalisé" via le WorkflowEngine
+    # 9. Marquer step0 comme "fait"
     await workflow_engine.execute_step(dossier_id, 0, db)
     await db.commit()
 
@@ -330,6 +385,85 @@ async def step0_update_markdown(
     return MarkdownUpdateResponse(message="Fichier Markdown mis à jour")
 
 
+# ---- Step0 : POST /api/dossiers/{id}/step0/import-docx -------------------
+
+@router.post(
+    "/{dossier_id}/step0/import-docx",
+    response_model=MarkdownUpdateResponse,
+)
+async def step0_import_docx(
+    dossier_id: int,
+    file: UploadFile,
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Importe un .docx modifié par l'expert et met à jour le .md et le .docx."""
+    from docx import Document as DocxDocument
+
+    await workflow_engine.require_step_not_validated(dossier_id, 0, db)
+
+    if not file.filename or not file.filename.lower().endswith(".docx"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Seul le format .docx est accepté",
+        )
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le fichier est vide",
+        )
+
+    step_dir = _step0_dir(dossier_id)
+
+    # Sauvegarder le .docx importé
+    docx_path = os.path.join(step_dir, "requisition.docx")
+    with open(docx_path, "wb") as f:
+        f.write(content)
+
+    # Extraire le texte du .docx pour mettre à jour le .md
+    import io
+    doc = DocxDocument(io.BytesIO(content))
+    paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+    markdown = "\n\n".join(paragraphs)
+
+    md_path = os.path.join(step_dir, "requisition.md")
+    with open(md_path, "w", encoding="utf-8") as f:
+        f.write(markdown)
+
+    # Mettre à jour les tailles dans StepFile
+    step = await _get_step(dossier_id, 0, db)
+    for sf in step.files:
+        if sf.filename == "requisition.md":
+            sf.file_size = len(markdown.encode("utf-8"))
+        elif sf.filename == "requisition.docx":
+            sf.file_size = len(content)
+
+    await db.commit()
+
+    return MarkdownUpdateResponse(message="Document importé avec succès")
+
+
+# ---- Step0 : POST /api/dossiers/{id}/step0/validate ---------------------
+
+@router.post(
+    "/{dossier_id}/step0/validate",
+    response_model=Step0ValidateResponse,
+)
+async def step0_validate(
+    dossier_id: int,
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Valide l'étape 0 (extraction) — passage à "validé"."""
+
+    await workflow_engine.validate_step(dossier_id, 0, db)
+    await db.commit()
+
+    return Step0ValidateResponse(message="Step0 validé avec succès")
+
+
 # ---- Step1 : POST /api/dossiers/{id}/step1/execute -----------------------
 
 @router.post(
@@ -349,6 +483,10 @@ async def step1_execute(
 
     # 1. Vérifier l'accès au step1
     await workflow_engine.require_step_access(dossier_id, 1, db)
+
+    # 1b. Marquer le step comme "en_cours"
+    await workflow_engine.start_step(dossier_id, 1, db)
+    await db.commit()
 
     # 2. Lire le fichier Markdown de step0 pour obtenir les QT
     md_path = os.path.join(_step0_dir(dossier_id), "requisition.md")
@@ -410,28 +548,76 @@ async def step1_execute(
         qmec = await llm.generer_qmec(qt, tpe, contexte_rag)
     except Exception as exc:
         logger.error("Erreur LLM lors de la génération du QMEC : %s", exc)
+        await workflow_engine.fail_step(dossier_id, 1, db)
+        await db.commit()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Service LLM indisponible — essayez de redémarrer le conteneur judi-llm",
         )
 
-    # 7. Sauvegarder le QMEC
+    # 6b. Nettoyer le markdown
+    qmec = qmec.strip()
+    if qmec.startswith("```markdown"):
+        qmec = qmec[len("```markdown"):].strip()
+    elif qmec.startswith("```md"):
+        qmec = qmec[len("```md"):].strip()
+    elif qmec.startswith("```"):
+        qmec = qmec[3:].strip()
+    if qmec.endswith("```"):
+        qmec = qmec[:-3].strip()
+
+    # 7. Sauvegarder le QMEC en .md (interne) et .docx (pour l'expert)
     step1_path = _step1_dir(dossier_id)
     os.makedirs(step1_path, exist_ok=True)
-    qmec_path = os.path.join(step1_path, "qmec.md")
-    with open(qmec_path, "w", encoding="utf-8") as f:
+
+    # .md interne
+    qmec_md_path = os.path.join(step1_path, "qmec.md")
+    with open(qmec_md_path, "w", encoding="utf-8") as f:
         f.write(qmec)
 
-    # 8. Créer l'entrée StepFile en base
+    # .docx pour l'expert
+    from docx import Document as DocxDocument
+    qmec_docx_path = os.path.join(step1_path, "qmec.docx")
+    doc = DocxDocument()
+    doc.add_heading("Plan d'entretien (QMEC)", level=1)
+    for line in qmec.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith("### "):
+            doc.add_heading(stripped[4:], level=3)
+        elif stripped.startswith("## "):
+            doc.add_heading(stripped[3:], level=2)
+        elif stripped.startswith("# "):
+            doc.add_heading(stripped[2:], level=1)
+        elif stripped.startswith("- "):
+            doc.add_paragraph(stripped[2:], style="List Bullet")
+        elif stripped:
+            doc.add_paragraph(stripped)
+    doc.save(qmec_docx_path)
+
+    # 8. Créer les entrées StepFile en base
     step = await _get_step(dossier_id, 1, db)
-    step_file = StepFile(
+
+    # Supprimer les anciens StepFile (ré-exécution)
+    for old_file in list(step.files):
+        await db.delete(old_file)
+    await db.flush()
+
+    step_file_md = StepFile(
         step_id=step.id,
         filename="qmec.md",
-        file_path=qmec_path,
+        file_path=qmec_md_path,
         file_type="qmec",
         file_size=len(qmec.encode("utf-8")),
     )
-    db.add(step_file)
+    step_file_docx = StepFile(
+        step_id=step.id,
+        filename="qmec.docx",
+        file_path=qmec_docx_path,
+        file_type="qmec_docx",
+        file_size=os.path.getsize(qmec_docx_path),
+    )
+    db.add(step_file_md)
+    db.add(step_file_docx)
 
     # 9. Marquer step1 comme "réalisé"
     await workflow_engine.execute_step(dossier_id, 1, db)
@@ -458,17 +644,25 @@ async def step1_download(
     # Vérifier l'accès à l'étape
     await workflow_engine.require_step_access(dossier_id, 1, db)
 
-    qmec_path = os.path.join(_step1_dir(dossier_id), "qmec.md")
+    qmec_path = os.path.join(_step1_dir(dossier_id), "qmec.docx")
     if not os.path.isfile(qmec_path):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Fichier QMEC non trouvé — lancez d'abord l'exécution du Step1",
+        # Fallback to .md for backward compatibility
+        qmec_path = os.path.join(_step1_dir(dossier_id), "qmec.md")
+        if not os.path.isfile(qmec_path):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Fichier QMEC non trouvé — lancez d'abord l'exécution du Step1",
+            )
+        return FileResponse(
+            path=qmec_path,
+            filename="qmec.md",
+            media_type="text/markdown",
         )
 
     return FileResponse(
         path=qmec_path,
-        filename="qmec.md",
-        media_type="text/markdown",
+        filename="qmec.docx",
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
 
 
@@ -503,69 +697,162 @@ async def step1_validate(
 )
 async def step2_upload(
     dossier_id: int,
-    ne: UploadFile,
-    reb: UploadFile,
+    file: UploadFile,
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Upload des fichiers NE.docx et REB.docx pour le Step2.
+    """Upload du NEA (.docx) et génération du RE-Projet + RE-Projet-Auxiliaire.
 
-    Valide : Exigences 8.1, 8.2, 8.3
+    Valide : Exigences 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8
     """
 
     # 1. Vérifier l'accès au step2
     await workflow_engine.require_step_access(dossier_id, 2, db)
 
-    # 2. Valider le format .docx pour les deux fichiers
-    for f in (ne, reb):
-        if not f.filename or not f.filename.lower().endswith(".docx"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="seul le format .docx est accepté",
-            )
+    # 1b. Marquer le step comme "en_cours"
+    await workflow_engine.start_step(dossier_id, 2, db)
+    await db.commit()
 
-    # 3. Lire le contenu des fichiers
-    ne_content = await ne.read()
-    reb_content = await reb.read()
+    # 2. Valider le format .docx
+    if not file.filename or not file.filename.lower().endswith(".docx"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Seul le format .docx est accepté",
+        )
+
+    # 3. Lire le contenu du fichier NEA
+    nea_content_bytes = await file.read()
 
     # 4. Créer le répertoire de destination
     step_dir = _step2_dir(dossier_id)
     os.makedirs(step_dir, exist_ok=True)
 
-    # 5. Sauvegarder les fichiers
-    ne_path = os.path.join(step_dir, "ne.docx")
-    reb_path = os.path.join(step_dir, "reb.docx")
+    # 5. Sauvegarder le NEA
+    nea_path = os.path.join(step_dir, "nea.docx")
+    with open(nea_path, "wb") as f:
+        f.write(nea_content_bytes)
 
-    with open(ne_path, "wb") as f:
-        f.write(ne_content)
-    with open(reb_path, "wb") as f:
-        f.write(reb_content)
+    # 6. Lire la réquisition Markdown de step0
+    md_path = os.path.join(_step0_dir(dossier_id), "requisition.md")
+    if not os.path.isfile(md_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Fichier Markdown de la réquisition non trouvé — complétez d'abord le Step0",
+        )
+    with open(md_path, "r", encoding="utf-8") as f:
+        requisition_md = f.read()
 
-    # 6. Créer les entrées StepFile en base
+    # 7. Récupérer le domaine depuis LocalConfig
+    result = await db.execute(select(LocalConfig).limit(1))
+    config = result.scalar_one_or_none()
+    if config is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Configuration initiale non effectuée",
+        )
+    domaine = config.domaine
+
+    # 8. Récupérer le Template Rapport depuis la base RAG
+    rag = RAGService()
+    try:
+        template_docs = await rag.search(
+            query="template rapport",
+            collection=f"config_{domaine}",
+            limit=5,
+        )
+    except Exception as exc:
+        logger.error("Erreur RAG lors de la recherche du template : %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service RAG indisponible — vérifiez que le conteneur judi-rag est démarré",
+        )
+
+    template = "\n\n".join(doc.content for doc in template_docs) if template_docs else ""
+
+    # 9. Générer le RE-Projet via LLM
+    nea_text = nea_content_bytes.decode("utf-8", errors="replace")
+
+    llm = LLMService()
+    try:
+        re_projet_content = await llm.generer_re_projet(
+            nea_text, requisition_md, template
+        )
+    except Exception as exc:
+        logger.error("Erreur LLM lors de la génération du RE-Projet : %s", exc)
+        await workflow_engine.fail_step(dossier_id, 2, db)
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service LLM indisponible — essayez de redémarrer le conteneur judi-llm",
+        )
+
+    # 10. Générer le RE-Projet-Auxiliaire via LLM
+    try:
+        re_projet_aux_content = await llm.generer_re_projet_auxiliaire(
+            nea_text, re_projet_content
+        )
+    except Exception as exc:
+        logger.error("Erreur LLM lors de la génération du RE-Projet-Auxiliaire : %s", exc)
+        await workflow_engine.fail_step(dossier_id, 2, db)
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service LLM indisponible — essayez de redémarrer le conteneur judi-llm",
+        )
+
+    # 11. Sauvegarder le NEA en base (visible immédiatement par le polling)
     step = await _get_step(dossier_id, 2, db)
 
+    # Supprimer les anciens StepFile (ré-exécution)
+    for old_file in list(step.files):
+        await db.delete(old_file)
+    await db.flush()
+
     db.add(StepFile(
         step_id=step.id,
-        filename="ne.docx",
-        file_path=ne_path,
-        file_type="ne",
-        file_size=len(ne_content),
+        filename="nea.docx",
+        file_path=nea_path,
+        file_type="nea",
+        file_size=len(nea_content_bytes),
     ))
+    await db.commit()
+
+    # 12. Sauvegarder le RE-Projet
+    re_projet_bytes = re_projet_content.encode("utf-8")
+    re_projet_path = os.path.join(step_dir, "re_projet.docx")
+    with open(re_projet_path, "wb") as f:
+        f.write(re_projet_bytes)
+
     db.add(StepFile(
         step_id=step.id,
-        filename="reb.docx",
-        file_path=reb_path,
-        file_type="reb",
-        file_size=len(reb_content),
+        filename="re_projet.docx",
+        file_path=re_projet_path,
+        file_type="re_projet",
+        file_size=len(re_projet_bytes),
+    ))
+    await db.commit()
+
+    # 13. Sauvegarder le RE-Projet-Auxiliaire
+    re_projet_aux_bytes = re_projet_aux_content.encode("utf-8")
+    re_projet_aux_path = os.path.join(step_dir, "re_projet_auxiliaire.docx")
+    with open(re_projet_aux_path, "wb") as f:
+        f.write(re_projet_aux_bytes)
+
+    db.add(StepFile(
+        step_id=step.id,
+        filename="re_projet_auxiliaire.docx",
+        file_path=re_projet_aux_path,
+        file_type="re_projet_auxiliaire",
+        file_size=len(re_projet_aux_bytes),
     ))
 
-    # 7. Marquer step2 comme "réalisé"
+    # 14. Marquer step2 comme "fait"
     await workflow_engine.execute_step(dossier_id, 2, db)
     await db.commit()
 
     return Step2UploadResponse(
-        message="Fichiers NE et REB uploadés avec succès",
-        filenames=["ne.docx", "reb.docx"],
+        message="NEA uploadé — RE-Projet et RE-Projet-Auxiliaire générés avec succès",
+        filenames=["nea.docx", "re_projet.docx", "re_projet_auxiliaire.docx"],
     )
 
 
@@ -600,160 +887,118 @@ async def step2_validate(
 )
 async def step3_execute(
     dossier_id: int,
+    file: UploadFile = None,
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Génère le REF et le RAUX à partir de REB + QT + NE + Template + Corpus.
+    """Upload du ProjetFinal, génération de l'archive ZIP et du hash.
 
-    Valide : Exigences 9.1, 9.2, 9.3, 9.4
+    Étape 1/3 : Génération du ZIP (Expert/ + IA/)
+    Étape 2/3 : Génération du hash SHA-256
+    Étape 3/3 : Stockage du hash (S3 en prod)
     """
+    import hashlib
+    import io
+    import zipfile
 
     # 1. Vérifier l'accès au step3
     await workflow_engine.require_step_access(dossier_id, 3, db)
 
-    # 2. Lire le fichier Markdown de step0 pour obtenir les QT
-    md_path = os.path.join(_step0_dir(dossier_id), "requisition.md")
-    if not os.path.isfile(md_path):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Fichier Markdown de la réquisition non trouvé — complétez d'abord le Step0",
-        )
-    with open(md_path, "r", encoding="utf-8") as f:
-        qt = f.read()
+    # 1b. Marquer le step comme "en_cours"
+    await workflow_engine.start_step(dossier_id, 3, db)
+    await db.commit()
 
-    # 3. Lire les fichiers NE et REB de step2
-    ne_path = os.path.join(_step2_dir(dossier_id), "ne.docx")
-    reb_path = os.path.join(_step2_dir(dossier_id), "reb.docx")
-
-    if not os.path.isfile(ne_path) or not os.path.isfile(reb_path):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Fichiers NE et REB non trouvés — complétez d'abord le Step2",
-        )
-
-    with open(ne_path, "rb") as f:
-        ne = f.read().decode("utf-8", errors="replace")
-    with open(reb_path, "rb") as f:
-        reb = f.read().decode("utf-8", errors="replace")
-
-    # 4. Récupérer le domaine depuis LocalConfig
-    result = await db.execute(select(LocalConfig).limit(1))
-    config = result.scalar_one_or_none()
-    if config is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Configuration initiale non effectuée",
-        )
-    domaine = config.domaine
-
-    # 5. Récupérer le Template Rapport depuis la base RAG
-    rag = RAGService()
-    try:
-        template_docs = await rag.search(
-            query="template rapport",
-            collection=f"config_{domaine}",
-            limit=5,
-        )
-    except Exception as exc:
-        logger.error("Erreur RAG lors de la recherche du template : %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Service RAG indisponible — vérifiez que le conteneur judi-rag est démarré",
-        )
-
-    template = "\n\n".join(doc.content for doc in template_docs) if template_docs else ""
-
-    # 6. Récupérer le contexte corpus depuis la base RAG
-    try:
-        corpus_docs = await rag.search(
-            query=qt[:500],
-            collection=f"corpus_{domaine}",
-            limit=5,
-        )
-    except Exception as exc:
-        logger.error("Erreur RAG lors de la recherche du corpus : %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Service RAG indisponible — vérifiez que le conteneur judi-rag est démarré",
-        )
-
-    corpus = "\n\n".join(doc.content for doc in corpus_docs) if corpus_docs else ""
-
-    # 7. Générer le REF via LLM
-    llm = LLMService()
-    try:
-        ref = await llm.generer_ref(reb, qt, ne, template)
-    except Exception as exc:
-        logger.error("Erreur LLM lors de la génération du REF : %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Service LLM indisponible — essayez de redémarrer le conteneur judi-llm",
-        )
-
-    # 8. Générer le RAUX Partie 1 (contestations)
-    try:
-        raux_p1 = await llm.generer_raux_p1(ref, corpus)
-    except Exception as exc:
-        logger.error("Erreur LLM lors de la génération du RAUX P1 : %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Service LLM indisponible — essayez de redémarrer le conteneur judi-llm",
-        )
-
-    # 9. Générer le RAUX Partie 2 (révision)
-    try:
-        raux_p2 = await llm.generer_raux_p2(ref, raux_p1)
-    except Exception as exc:
-        logger.error("Erreur LLM lors de la génération du RAUX P2 : %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Service LLM indisponible — essayez de redémarrer le conteneur judi-llm",
-        )
-
-    # 10. Combiner RAUX P1 + P2
-    raux = (
-        "# RAUX — Rapport Auxiliaire\n\n"
-        "## Partie 1 — Analyse des contestations\n\n"
-        f"{raux_p1}\n\n"
-        "## Partie 2 — Version révisée du REF\n\n"
-        f"{raux_p2}"
-    )
-
-    # 11. Sauvegarder les fichiers
     step3_path = _step3_dir(dossier_id)
     os.makedirs(step3_path, exist_ok=True)
 
-    ref_path = os.path.join(step3_path, "ref.md")
-    raux_path = os.path.join(step3_path, "raux.md")
+    # 2. Sauvegarder le ProjetFinal uploadé (optionnel)
+    if file and file.filename:
+        projet_final_bytes = await file.read()
+        projet_final_path = os.path.join(step3_path, "projet_final.docx")
+        with open(projet_final_path, "wb") as f:
+            f.write(projet_final_bytes)
 
-    with open(ref_path, "w", encoding="utf-8") as f:
-        f.write(ref)
-    with open(raux_path, "w", encoding="utf-8") as f:
-        f.write(raux)
+    # 3. Construire le ZIP avec tous les fichiers classés Expert/ et IA/
+    dossier_root = _dossier_dir(dossier_id)
+    zip_buffer = io.BytesIO()
 
-    # 12. Créer les entrées StepFile en base
+    # Mapping des fichiers vers Expert/ ou IA/
+    expert_files = {
+        "step0/requisition.pdf": "Expert/requisition.pdf",
+        "step0/requisition.docx": "Expert/requisition_modifiee.docx",
+        "step2/nea.docx": "Expert/nea.docx",
+        "step3/projet_final.docx": "Expert/projet_final.docx",
+    }
+    ia_files = {
+        "step0/requisition.md": "IA/requisition_structuree.md",
+        "step1/qmec.md": "IA/qmec.md",
+        "step1/qmec.docx": "IA/qmec.docx",
+        "step2/re_projet.docx": "IA/re_projet.docx",
+        "step2/re_projet_auxiliaire.docx": "IA/re_projet_auxiliaire.docx",
+    }
+
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for src_rel, arc_name in {**expert_files, **ia_files}.items():
+            src_path = os.path.join(dossier_root, src_rel)
+            if os.path.isfile(src_path):
+                zf.write(src_path, arc_name)
+
+    zip_bytes = zip_buffer.getvalue()
+    zip_path = os.path.join(step3_path, "dossier_archive.zip")
+    with open(zip_path, "wb") as f:
+        f.write(zip_bytes)
+
+    # 4. Générer le hash SHA-256 du ZIP
+    sha256_hash = hashlib.sha256(zip_bytes).hexdigest()
+    hash_path = os.path.join(step3_path, "hash_sha256.txt")
+    with open(hash_path, "w") as f:
+        f.write(f"SHA-256: {sha256_hash}\n")
+        f.write(f"Fichier: dossier_archive.zip\n")
+        f.write(f"Dossier: {dossier_id}\n")
+
+    # 5. TODO (prod) : Stocker le hash sur S3 expert(xxx/dossierxxx/hash-dossier)
+    logger.info("Hash SHA-256 dossier %s : %s", dossier_id, sha256_hash)
+
+    # 6. Créer les entrées StepFile en base
     step = await _get_step(dossier_id, 3, db)
 
+    # Supprimer les anciens StepFile
+    for old_file in list(step.files):
+        await db.delete(old_file)
+    await db.flush()
+
+    if file and file.filename:
+        db.add(StepFile(
+            step_id=step.id,
+            filename="projet_final.docx",
+            file_path=os.path.join(step3_path, "projet_final.docx"),
+            file_type="projet_final",
+            file_size=len(projet_final_bytes),
+        ))
+
     db.add(StepFile(
         step_id=step.id,
-        filename="ref.md",
-        file_path=ref_path,
-        file_type="ref",
-        file_size=len(ref.encode("utf-8")),
+        filename="dossier_archive.zip",
+        file_path=zip_path,
+        file_type="archive_zip",
+        file_size=len(zip_bytes),
     ))
     db.add(StepFile(
         step_id=step.id,
-        filename="raux.md",
-        file_path=raux_path,
-        file_type="raux",
-        file_size=len(raux.encode("utf-8")),
+        filename="hash_sha256.txt",
+        file_path=hash_path,
+        file_type="hash",
+        file_size=os.path.getsize(hash_path),
     ))
 
-    # 13. Marquer step3 comme "réalisé"
+    # 7. Marquer step3 comme "fait"
     await workflow_engine.execute_step(dossier_id, 3, db)
     await db.commit()
 
-    return Step3ExecuteResponse(ref=ref, raux=raux)
+    return Step3ExecuteResponse(
+        message=f"Archive générée — Hash SHA-256 : {sha256_hash}",
+        filenames=["projet_final.docx", "dossier_archive.zip", "hash_sha256.txt"],
+    )
 
 
 # ---- Step3 : GET /api/dossiers/{id}/step3/download/{doc_type} ------------
@@ -767,31 +1012,31 @@ async def step3_download(
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Télécharge le REF ou le RAUX généré pour step3.
+    """Télécharge le REF-Projet généré pour step3.
 
-    Valide : Exigence 9.4
+    Valide : Exigence 4.4
     """
 
     # Vérifier l'accès à l'étape
     await workflow_engine.require_step_access(dossier_id, 3, db)
 
-    if doc_type not in ("ref", "raux"):
+    if doc_type != "ref_projet":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Type de document invalide — utilisez 'ref' ou 'raux'",
+            detail="Type de document invalide — utilisez 'ref_projet'",
         )
 
-    file_path = os.path.join(_step3_dir(dossier_id), f"{doc_type}.md")
+    file_path = os.path.join(_step3_dir(dossier_id), "ref_projet.docx")
     if not os.path.isfile(file_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Fichier {doc_type.upper()} non trouvé — lancez d'abord l'exécution du Step3",
+            detail="Fichier REF-Projet non trouvé — lancez d'abord l'exécution du Step3",
         )
 
     return FileResponse(
         path=file_path,
-        filename=f"{doc_type}.md",
-        media_type="text/markdown",
+        filename="ref_projet.docx",
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
 
 
@@ -806,39 +1051,12 @@ async def step3_validate(
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Valide le Step3, archive le dossier complet en ZIP.
+    """Valide le Step3 (verrouillage).
 
     Valide : Exigences 9.5, 9.6
     """
 
-    # 1. Valider step3 (cela archive aussi le dossier via WorkflowEngine)
     await workflow_engine.validate_step(dossier_id, 3, db)
-
-    # 2. Créer l'archive ZIP du dossier complet
-    dossier_path = _dossier_dir(dossier_id)
-    archive_path = os.path.join(dossier_path, "archive.zip")
-
-    with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for root, _dirs, files in os.walk(dossier_path):
-            for filename in files:
-                if filename == "archive.zip":
-                    continue
-                abs_path = os.path.join(root, filename)
-                arc_name = os.path.relpath(abs_path, dossier_path)
-                zf.write(abs_path, arc_name)
-
-    # 3. Créer l'entrée StepFile pour l'archive
-    step = await _get_step(dossier_id, 3, db)
-    archive_size = os.path.getsize(archive_path)
-
-    db.add(StepFile(
-        step_id=step.id,
-        filename="archive.zip",
-        file_path=archive_path,
-        file_type="archive",
-        file_size=archive_size,
-    ))
-
     await db.commit()
 
-    return Step3ValidateResponse(message="Step3 validé — dossier archivé avec succès")
+    return Step3ValidateResponse(message="Step3 validé avec succès")

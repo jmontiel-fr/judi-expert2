@@ -164,15 +164,30 @@ export async function apiDeleteAccount(token: string): Promise<{ message: string
 export interface TicketItem {
   id: number;
   ticket_code: string;
+  ticket_token: string | null;
   domaine: string;
   statut: string;
   montant: number;
   created_at: string;
+  expires_at: string | null;
   used_at: string | null;
 }
 
 export interface PurchaseResult {
   checkout_url: string;
+}
+
+export interface TicketPriceInfo {
+  prix_ht: number;
+  tva_rate: number;
+  prix_ttc: number;
+}
+
+export async function apiGetTicketPrice(): Promise<TicketPriceInfo> {
+  const res = await fetch(`${API_BASE}/api/tickets/price`, {
+    headers: { "Content-Type": "application/json" },
+  });
+  return handleResponse(res);
 }
 
 export async function apiListTickets(token: string): Promise<TicketItem[]> {
@@ -189,6 +204,14 @@ export async function apiPurchaseTicket(token: string): Promise<PurchaseResult> 
     body: JSON.stringify({}),
   });
   return handleResponse(res);
+}
+
+export async function apiDeleteTicket(token: string, ticketId: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/tickets/${ticketId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  await handleResponse(res);
 }
 
 /* ------------------------------------------------------------------ */
@@ -300,6 +323,25 @@ export async function apiGetTicketStats(token: string, domaine: string = "Tous")
   return handleResponse(res);
 }
 
+export async function apiGetAdminTicketConfig(token: string): Promise<TicketPriceInfo> {
+  const res = await fetch(`${API_BASE}/api/admin/ticket-config`, {
+    headers: authHeaders(token),
+  });
+  return handleResponse(res);
+}
+
+export async function apiUpdateAdminTicketConfig(
+  token: string,
+  data: { prix_ht?: number; tva_rate?: number },
+): Promise<TicketPriceInfo> {
+  const res = await fetch(`${API_BASE}/api/admin/ticket-config`, {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res);
+}
+
 
 /* ------------------------------------------------------------------ */
 /*  News                                                               */
@@ -387,4 +429,69 @@ export async function apiAdminDeleteNews(token: string, id: number): Promise<voi
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     throw new ApiError(res.status, body.detail ?? "Erreur serveur");
   }
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  Corpus Content (public + admin)                                    */
+/* ------------------------------------------------------------------ */
+
+export interface ContenuItem {
+  nom: string;
+  description: string;
+  type: string;
+  date_ajout: string;
+}
+
+export interface UrlItem {
+  nom: string;
+  url: string;
+  description: string;
+  type: string;
+  date_ajout: string;
+}
+
+export interface AddUrlPayload {
+  nom: string;
+  url: string;
+  description: string;
+  type: string;
+}
+
+export async function apiGetCorpusContenu(domaine: string): Promise<ContenuItem[]> {
+  const res = await fetch(`${API_BASE}/api/corpus/${encodeURIComponent(domaine)}/contenu`, {
+    headers: { "Content-Type": "application/json" },
+  });
+  return handleResponse(res);
+}
+
+export async function apiGetCorpusUrls(domaine: string): Promise<UrlItem[]> {
+  const res = await fetch(`${API_BASE}/api/corpus/${encodeURIComponent(domaine)}/urls`, {
+    headers: { "Content-Type": "application/json" },
+  });
+  return handleResponse(res);
+}
+
+export function getCorpusFileUrl(domaine: string, filename: string): string {
+  return `${API_BASE}/api/corpus/${encodeURIComponent(domaine)}/fichier/${encodeURIComponent(filename)}`;
+}
+
+export async function apiAdminUploadDocument(token: string, domaine: string, file: File): Promise<ContenuItem> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch(`${API_BASE}/api/admin/corpus/${encodeURIComponent(domaine)}/documents`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  return handleResponse(res);
+}
+
+export async function apiAdminAddUrl(token: string, domaine: string, data: AddUrlPayload): Promise<UrlItem> {
+  const res = await fetch(`${API_BASE}/api/admin/corpus/${encodeURIComponent(domaine)}/urls`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res);
 }

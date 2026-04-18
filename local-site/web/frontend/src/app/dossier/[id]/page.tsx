@@ -10,6 +10,7 @@ import {
   isStepAccessible,
   type DossierDetail,
 } from "@/lib/api";
+import FileList from "@/components/FileList";
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                           */
@@ -17,9 +18,9 @@ import {
 
 const STEP_NAMES: Record<number, string> = {
   0: "Extraction",
-  1: "PEMEC",
-  2: "Upload",
-  3: "REF",
+  1: "Préparation entretien",
+  2: "Mise en forme RE-Projet",
+  3: "Upload / Compression dossier final",
 };
 
 /* ------------------------------------------------------------------ */
@@ -57,6 +58,15 @@ export default function DossierDetailPage() {
   const [dossier, setDossier] = useState<DossierDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [closing, setClosing] = useState(false);
+  const [closeError, setCloseError] = useState("");
+  const [resettingStep, setResettingStep] = useState<number | null>(null);
+  const [resetError, setResetError] = useState("");
+  const [validatingStep, setValidatingStep] = useState<number | null>(null);
+  const [validateError, setValidateError] = useState("");
+  const [resettingAll, setResettingAll] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   const fetchDossier = useCallback(async () => {
     setLoading(true);
@@ -74,6 +84,101 @@ export default function DossierDetailPage() {
   useEffect(() => {
     fetchDossier();
   }, [fetchDossier]);
+
+  // Poll when any step is "en_cours"
+  const hasEnCours = dossier?.steps.some((s) => s.statut === "en_cours");
+  useEffect(() => {
+    if (!hasEnCours) return;
+    const interval = setInterval(async () => {
+      try {
+        const data = await dossiersApi.get(dossierId);
+        setDossier(data);
+      } catch { /* ignore */ }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [hasEnCours, dossierId]);
+
+  const allStepsValidated =
+    dossier?.steps.length === 4 &&
+    dossier.steps.every((s) => s.statut === "valide");
+
+  const handleClose = async () => {
+    setClosing(true);
+    setCloseError("");
+    try {
+      await dossiersApi.close(dossierId);
+      await fetchDossier();
+    } catch (err: unknown) {
+      setCloseError(getErrorMessage(err, "Impossible de fermer le dossier."));
+    } finally {
+      setClosing(false);
+    }
+  };
+
+  const handleDownload = () => {
+    const url = dossiersApi.getDownloadUrl(dossierId);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleResetStep = async (stepNumber: number) => {
+    if (!confirm(`Réinitialiser l'étape ${stepNumber} ? Les fichiers seront supprimés.`)) return;
+    setResettingStep(stepNumber);
+    setResetError("");
+    try {
+      await dossiersApi.resetStep(dossierId, stepNumber);
+      await fetchDossier();
+    } catch (err: unknown) {
+      setResetError(getErrorMessage(err, "Impossible de réinitialiser l'étape."));
+    } finally {
+      setResettingStep(null);
+    }
+  };
+
+  const handleValidateStep = async (stepNumber: number) => {
+    setValidatingStep(stepNumber);
+    setValidateError("");
+    try {
+      await dossiersApi.validateStep(dossierId, stepNumber);
+      await fetchDossier();
+    } catch (err: unknown) {
+      setValidateError(getErrorMessage(err, "Impossible de valider l'étape."));
+    } finally {
+      setValidatingStep(null);
+    }
+  };
+
+  const handleResetAll = async () => {
+    if (!confirm("Réinitialiser TOUT le dossier ? Tous les fichiers de toutes les étapes seront supprimés.")) return;
+    setResettingAll(true);
+    setActionError("");
+    try {
+      await dossiersApi.resetAll(dossierId);
+      await fetchDossier();
+    } catch (err: unknown) {
+      setActionError(getErrorMessage(err, "Impossible de réinitialiser le dossier."));
+    } finally {
+      setResettingAll(false);
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!confirm("Archiver le dossier ? Cette action est irréversible.")) return;
+    setArchiving(true);
+    setActionError("");
+    try {
+      await dossiersApi.archive(dossierId);
+      await fetchDossier();
+    } catch (err: unknown) {
+      setActionError(getErrorMessage(err, "Impossible d'archiver le dossier."));
+    } finally {
+      setArchiving(false);
+    }
+  };
 
   /* ---------------------------------------------------------------- */
   /* Render                                                            */
@@ -114,14 +219,63 @@ export default function DossierDetailPage() {
                 className={`${styles.badge} ${
                   dossier.statut === "actif"
                     ? styles.badgeActif
-                    : styles.badgeArchive
+                    : dossier.statut === "fermé"
+                      ? styles.badgeFerme
+                      : styles.badgeArchive
                 }`}
               >
-                {dossier.statut === "actif" ? "Actif" : "Archivé"}
+                {dossier.statut === "actif"
+                  ? "Actif"
+                  : dossier.statut === "fermé"
+                    ? "Fermé"
+                    : "Archivé"}
               </span>
               <span>Créé le {formatDate(dossier.created_at)}</span>
             </div>
           </div>
+
+          {/* Dossier action bar — top */}
+          <div className={styles.topActions}>
+            {dossier.statut === "actif" && (
+              <button
+                className={styles.btnResetAll}
+                onClick={handleResetAll}
+                disabled={resettingAll}
+              >
+                {resettingAll ? "Réinitialisation…" : "⟲ Reset complet"}
+              </button>
+            )}
+            {allStepsValidated && dossier.statut === "actif" && (
+              <button
+                className={styles.btnClose}
+                onClick={handleClose}
+                disabled={closing}
+              >
+                {closing ? "Fermeture en cours…" : "Clore le dossier"}
+              </button>
+            )}
+            {dossier.statut === "fermé" && (
+              <>
+                <button
+                  className={styles.btnArchive}
+                  onClick={handleArchive}
+                  disabled={archiving}
+                >
+                  {archiving ? "Archivage…" : "Archiver"}
+                </button>
+                <button className={styles.btnDownload} onClick={handleDownload}>
+                  Télécharger le dossier
+                </button>
+              </>
+            )}
+            {dossier.statut === "archive" && (
+              <button className={styles.btnDownload} onClick={handleDownload}>
+                Télécharger le dossier
+              </button>
+            )}
+          </div>
+          {closeError && <p className={styles.closeError} role="alert">{closeError}</p>}
+          {actionError && <p className={styles.closeError} role="alert">{actionError}</p>}
 
           {/* Steps section */}
           <h2 className={styles.sectionTitle}>Étapes du dossier</h2>
@@ -135,16 +289,29 @@ export default function DossierDetailPage() {
                 const statusClass =
                   step.statut === "valide"
                     ? styles.statusValide
-                    : step.statut === "realise"
+                    : step.statut === "fait"
                       ? styles.statusRealise
-                      : styles.statusInitial;
+                      : step.statut === "en_cours"
+                        ? styles.statusEnCours
+                        : styles.statusInitial;
 
                 const statusLabel =
                   step.statut === "valide"
                     ? "Validé"
-                    : step.statut === "realise"
-                      ? "Réalisé"
-                      : "Initial";
+                    : step.statut === "fait"
+                      ? "Fait"
+                      : step.statut === "en_cours"
+                        ? "⏳ En cours…"
+                        : "Initial";
+
+                const isInitial = step.statut === "initial";
+                const isRealise = step.statut === "fait";
+                const isEnCours = step.statut === "en_cours";
+                const isValide = step.statut === "valide";
+                const isFerme = dossier.statut === "fermé";
+                const canNavigate = accessible && (isInitial || isEnCours) && !isFerme;
+                const canValidate = isRealise && dossier.statut === "actif";
+                const canReset = isRealise && dossier.statut === "actif";
 
                 const cardContent = (
                   <>
@@ -168,37 +335,69 @@ export default function DossierDetailPage() {
                       <span className={`${styles.statusBadge} ${statusClass}`}>
                         {statusLabel}
                       </span>
-                      {accessible ? (
+                      {canNavigate && (
                         <span className={styles.accessArrow} aria-hidden="true">→</span>
-                      ) : (
+                      )}
+                      {!accessible && isInitial && (
                         <span className={styles.lockIcon} aria-hidden="true" title="Étape verrouillée">🔒</span>
                       )}
                     </div>
                   </>
                 );
 
-                if (accessible) {
-                  return (
-                    <Link
-                      key={step.step_number}
-                      href={`/dossier/${dossier.id}/step/${step.step_number}`}
-                      className={`${styles.stepCard} ${styles.stepCardAccessible}`}
-                      role="listitem"
-                      aria-label={`${stepLabel} — ${statusLabel}`}
-                    >
-                      {cardContent}
-                    </Link>
-                  );
-                }
-
                 return (
-                  <div
-                    key={step.step_number}
-                    className={`${styles.stepCard} ${styles.stepCardLocked}`}
-                    role="listitem"
-                    aria-label={`${stepLabel} — ${statusLabel} — Verrouillé`}
-                  >
-                    {cardContent}
+                  <div key={step.step_number} role="listitem">
+                    {canNavigate ? (
+                      <Link
+                        href={`/dossier/${dossier.id}/step/${step.step_number}`}
+                        className={`${styles.stepCard} ${styles.stepCardAccessible}`}
+                        aria-label={`${stepLabel} — ${statusLabel}`}
+                      >
+                        {cardContent}
+                      </Link>
+                    ) : (
+                      <div
+                        className={`${styles.stepCard} ${!accessible && isInitial ? styles.stepCardLocked : ""}`}
+                        aria-label={`${stepLabel} — ${statusLabel}`}
+                      >
+                        {cardContent}
+                      </div>
+                    )}
+                    {(canValidate || canReset) && (
+                      <div className={styles.resetRow}>
+                        {canValidate && (
+                          <button
+                            className={styles.btnValidate}
+                            onClick={() => handleValidateStep(step.step_number)}
+                            disabled={validatingStep === step.step_number}
+                          >
+                            {validatingStep === step.step_number ? "Validation…" : "Valider"}
+                          </button>
+                        )}
+                        {canReset && (
+                          <button
+                            className={styles.btnReset}
+                            onClick={() => handleResetStep(step.step_number)}
+                            disabled={resettingStep === step.step_number}
+                          >
+                            {resettingStep === step.step_number ? "Reset…" : "Reset"}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {validateError && validatingStep === null && (
+                      <p className={styles.resetError} role="alert">{validateError}</p>
+                    )}
+                    {resetError && resettingStep === null && (
+                      <p className={styles.resetError} role="alert">{resetError}</p>
+                    )}
+                    <FileList
+                      dossierId={dossier.id}
+                      stepNumber={step.step_number}
+                      files={step.files ?? []}
+                      isLocked={step.statut === "valide"}
+                      showReplaceButton={false}
+                    />
                   </div>
                 );
               })}

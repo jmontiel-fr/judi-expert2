@@ -17,6 +17,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
+      <head>
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+      </head>
       <body
         style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}
       >

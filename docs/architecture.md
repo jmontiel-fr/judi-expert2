@@ -42,24 +42,24 @@ graph TB
 
     subgraph "AWS — Site Central"
         CF[CloudFront CDN]
-        ALB[Application Load Balancer]
-        ECS[ECS Fargate<br/>Next.js + FastAPI]
+        LS[Lightsail Instance<br/>Docker Compose<br/>Caddy + FastAPI + Next.js]
         RDS[RDS PostgreSQL]
         COG[AWS Cognito]
         S3[S3 Bucket<br/>Assets statiques]
         ECR[ECR<br/>Images Docker]
         STRIPE[Stripe API]
+        GMAIL[Gmail SMTP<br/>Envoi emails]
     end
 
-    WEB -->|Vérification Ticket| ALB
+    WEB -->|Vérification Ticket| LS
     WEB -->|Téléchargement RAG| ECR
     CF --> S3
-    CF --> ALB
-    ALB --> ECS
-    ECS --> RDS
-    ECS --> COG
-    ECS --> STRIPE
-    ECS --> ECR
+    CF --> LS
+    LS --> RDS
+    LS --> COG
+    LS --> STRIPE
+    LS --> GMAIL
+    LS --> ECR
 ```
 
 ---
@@ -118,33 +118,28 @@ Le Docker Compose orchestre le démarrage dans l'ordre suivant :
 
 ## Site Central — Infrastructure AWS
 
-Le Site Central est déployé sur AWS via Terraform (IaC déclaratif).
+Le Site Central est déployé sur une instance AWS Lightsail avec Docker Compose et une base de données RDS PostgreSQL externe.
 
 ### Services AWS utilisés
 
 | Service | Rôle |
 |---------|------|
-| **ECS Fargate** | Hébergement du backend FastAPI + frontend Next.js |
-| **RDS PostgreSQL** | Base de données relationnelle (experts, tickets, domaines) |
+| **Lightsail** | Instance Docker (backend FastAPI + frontend Next.js + Caddy HTTPS) |
+| **RDS PostgreSQL** | Base de données relationnelle (experts, tickets, domaines) — backups auto 7j |
 | **AWS Cognito** | Authentification des experts (User Pools) |
 | **S3** | Stockage des assets statiques et packages |
 | **ECR** | Registre d'images Docker (modules RAG, app locale) |
-| **CloudFront** | CDN pour la distribution des assets |
-| **ALB** | Load balancer avec page de maintenance hors heures |
-| **EventBridge + Lambda** | Scheduler heures ouvrables 8h-20h |
-| **SES** | Envoi d'emails (tickets, notifications) |
-| **CloudWatch** | Monitoring et logs |
+| **CloudFront** | CDN pour la distribution des assets (optionnel) |
 | **Route 53** | DNS |
-| **Secrets Manager** | Stockage des clés API (Stripe, Cognito, DB) |
+| **Gmail SMTP** | Envoi d'emails (tickets, notifications) via compte Gmail dédié |
 
-### Mode heures ouvrables (8h-20h)
+### Reverse proxy HTTPS
 
-Le Site Central supporte un mode de fonctionnement limité aux heures ouvrables pour optimiser les coûts :
+Caddy est utilisé comme reverse proxy dans le conteneur Docker. Il gère automatiquement les certificats Let's Encrypt (renouvellement inclus). Pas besoin d'ALB.
 
-- **EventBridge** : règles cron pour démarrage (8h) et arrêt (20h), timezone Europe/Paris
-- **Lambda** : met à jour le `desiredCount` ECS et start/stop RDS
-- **ALB** : sert une page HTML de maintenance (HTTP 503) hors heures ouvrables
-- L'Application Locale continue de fonctionner 24/7 (tout est local)
+### Migration vers ECS/Fargate
+
+Quand le trafic le justifie (>500 experts), le même code Docker peut être déployé sur ECS/Fargate avec ALB. Seule l'infrastructure change, pas le code.
 
 ---
 
@@ -354,5 +349,42 @@ erDiagram
 | Template .docx | docxtpl (Jinja2) | Remplacement de placeholders avec préservation du style |
 | Paiement | Stripe Checkout + Webhooks | Standard SaaS, SDK Python officiel |
 | Auth | AWS Cognito + Amplify JS | Intégration native AWS, User Pools |
-| Infra | Terraform | IaC déclaratif, état versionné |
-| Conteneurs | Docker Compose (local), ECS/ECR (AWS) | Orchestration simple locale, scalable en production |
+| Email | Gmail SMTP (smtplib) | Même config dev et prod, 500 emails/jour |
+| Infra prod | Lightsail + RDS + Caddy | Coût réduit (~29 $/mois), migration ECS possible |
+| Conteneurs | Docker Compose (local + prod), ECS/ECR (futur) | Orchestration simple, scalable |
+
+
+---
+
+## Sécurité
+
+### Isolation réseau
+
+L'application locale utilise deux réseaux Docker :
+
+- **Réseau interne** (`internal: true`) : LLM, OCR, RAG, frontend — aucun accès Internet
+- **Réseau externe** : backend uniquement — communication exclusive avec le Site Central
+
+Cette architecture garantit que les données d'expertise ne peuvent pas fuiter vers Internet, même en cas de compromission d'un conteneur.
+
+### Intégrité des conteneurs
+
+- Images épinglées par version (pas de `latest` en production)
+- Images personnalisées construites localement depuis le code source
+- Images tierces (Ollama, Qdrant) depuis les registres officiels
+- Scan de vulnérabilités via ECR en production AWS
+
+### Protection des données
+
+- Chiffrement du disque obligatoire (BitLocker / FileVault)
+- Données d'expertise 100% locales — jamais transmises au cloud
+- Hash SHA-256 de l'archive finale pour garantir l'intégrité
+- JWT local avec expiration pour l'authentification
+
+### Conformité
+
+- **RGPD** : données traitées localement, droit à l'effacement, minimisation
+- **AI Act** : IA comme assistant, validation humaine à chaque étape, modèle open-source local
+- **Expertise judiciaire** : traçabilité, horodatage, non-répudiation
+
+Pour le détail complet, voir [securite.md](securite.md).

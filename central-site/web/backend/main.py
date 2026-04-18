@@ -19,7 +19,24 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def startup():
-    """Crée les tables si elles n'existent pas (mode dev) et seed l'admin."""
+    """Exécute les migrations Alembic, crée les tables manquantes et seed l'admin."""
+    # Exécuter les migrations Alembic automatiquement
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["alembic", "upgrade", "head"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode == 0:
+            import logging
+            logging.getLogger(__name__).info("Alembic migrations applied successfully")
+        else:
+            import logging
+            logging.getLogger(__name__).warning("Alembic migration warning: %s", result.stderr)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Alembic migration skipped: %s", e)
+
     await init_db()
     await seed_admin()
 
@@ -51,12 +68,14 @@ from routers.corpus import router as corpus_router
 from routers.downloads import router as downloads_router
 from routers.contact import router as contact_router
 from routers.admin import router as admin_router
+from routers.admin_corpus import router as admin_corpus_router
 from routers.news import router as news_router
 
 app.include_router(corpus_router, prefix="/api/corpus", tags=["corpus"])
 app.include_router(downloads_router, prefix="/api/downloads", tags=["downloads"])
 app.include_router(contact_router, prefix="/api/contact", tags=["contact"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
+app.include_router(admin_corpus_router, prefix="/api/admin/corpus", tags=["admin-corpus"])
 app.include_router(news_router, prefix="/api/news", tags=["news"])
 
 

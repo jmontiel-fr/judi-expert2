@@ -17,6 +17,8 @@
   flex: 0 0 45%;
   max-width: 45%;
   overflow: hidden;
+  padding: 24px;
+  padding-right: 0;
 }
 
 .heroImage {
@@ -25,6 +27,7 @@
   object-fit: cover;
   display: block;
   min-height: 400px;
+  border-radius: 16px;
 }
 
 .heroTextCol {
@@ -285,6 +288,8 @@
   .heroImageCol {
     flex: none;
     max-width: 100%;
+    padding: 16px;
+    padding-bottom: 0;
   }
 
   .heroImage {

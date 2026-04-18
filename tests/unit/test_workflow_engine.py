@@ -20,6 +20,7 @@ from models.step import Step
 from services.workflow_engine import (
     DOSSIER_ACTIF,
     DOSSIER_ARCHIVE,
+    DOSSIER_FERME,
     STATUT_INITIAL,
     STATUT_REALISE,
     STATUT_VALIDE,
@@ -194,15 +195,20 @@ async def test_cannot_validate_already_validated(wf, db):
 
 @pytest.mark.asyncio
 async def test_full_workflow_and_archive(wf, db):
+    """Après validation des 4 étapes, le dossier reste actif.
+
+    L'expert doit désormais fermer le dossier explicitement via
+    le bouton "Fermer le dossier" (cf. Requirement 5).
+    """
     dossier = await _create_dossier(db)
 
     for step_num in range(4):
         await wf.execute_step(dossier.id, step_num, db)
         await wf.validate_step(dossier.id, step_num, db)
 
-    # Refresh dossier to see archive status
+    # Refresh dossier — doit rester actif (plus d'archivage auto)
     await db.refresh(dossier)
-    assert dossier.statut == DOSSIER_ARCHIVE
+    assert dossier.statut == DOSSIER_ACTIF
 
 
 @pytest.mark.asyncio
@@ -210,6 +216,44 @@ async def test_archive_blocks_further_operations(wf, db):
     dossier = await _create_dossier(db, statut=DOSSIER_ARCHIVE)
     assert await wf.can_execute_step(dossier.id, 0, db) is False
     assert await wf.can_validate_step(dossier.id, 0, db) is False
+
+
+@pytest.mark.asyncio
+async def test_ferme_blocks_further_operations(wf, db):
+    """Un dossier fermé interdit toute modification (Requirement 5.5, 5.6)."""
+    dossier = await _create_dossier(db, statut=DOSSIER_FERME)
+    assert await wf.can_execute_step(dossier.id, 0, db) is False
+    assert await wf.can_validate_step(dossier.id, 0, db) is False
+
+
+@pytest.mark.asyncio
+async def test_ferme_execute_raises_403(wf, db):
+    """execute_step sur dossier fermé lève HTTP 403 avec message explicite."""
+    dossier = await _create_dossier(db, statut=DOSSIER_FERME)
+    with pytest.raises(HTTPException) as exc_info:
+        await wf.execute_step(dossier.id, 0, db)
+    assert exc_info.value.status_code == 403
+    assert "fermé" in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_ferme_validate_raises_403(wf, db):
+    """validate_step sur dossier fermé lève HTTP 403 avec message explicite."""
+    dossier = await _create_dossier(db, statut=DOSSIER_FERME)
+    # Set step 0 to réalisé so we test the fermé guard, not the statut guard
+    from sqlalchemy import select as sa_select
+
+    result = await db.execute(
+        sa_select(Step).where(Step.dossier_id == dossier.id, Step.step_number == 0)
+    )
+    step = result.scalar_one()
+    step.statut = STATUT_REALISE
+    await db.flush()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await wf.validate_step(dossier.id, 0, db)
+    assert exc_info.value.status_code == 403
+    assert "fermé" in exc_info.value.detail
 
 
 # ---------------------------------------------------------------------------

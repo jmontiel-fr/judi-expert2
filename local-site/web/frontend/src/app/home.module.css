@@ -2,6 +2,26 @@
   padding: 8px 0;
 }
 
+.ticketNotice {
+  background: #fffaf0;
+  border: 1px solid #fbd38d;
+  border-radius: 10px;
+  padding: 14px 20px;
+  font-size: 0.925rem;
+  color: var(--color-text);
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.ticketNotice a {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.ticketNotice a:hover {
+  text-decoration: underline;
+}
+
 .header {
   display: flex;
   justify-content: space-between;

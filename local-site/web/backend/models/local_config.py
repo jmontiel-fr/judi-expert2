@@ -15,6 +15,7 @@ class LocalConfig(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     domaine: Mapped[str] = mapped_column(String(100))
+    email: Mapped[Optional[str]] = mapped_column(String(255))
     rag_version: Mapped[Optional[str]] = mapped_column(String(50))
     is_configured: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(default=func.now())

@@ -1,28 +1,15 @@
 import Link from "next/link";
 import styles from "./Footer.module.css";
 
-const CHU_URL = "https://www.chu.fr";
-const CGU_URL = "https://judi-expert.fr/cgu";
-const CONTACT_URL = "https://judi-expert.fr/contact";
+const SITE_CENTRAL_URL = process.env.NEXT_PUBLIC_SITE_CENTRAL_URL || "http://localhost:3001";
+const CGU_URL = `${SITE_CENTRAL_URL}/cgu`;
+const CONTACT_URL = `${SITE_CENTRAL_URL}/contact`;
 
 export default function Footer() {
   return (
     <footer className={styles.footer}>
       <div className={styles.container}>
         <ul className={styles.links}>
-          <li>
-            <a
-              href={CHU_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.link}
-            >
-              CHU
-              <span className={styles.externalIcon} aria-hidden="true">
-                ↗
-              </span>
-            </a>
-          </li>
           <li>
             <Link href="/mentions-legales" className={styles.link}>
               Mentions légales

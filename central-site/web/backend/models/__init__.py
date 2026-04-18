@@ -7,6 +7,7 @@ from .domaine import Domaine
 from .expert import Expert
 from .news import News, NewsRead
 from .ticket import Ticket
+from .ticket_config import TicketConfig
 
 __all__ = [
     "Base",
@@ -17,4 +18,5 @@ __all__ = [
     "News",
     "NewsRead",
     "Ticket",
+    "TicketConfig",
 ]

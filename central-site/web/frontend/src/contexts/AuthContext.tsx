@@ -74,6 +74,7 @@ export interface RegisterParams {
 }
 
 const ADMIN_EMAIL = "admin@judi-expert.fr";
+const DEV_TOKEN_KEY = "judi_dev_token";
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
@@ -94,21 +95,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function restoreSession() {
     try {
+      // 1. Try Amplify session (production with Cognito)
       const session = await fetchAuthSession();
       const token = session.tokens?.accessToken?.toString();
-      if (!token) {
-        setLoading(false);
+      if (token) {
+        setAccessToken(token);
+        const profile = await apiGetProfile(token);
+        applyProfile(profile, token);
         return;
       }
-      setAccessToken(token);
-
-      const profile = await apiGetProfile(token);
-      applyProfile(profile, token);
     } catch {
-      // No active session — that's fine
-    } finally {
-      setLoading(false);
+      // No Amplify session
     }
+
+    // 2. Try dev token from localStorage (dev mode)
+    try {
+      const devToken = localStorage.getItem(DEV_TOKEN_KEY);
+      if (devToken) {
+        const profile = await apiGetProfile(devToken);
+        applyProfile(profile, devToken);
+        return;
+      }
+    } catch {
+      localStorage.removeItem(DEV_TOKEN_KEY);
+    }
+
+    setLoading(false);
   }
 
   function applyProfile(profile: Profile, token: string) {
@@ -126,6 +138,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u);
     setAccessToken(token);
     setIsAdmin(profile.email === ADMIN_EMAIL);
+    // Persist dev tokens for page reload survival
+    if (token.startsWith("dev-token-")) {
+      localStorage.setItem(DEV_TOKEN_KEY, token);
+    }
+    setLoading(false);
   }
 
   /* ---- Login via backend (Cognito + Captcha verification) ---- */
@@ -183,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setIsAdmin(false);
     setAccessToken(null);
+    localStorage.removeItem(DEV_TOKEN_KEY);
   }, [accessToken]);
 
   return (

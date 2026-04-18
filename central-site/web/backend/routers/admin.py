@@ -13,9 +13,11 @@ from database import get_db
 from models.expert import Expert
 from models.news import News
 from models.ticket import Ticket
+from models.ticket_config import TicketConfig
 from routers.profile import get_current_expert
 from schemas.news import NewsCreate, NewsListItem, NewsResponse, NewsUpdate
 from schemas.admin import ExpertListResponse, MonthStats, TicketStatsResponse
+from schemas.tickets import TicketConfigUpdate, TicketPriceResponse
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +120,76 @@ async def ticket_stats(
         month_count=month_count,
         month_amount=month_amount,
         past_months=past_months,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Admin — Ticket config management
+# ---------------------------------------------------------------------------
+
+
+@router.get("/ticket-config", response_model=TicketPriceResponse)
+async def get_ticket_config(
+    _admin: Expert = Depends(get_admin_expert),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retourne la configuration actuelle du prix des tickets (admin uniquement)."""
+    result = await db.execute(select(TicketConfig).limit(1))
+    config = result.scalar_one_or_none()
+    if config is None:
+        config = TicketConfig(
+            prix_ht=Decimal("49.00"),
+            tva_rate=Decimal("20.00"),
+        )
+        db.add(config)
+        await db.commit()
+        await db.refresh(config)
+
+    prix_ttc = (
+        config.prix_ht * (Decimal("1") + config.tva_rate / Decimal("100"))
+    ).quantize(Decimal("0.01"))
+
+    return TicketPriceResponse(
+        prix_ht=config.prix_ht,
+        tva_rate=config.tva_rate,
+        prix_ttc=prix_ttc,
+    )
+
+
+@router.put("/ticket-config", response_model=TicketPriceResponse)
+async def update_ticket_config(
+    request: TicketConfigUpdate,
+    _admin: Expert = Depends(get_admin_expert),
+    db: AsyncSession = Depends(get_db),
+):
+    """Met à jour le prix des tickets (admin uniquement)."""
+    result = await db.execute(select(TicketConfig).limit(1))
+    config = result.scalar_one_or_none()
+    if config is None:
+        config = TicketConfig(
+            prix_ht=Decimal("49.00"),
+            tva_rate=Decimal("20.00"),
+        )
+        db.add(config)
+        await db.flush()
+
+    if request.prix_ht is not None:
+        config.prix_ht = request.prix_ht
+    if request.tva_rate is not None:
+        config.tva_rate = request.tva_rate
+    config.updated_at = datetime.now(timezone.utc)
+
+    await db.commit()
+    await db.refresh(config)
+
+    prix_ttc = (
+        config.prix_ht * (Decimal("1") + config.tva_rate / Decimal("100"))
+    ).quantize(Decimal("0.01"))
+
+    return TicketPriceResponse(
+        prix_ht=config.prix_ht,
+        tva_rate=config.tva_rate,
+        prix_ttc=prix_ttc,
     )
 
 

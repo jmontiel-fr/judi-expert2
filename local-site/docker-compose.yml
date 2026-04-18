@@ -1,24 +1,25 @@
 # Judi-Expert — Application Locale Docker Compose
-# Orchestre les 4 conteneurs de l'Application Locale.
-# Exigences : 2.1 (4 conteneurs Docker), 2.2 (orchestration démarrage)
+# Orchestre les conteneurs de l'Application Locale.
+# Sécurité : réseau interne isolé, seul le backend accède à Internet.
 
 services:
   # ── judi-llm ─────────────────────────────────────────────
   # LLM local : Ollama + Mistral 7B Instruct v0.3
-  # Le script d'entrypoint démarre Ollama puis télécharge
-  # automatiquement le modèle au premier lancement.
+  # SÉCURITÉ : réseau interne uniquement, pas d'accès Internet.
   judi-llm:
     image: ollama/ollama:latest
     container_name: judi-llm
-    ports:
-      - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
       - ./ollama-entrypoint.sh:/ollama-entrypoint.sh:ro
+    environment:
+      - LLM_MODEL=${LLM_MODEL:-mistral:7b-instruct-v0.3-q4_0}
     entrypoint: ["/bin/bash", "/ollama-entrypoint.sh"]
     restart: unless-stopped
+    networks:
+      - internal
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
+      test: ["CMD-SHELL", "grep -q ':2CAA' /proc/net/tcp || grep -q ':2CAA' /proc/net/tcp6"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -26,17 +27,17 @@ services:
 
   # ── judi-rag ─────────────────────────────────────────────
   # Base vectorielle Qdrant pour le corpus domaine
+  # SÉCURITÉ : réseau interne uniquement.
   judi-rag:
     image: qdrant/qdrant:latest
     container_name: judi-rag
-    ports:
-      - "6333:6333"
-      - "6334:6334"
     volumes:
       - qdrant_data:/qdrant/storage
     restart: unless-stopped
+    networks:
+      - internal
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:6333/healthz"]
+      test: ["CMD-SHELL", "grep -q ':18BD' /proc/net/tcp"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -44,26 +45,27 @@ services:
 
   # ── judi-ocr ─────────────────────────────────────────────
   # Service OCR : Tesseract + pdf2image + PyMuPDF
+  # SÉCURITÉ : réseau interne uniquement.
   judi-ocr:
     build:
       context: ./ocr
       dockerfile: Dockerfile
     container_name: judi-ocr
-    ports:
-      - "8001:8001"
     volumes:
       - ocr_tmp:/tmp/ocr
     restart: unless-stopped
+    networks:
+      - internal
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8001/health"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/api/health')\""]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
 
   # ── judi-web (backend) ──────────────────────────────────
-  # Backend FastAPI (port 8000) + base SQLite locale
-  # Dépend de judi-llm, judi-rag et judi-ocr pour le workflow complet.
+  # Backend FastAPI — seul conteneur avec accès Internet (site central).
+  # SÉCURITÉ : connecté aux deux réseaux (interne + externe).
   judi-web-backend:
     build:
       context: ./web/backend
@@ -84,16 +86,19 @@ services:
       judi-ocr:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - internal
+      - external
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')\""]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
 
   # ── judi-web (frontend) ─────────────────────────────────
-  # Frontend Next.js PWA (port 3000)
-  # Dépend du backend pour les appels API.
+  # Frontend Next.js — exposé en localhost.
+  # Connecté aux deux réseaux pour accéder au backend (interne) et être accessible (externe).
   judi-web-frontend:
     build:
       context: ./web/frontend
@@ -103,10 +108,21 @@ services:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://judi-web-backend:8000
+      - HOSTNAME=0.0.0.0
     depends_on:
       judi-web-backend:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - internal
+      - external
+
+networks:
+  internal:
+    driver: bridge
+    internal: true
+  external:
+    driver: bridge
 
 volumes:
   ollama_data:

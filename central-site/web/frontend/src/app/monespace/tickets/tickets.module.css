@@ -90,6 +90,57 @@
   border-radius: 12px;
 }
 
+.statusPerime {
+  display: inline-block;
+  padding: 3px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #c53030;
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  border-radius: 12px;
+}
+
+.rowInactive {
+  opacity: 0.6;
+}
+
+.copyBtn {
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: #ebf8ff;
+  border: 1px solid #bee3f8;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.copyBtn:hover {
+  background: #bee3f8;
+}
+
+.tokenNA {
+  color: var(--color-text-muted);
+}
+
+.deleteBtn {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #c53030;
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.deleteBtn:hover {
+  background: #fed7d7;
+}
+
 .emptyState {
   text-align: center;
   padding: 48px 0;
@@ -114,6 +165,17 @@
   padding: 12px 16px;
   color: #c53030;
   font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+
+.priceInfo {
+  background: #ebf8ff;
+  border: 1px solid #bee3f8;
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: #2b6cb0;
+  font-size: 0.92rem;
+  font-weight: 600;
   margin-bottom: 20px;
 }
 

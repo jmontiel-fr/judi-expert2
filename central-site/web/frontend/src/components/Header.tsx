@@ -19,9 +19,20 @@ export default function Header() {
     <header className={styles.header}>
       <nav className={styles.nav}>
         <Link href="/" className={styles.logo}>
-          Judi-expert
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="" className={styles.logoIcon} />
+          Judi-Expert
+          <span className={styles.devBadge}>dev</span>
         </Link>
         <ul className={styles.links}>
+          <li>
+            <Link
+              href="/"
+              className={`${styles.link} ${pathname === "/" ? styles.active : ""}`}
+            >
+              Accueil
+            </Link>
+          </li>
           <li>
             <Link
               href="/corpus"

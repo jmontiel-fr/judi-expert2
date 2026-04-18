@@ -10,11 +10,11 @@
 #
 # URLs :
 #   - Frontend : http://localhost:3001
-#   - Backend  : http://localhost:8001/docs
+#   - Backend  : http://localhost:8002/docs
 #   - PostgreSQL : localhost:5433
 #
-# Note : les ports sont décalés (3001, 8001, 5433) pour ne pas
-#        entrer en conflit avec l'Application Locale (3000, 8000).
+# Note : les ports sont décalés (3001, 8002, 5433) pour ne pas
+#        entrer en conflit avec l'Application Locale (3000, 8000, 8001).
 # ============================================
 
 name: judi-central
@@ -43,15 +43,15 @@ services:
       dockerfile: Dockerfile
     container_name: judi-central-backend
     ports:
-      - "8001:8000"
+      - "8002:8000"
     environment:
       DATABASE_URL: "postgresql+asyncpg://judi:judi_dev@db:5432/judi_expert"
       DOMAINES_YAML_PATH: "/data/domaines/domaines.yaml"
       APP_ENV: development
       APP_URL: "http://localhost:3001"
-      # Stripe mode test — remplacez par vos clés de test
-      STRIPE_SECRET_KEY: "sk_test_CHANGEZ_MOI"
-      STRIPE_PUBLISHABLE_KEY: "pk_test_CHANGEZ_MOI"
+      # Stripe mode test — définir dans .env.dev
+      STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY:-sk_test_CHANGEZ_MOI}"
+      STRIPE_PUBLISHABLE_KEY: "${STRIPE_PUBLISHABLE_KEY:-pk_test_CHANGEZ_MOI}"
       STRIPE_WEBHOOK_SECRET: "whsec_CHANGEZ_MOI"
       STRIPE_PRICE_TICKET: "price_CHANGEZ_MOI"
       # Cognito — en mode dev, le backend accepte un bypass auth
@@ -63,16 +63,25 @@ services:
       # Admin
       ADMIN_EMAIL: "admin@judi-expert.fr"
       ADMIN_DEFAULT_PASSWORD: "change-me"
+      # Ticket token signing
+      TICKET_SECRET: "judi-dev-ticket-secret-2026"
+      TICKET_VALIDITY_HOURS: "48"
       # ECR — pas utilisé en local
       ECR_REGISTRY: "local"
       AWS_REGION: "eu-west-3"
       SES_SENDER_EMAIL: "no-reply@localhost"
+      # SMTP Gmail — configurer avec un vrai compte pour tester les emails
+      SMTP_HOST: "smtp.gmail.com"
+      SMTP_PORT: "587"
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
+      SMTP_FROM_NAME: "Judi-Expert"
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - ../domaines:/data/domaines:ro
-      - ../corpus:/data/corpus:ro
+      - ../corpus:/data/corpus:rw
       - ./app_locale_package/output:/data/app_locale_package/output:ro
     restart: unless-stopped
 
@@ -81,16 +90,16 @@ services:
       context: ./web/frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: "http://localhost:8001"
+        NEXT_PUBLIC_API_URL: "http://localhost:8002"
         NEXT_PUBLIC_RECAPTCHA_SITE_KEY: "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
-        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_CHANGEZ_MOI"
+        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "${STRIPE_PUBLISHABLE_KEY:-pk_test_CHANGEZ_MOI}"
     container_name: judi-central-frontend
     ports:
       - "3001:3000"
     environment:
-      NEXT_PUBLIC_API_URL: "http://localhost:8001"
+      NEXT_PUBLIC_API_URL: "http://localhost:8002"
       NEXT_PUBLIC_RECAPTCHA_SITE_KEY: "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_CHANGEZ_MOI"
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "${STRIPE_PUBLISHABLE_KEY:-pk_test_CHANGEZ_MOI}"
     depends_on:
       - backend
     restart: unless-stopped

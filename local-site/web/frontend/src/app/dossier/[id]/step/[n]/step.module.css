@@ -319,3 +319,29 @@
   color: var(--color-text-muted);
   margin-top: 2px;
 }
+
+/* Extracting indicator */
+.extractingIndicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #1e40af;
+  font-weight: 500;
+}
+
+.hourglass {
+  display: inline-block;
+  font-size: 1.3rem;
+  animation: hourglassSpin 2s ease-in-out infinite;
+}
+
+@keyframes hourglassSpin {
+  0% { transform: rotate(0deg); }
+  50% { transform: rotate(180deg); }
+  100% { transform: rotate(180deg); }
+}

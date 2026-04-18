@@ -329,7 +329,7 @@ export default function InscriptionPage() {
               onChange={(e) => updateField("acceptProtection", e.target.checked)}
               aria-invalid={!!errors.acceptProtection} />
             <span>
-              Je m&apos;engage à protéger les données sur mon PC (BitLocker ou équivalent)<span className={styles.required}>*</span>
+              J&apos;ai pris connaissance de la <Link href="/politique-confidentialite">Politique de confidentialité</Link> et des <Link href="/securite">mesures de sécurité</Link>, et je m&apos;engage à protéger les données sur mon PC (BitLocker ou équivalent)<span className={styles.required}>*</span>
               {" "}
               <button type="button" className={styles.infoBtn} onClick={() => setShowEncryptionPopup(true)} aria-label="En savoir plus sur le chiffrement">ℹ️</button>
             </span>

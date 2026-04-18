@@ -67,6 +67,11 @@ const FAQ_DATA: FAQSection[] = [
         answer:
           "L'application exige un chiffrement de disque (BitLocker ou équivalent) comme prérequis d'installation. Les données sont stockées localement dans une base SQLite chiffrée. Aucune donnée sensible ne transite par nos serveurs.",
       },
+      {
+        question: "Judi-expert est-il conforme au RGPD pour tous les domaines d'expertise, y compris hors santé ?",
+        answer:
+          "Oui. Les dossiers d'expertise judiciaire contiennent systématiquement des données personnelles sensibles au sens du RGPD, quel que soit le domaine : identités des parties, données financières en comptabilité, adresses et litiges en bâtiment, données de santé en psychiatrie ou psychologie. Avec Judi-expert, toutes ces données restent exclusivement sur le PC de l'expert. L'IA tourne en local, rien ne sort du poste. La situation RGPD est donc exactement la même que lorsque l'expert rédige son rapport manuellement : le chiffrement du disque et la protection d'accès au poste relèvent de la responsabilité de l'expert, comme c'est déjà le cas aujourd'hui sans IA. Judi-expert n'ajoute aucune contrainte RGPD supplémentaire par rapport à la pratique actuelle. À l'inverse, une solution 100% cloud nécessiterait une analyse d'impact (DPIA), un hébergement souverain, une certification HDS pour les domaines santé, et potentiellement la qualification SecNumCloud de l'ANSSI.",
+      },
     ],
   },
   {
@@ -86,6 +91,56 @@ const FAQ_DATA: FAQSection[] = [
         question: "Judi-expert est-il conforme à l'AI Act européen ?",
         answer:
           "Oui. Judi-expert est conçu dans le respect de l'AI Act européen. L'IA est utilisée comme outil d'assistance, l'expert reste décisionnaire à chaque étape, et toutes les données restent sur le poste de l'expert, garantissant la souveraineté des données et la conformité RGPD.",
+      },
+    ],
+  },
+  {
+    title: "Sécurité",
+    items: [
+      {
+        question: "Comment les données d'expertise sont-elles protégées ?",
+        answer:
+          "L'application locale utilise une architecture réseau isolée : les conteneurs IA (LLM, OCR, RAG) fonctionnent dans un réseau Docker interne sans aucun accès à Internet. Seul le backend communique avec le Site Central pour la vérification des tickets. Le chiffrement du disque (BitLocker) est obligatoire. Chaque dossier finalisé est archivé avec un hash SHA-256 pour garantir l'intégrité. Consultez notre page Sécurité pour le détail complet.",
+      },
+      {
+        question: "Les données d'expertise transitent-elles par le cloud ?",
+        answer:
+          "Non. Toutes les données d'expertise (documents, rapports, notes d'entretien) restent exclusivement sur le PC de l'expert. Seuls les tokens de tickets (codes d'activation) transitent entre l'application locale et le Site Central. L'IA tourne 100% en local.",
+      },
+      {
+        question: "Comment garantir que les conteneurs Docker sont authentiques ?",
+        answer:
+          "Les images personnalisées (backend, frontend, OCR) sont construites localement à partir du code source. Les images tierces (Ollama pour le LLM, Qdrant pour le RAG) proviennent des registres officiels Docker Hub avec des versions épinglées. En production, les images sont stockées dans un registre privé AWS ECR avec scan de vulnérabilités.",
+      },
+    ],
+  },
+  {
+    title: "Configuration PC recommandée",
+    items: [
+      {
+        question: "Minimum — PC bureautique (traitement en 5-10 min par étape)",
+        answer:
+          "Processeur : Intel Core i5 (10e gén.) ou AMD Ryzen 5. RAM : 16 Go. Stockage : SSD 256 Go. GPU : non requis (CPU uniquement). OS : Windows 11 Pro (BitLocker obligatoire). Docker Desktop + WSL 2. Temps de traitement estimé : 5 à 10 minutes par étape IA.",
+      },
+      {
+        question: "Confort — PC performant (traitement en 2-5 min par étape)",
+        answer:
+          "Processeur : Intel Core i7 (12e gén.) ou AMD Ryzen 7. RAM : 32 Go. Stockage : SSD NVMe 512 Go. GPU : non requis (CPU uniquement). OS : Windows 11 Pro (BitLocker obligatoire). Docker Desktop + WSL 2. Temps de traitement estimé : 2 à 5 minutes par étape IA.",
+      },
+      {
+        question: "Performance — PC avec GPU (traitement en 10-30 sec par étape)",
+        answer:
+          "Processeur : Intel Core i7/i9 ou AMD Ryzen 7/9. RAM : 32 Go. Stockage : SSD NVMe 1 To. GPU : NVIDIA RTX 3060 (12 Go VRAM) ou supérieur — RTX 4060/4070 recommandé. OS : Windows 11 Pro (BitLocker obligatoire). Drivers NVIDIA + NVIDIA Container Toolkit. Docker Desktop + WSL 2. Temps de traitement estimé : 10 à 30 secondes par étape IA.",
+      },
+      {
+        question: "Pourquoi Windows 11 Pro et BitLocker ?",
+        answer:
+          "Windows 11 Pro est requis pour activer BitLocker, le chiffrement de disque intégré de Microsoft. Le chiffrement du disque est obligatoire pour protéger les données d'expertise judiciaire conformément au RGPD et à la réglementation sur les données sensibles. BitLocker est activé par défaut sur Windows 11 Pro avec un compte Microsoft.",
+      },
+      {
+        question: "Comment activer le GPU pour accélérer l'IA ?",
+        answer:
+          "Si votre PC dispose d'une carte NVIDIA, installez les drivers NVIDIA récents et le NVIDIA Container Toolkit. L'application détecte automatiquement le GPU au démarrage et l'utilise pour l'inférence IA. Aucune configuration manuelle n'est nécessaire.",
       },
     ],
   },

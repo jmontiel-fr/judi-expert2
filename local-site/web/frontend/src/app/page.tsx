@@ -9,6 +9,8 @@ import {
   type DossierListItem,
 } from "@/lib/api";
 
+const SITE_CENTRAL_URL = process.env.NEXT_PUBLIC_SITE_CENTRAL_URL || "http://localhost:3001";
+
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
@@ -83,7 +85,7 @@ export default function HomePage() {
       return;
     }
     if (!ticketId.trim()) {
-      setCreateError("Le code du ticket est requis.");
+      setCreateError("Le token du ticket est requis.");
       return;
     }
 
@@ -105,6 +107,19 @@ export default function HomePage() {
 
   return (
     <div className={styles.container}>
+      {/* Note préliminaire */}
+      <div className={styles.ticketNotice}>
+        🎟️ La création de dossier nécessite l&apos;acquisition d&apos;un ticket.{" "}
+        <a
+          href={`${SITE_CENTRAL_URL}/monespace`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Acheter un ticket sur le site central ↗
+        </a>
+        . Vous recevrez vos tickets par email.
+      </div>
+
       {/* Page header */}
       <div className={styles.header}>
         <div>
@@ -198,7 +213,7 @@ export default function HomePage() {
                         className={`${styles.stepDot} ${
                           s.statut === "valide"
                             ? styles.stepDotValide
-                            : s.statut === "realise"
+                            : s.statut === "fait"
                               ? styles.stepDotRealise
                               : styles.stepDotInitial
                         }`}
@@ -225,7 +240,7 @@ export default function HomePage() {
               Nouveau dossier
             </h2>
             <p className={styles.modalSubtitle}>
-              Saisissez le nom du dossier et le code du ticket d&apos;expertise.
+              Saisissez le nom du dossier et collez le token du ticket reçu par email.
             </p>
 
             <form onSubmit={handleCreate} className={styles.form} noValidate>
@@ -247,7 +262,7 @@ export default function HomePage() {
 
               <div className={styles.field}>
                 <label htmlFor="dossier-ticket" className={styles.label}>
-                  Code du ticket
+                  Token du ticket
                 </label>
                 <input
                   id="dossier-ticket"
@@ -255,7 +270,7 @@ export default function HomePage() {
                   className={styles.input}
                   value={ticketId}
                   onChange={(e) => setTicketId(e.target.value)}
-                  placeholder="Ex : TKT-2026-ABCD"
+                  placeholder="Collez le token reçu par email (JE-...)"
                   required
                 />
               </div>

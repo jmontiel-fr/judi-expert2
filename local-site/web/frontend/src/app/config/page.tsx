@@ -267,7 +267,7 @@ export default function ConfigPage() {
               <strong>Fichier exemple disponible</strong>
               <p>
                 Un TPE par défaut pour le domaine psychologie est disponible
-                (TPE_psychologie.tpl).
+                (TPE_psychologie.md).
               </p>
               <div className={styles.defaultActions}>
                 <button
@@ -385,7 +385,7 @@ export default function ConfigPage() {
           <div className={styles.documentList}>
             {documents.map((doc) => (
               <div key={doc.doc_id} className={styles.documentItem}>
-                <span className={styles.documentName}>{doc.filename}</span>
+                <span className={styles.documentName}>{doc.filename.replace(/\.tpl$/i, ".md")}</span>
                 <div className={styles.documentMeta}>
                   <span className={styles.badge}>{doc.doc_type}</span>
                   <span>{doc.chunk_count} chunks</span>

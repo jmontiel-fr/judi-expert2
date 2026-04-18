@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CorpusVersionResponse(BaseModel):
@@ -34,3 +34,31 @@ class DownloadResponse(BaseModel):
     version: str
     description: str
     file_size: Optional[str] = None
+
+
+class ContenuItemResponse(BaseModel):
+    """Un élément du contenu.yaml."""
+
+    nom: str
+    description: str
+    type: str
+    date_ajout: str
+
+
+class UrlItemResponse(BaseModel):
+    """Une URL du urls.yaml."""
+
+    nom: str
+    url: str
+    description: str
+    type: str
+    date_ajout: str
+
+
+class AddUrlRequest(BaseModel):
+    """Requête d'ajout d'une URL."""
+
+    nom: str = Field(..., min_length=1)
+    url: str = Field(..., pattern=r"^https?://")
+    description: str
+    type: str = Field(..., pattern=r"^(pdf_externe|site_web)$")

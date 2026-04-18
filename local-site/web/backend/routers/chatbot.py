@@ -7,11 +7,12 @@ import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import get_db
+from database import async_session_factory, get_db
 from models.chat_message import ChatMessage
 from models.local_config import LocalConfig
 from routers.auth import get_current_user
@@ -122,6 +123,85 @@ async def send_message(
     await db.commit()
 
     return ChatMessageResponse(response=assistant_response)
+
+
+@router.post("/message/stream")
+async def send_message_stream(
+    body: ChatMessageRequest,
+    db: AsyncSession = Depends(get_db),
+    _current_user: dict = Depends(get_current_user),
+):
+    """Envoie un message au ChatBot et streame la réponse token par token."""
+    # 1. Récupérer le domaine
+    result = await db.execute(select(LocalConfig).limit(1))
+    config = result.scalar_one_or_none()
+    if config is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Configuration initiale non effectuée",
+        )
+    domaine = config.domaine
+
+    # 2. Rechercher le contexte RAG
+    rag = RAGService()
+    contexte_parts: list[str] = []
+    try:
+        corpus_docs = await rag.search(
+            query=body.message, collection=f"corpus_{domaine}", limit=5,
+        )
+        for doc in corpus_docs:
+            contexte_parts.append(doc.content)
+    except RAGError:
+        pass
+    try:
+        system_docs = await rag.search(
+            query=body.message, collection="system_docs", limit=3,
+        )
+        for doc in system_docs:
+            contexte_parts.append(doc.content)
+    except RAGError:
+        pass
+
+    contexte_rag = "\n\n".join(contexte_parts) if contexte_parts else ""
+
+    # 3. Historique
+    history_result = await db.execute(
+        select(ChatMessage)
+        .where(ChatMessage.session_id == body.session_id)
+        .order_by(ChatMessage.created_at.asc())
+    )
+    history_rows = history_result.scalars().all()
+    messages: list[dict[str, str]] = [
+        {"role": row.role, "content": row.content} for row in history_rows
+    ]
+    messages.append({"role": "user", "content": body.message})
+
+    # 4. Sauvegarder le message utilisateur immédiatement
+    db.add(ChatMessage(session_id=body.session_id, role="user", content=body.message))
+    await db.commit()
+
+    # 5. Streamer la réponse
+    llm = LLMService()
+    collected: list[str] = []
+
+    async def generate():
+        try:
+            async for chunk in llm.chatbot_stream(messages, contexte_rag):
+                collected.append(chunk)
+                yield f"data: {chunk}\n\n"
+            # Fin du stream — sauvegarder la réponse complète
+            full_response = "".join(collected)
+            async with async_session_factory() as session:
+                session.add(ChatMessage(
+                    session_id=body.session_id, role="assistant", content=full_response,
+                ))
+                await session.commit()
+            yield "data: [DONE]\n\n"
+        except Exception as exc:
+            logger.error("Erreur streaming chatbot : %s", exc)
+            yield f"data: [ERROR] {exc}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 @router.get("/history", response_model=list[ChatHistoryItem])

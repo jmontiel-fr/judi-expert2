@@ -20,6 +20,7 @@ export interface DossierStep {
   statut: string;
   executed_at: string | null;
   validated_at: string | null;
+  files: StepFileItem[];
 }
 
 export interface DossierListItem {
@@ -50,6 +51,9 @@ export interface StepFileItem {
   file_type: string;
   file_size: number;
   created_at: string;
+  is_modified: boolean;
+  original_file_path: string | null;
+  updated_at: string | null;
 }
 
 export interface StepDetail {
@@ -73,6 +77,22 @@ export interface DocumentItem {
   doc_type: string;
   chunk_count: number;
   collection: string;
+}
+
+export interface StepFileResponse {
+  id: number;
+  filename: string;
+  file_type: string;
+  file_size: number;
+  is_modified: boolean;
+  original_file_path: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface StepFileReplaceResponse {
+  message: string;
+  file: StepFileResponse;
 }
 
 export interface ChatMessage {
@@ -141,12 +161,29 @@ apiClient.interceptors.response.use(
  */
 export function getErrorMessage(err: unknown, fallback = "Une erreur est survenue."): string {
   if (axios.isAxiosError(err)) {
-    if (err.response?.data?.detail) return err.response.data.detail;
-    if (err.response?.status === 401) return "Session expirée. Veuillez vous reconnecter.";
-    if (err.response?.status === 403) return "Accès refusé.";
-    if (err.response?.status === 404) return "Ressource non trouvée.";
-    if (err.response?.status === 503) return "Service temporairement indisponible.";
+    const data = err.response?.data;
+    // FastAPI detail string
+    if (typeof data?.detail === "string") return data.detail;
+    // FastAPI validation errors (422) — array of {loc, msg, type}
+    if (Array.isArray(data?.detail)) {
+      return data.detail.map((e: { msg?: string }) => e.msg ?? "Erreur de validation").join(", ");
+    }
+    // Other structured error
+    if (data?.message) return data.message;
+    // Status-based fallbacks
+    const status = err.response?.status;
+    if (status === 401) return "Session expirée. Veuillez vous reconnecter.";
+    if (status === 403) return "Accès refusé.";
+    if (status === 404) return "Ressource non trouvée.";
+    if (status === 422) return "Données invalides envoyées au serveur.";
+    if (status === 500) return "Erreur interne du serveur.";
+    if (status === 502) return "Erreur de communication entre services.";
+    if (status === 503) return "Service temporairement indisponible.";
+    if (status) return `Erreur serveur (HTTP ${status}).`;
+    // Network error (no response)
+    if (err.code === "ERR_NETWORK") return "Erreur réseau — le serveur est-il démarré ?";
   }
+  if (err instanceof Error) return err.message;
   return fallback;
 }
 
@@ -163,12 +200,19 @@ export const authApi = {
     return res.data;
   },
 
-  async login(password: string) {
-    const res = await apiClient.post<{ access_token: string; token_type: string }>(
+  async login(email: string, password: string) {
+    const res = await apiClient.post<{ access_token: string; token_type: string; email: string; domaine: string }>(
       "/api/auth/login",
-      { password },
+      { email, password },
     );
     setToken(res.data.access_token);
+    return res.data;
+  },
+
+  async info() {
+    const res = await apiClient.get<{ configured: boolean; email: string | null; domaine: string | null }>(
+      "/api/auth/info",
+    );
     return res.data;
   },
 };
@@ -271,6 +315,61 @@ export const dossiersApi = {
     );
     return res.data;
   },
+
+  async close(id: string | number) {
+    const res = await apiClient.post<{ message: string }>(
+      `/api/dossiers/${id}/close`,
+      {},
+    );
+    return res.data;
+  },
+
+  getDownloadUrl(id: string | number): string {
+    const token = getToken();
+    const base = API_BASE_URL || "";
+    const url = `${base}/api/dossiers/${id}/download`;
+    return token ? `${url}?token=${encodeURIComponent(token)}` : url;
+  },
+
+  async resetStep(dossierId: string | number, stepNumber: number) {
+    const res = await apiClient.post<{ message: string }>(
+      `/api/dossiers/${dossierId}/steps/${stepNumber}/reset`,
+      {},
+    );
+    return res.data;
+  },
+
+  async cancelStep(dossierId: string | number, stepNumber: number) {
+    const res = await apiClient.post<{ message: string }>(
+      `/api/dossiers/${dossierId}/steps/${stepNumber}/cancel`,
+      {},
+    );
+    return res.data;
+  },
+
+  async validateStep(dossierId: string | number, stepNumber: number) {
+    const res = await apiClient.post<{ message: string }>(
+      `/api/dossiers/${dossierId}/step${stepNumber}/validate`,
+      {},
+    );
+    return res.data;
+  },
+
+  async resetAll(dossierId: string | number) {
+    const res = await apiClient.post<{ message: string }>(
+      `/api/dossiers/${dossierId}/reset-all`,
+      {},
+    );
+    return res.data;
+  },
+
+  async archive(dossierId: string | number) {
+    const res = await apiClient.post<{ message: string }>(
+      `/api/dossiers/${dossierId}/archive`,
+      {},
+    );
+    return res.data;
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -284,7 +383,7 @@ export const step0Api = {
     const res = await apiClient.post<{ markdown: string; pdf_path: string; md_path: string }>(
       `/api/dossiers/${dossierId}/step0/extract`,
       formData,
-      { headers: { "Content-Type": "multipart/form-data" } },
+      { headers: { "Content-Type": "multipart/form-data" }, timeout: 1_800_000 },
     );
     return res.data;
   },
@@ -303,6 +402,17 @@ export const step0Api = {
     );
     return res.data;
   },
+
+  async importDocx(dossierId: string | number, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await apiClient.post<{ message: string }>(
+      `/api/dossiers/${dossierId}/step0/import-docx`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return res.data;
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -314,6 +424,7 @@ export const step1Api = {
     const res = await apiClient.post<{ qmec: string }>(
       `/api/dossiers/${dossierId}/step1/execute`,
       {},
+      { timeout: 1_800_000 },
     );
     return res.data;
   },
@@ -339,14 +450,13 @@ export const step1Api = {
 // ---------------------------------------------------------------------------
 
 export const step2Api = {
-  async upload(dossierId: string | number, neFile: File, rebFile: File) {
+  async upload(dossierId: string | number, neaFile: File) {
     const formData = new FormData();
-    formData.append("ne", neFile);
-    formData.append("reb", rebFile);
+    formData.append("file", neaFile);
     const res = await apiClient.post<{ message: string; filenames: string[] }>(
       `/api/dossiers/${dossierId}/step2/upload`,
       formData,
-      { headers: { "Content-Type": "multipart/form-data" } },
+      { headers: { "Content-Type": "multipart/form-data" }, timeout: 1_800_000 },
     );
     return res.data;
   },
@@ -365,10 +475,13 @@ export const step2Api = {
 // ---------------------------------------------------------------------------
 
 export const step3Api = {
-  async execute(dossierId: string | number) {
-    const res = await apiClient.post<{ ref: string; raux: string }>(
+  async execute(dossierId: string | number, file?: File) {
+    const formData = new FormData();
+    if (file) formData.append("file", file);
+    const res = await apiClient.post<{ message: string; filenames: string[] }>(
       `/api/dossiers/${dossierId}/step3/execute`,
-      {},
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" }, timeout: 1_800_000 },
     );
     return res.data;
   },
@@ -390,6 +503,42 @@ export const step3Api = {
 };
 
 // ---------------------------------------------------------------------------
+// Step Files API (generic file operations)
+// ---------------------------------------------------------------------------
+
+export const stepFilesApi = {
+  getDownloadUrl(dossierId: string | number, stepNumber: number, fileId: number): string {
+    const token = getToken();
+    const base = API_BASE_URL || "";
+    const url = `${base}/api/dossiers/${dossierId}/steps/${stepNumber}/files/${fileId}/download`;
+    return token ? `${url}?token=${encodeURIComponent(token)}` : url;
+  },
+
+  getViewUrl(dossierId: string | number, stepNumber: number, fileId: number): string {
+    const token = getToken();
+    const base = API_BASE_URL || "";
+    const url = `${base}/api/dossiers/${dossierId}/steps/${stepNumber}/files/${fileId}/view`;
+    return token ? `${url}?token=${encodeURIComponent(token)}` : url;
+  },
+
+  async replaceFile(
+    dossierId: string | number,
+    stepNumber: number,
+    fileId: number,
+    file: File,
+  ): Promise<StepFileReplaceResponse> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await apiClient.post<StepFileReplaceResponse>(
+      `/api/dossiers/${dossierId}/steps/${stepNumber}/files/${fileId}/replace`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return res.data;
+  },
+};
+
+// ---------------------------------------------------------------------------
 // ChatBot API
 // ---------------------------------------------------------------------------
 
@@ -400,6 +549,39 @@ export const chatbotApi = {
       { message, session_id: sessionId },
     );
     return res.data;
+  },
+
+  async *sendMessageStream(message: string, sessionId = 1): AsyncGenerator<string> {
+    const token = getToken();
+    const base = API_BASE_URL || "";
+    const res = await fetch(`${base}/api/chatbot/message/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ message, session_id: sessionId }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const reader = res.body?.getReader();
+    if (!reader) return;
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6);
+          if (data === "[DONE]") return;
+          if (data.startsWith("[ERROR]")) throw new Error(data);
+          yield data;
+        }
+      }
+    }
   },
 
   async getHistory(sessionId = 1) {
@@ -431,6 +613,30 @@ export function isStepAccessible(stepNumber: number, steps: DossierStep[]): bool
  */
 export function isStepLocked(step: { statut: string }): boolean {
   return step.statut === "valide";
+}
+
+/**
+ * Formats a file size in bytes into a human-readable string using
+ * French units (o, Ko, Mo, Go). Matches the backend FileService logic.
+ *
+ * Exact values omit decimals (e.g. 1024 → "1 Ko"),
+ * non-exact values show 1 decimal (e.g. 1536 → "1.5 Ko").
+ */
+export function formatFileSize(bytes: number): string {
+  const units = ["o", "Ko", "Mo", "Go"] as const;
+  let value = bytes;
+
+  for (let i = 0; i < units.length - 1; i++) {
+    if (value < 1024) {
+      const formatted = Number(value.toFixed(1));
+      return `${formatted} ${units[i]}`;
+    }
+    value /= 1024;
+  }
+
+  // Terminal unit: Go
+  const formatted = Number(value.toFixed(1));
+  return `${formatted} ${units[units.length - 1]}`;
 }
 
 export default apiClient;
