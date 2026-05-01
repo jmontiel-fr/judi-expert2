@@ -97,7 +97,7 @@ def detect_disk_free_gb(path: str | None = None) -> float:
 
 
 def detect_disk_encrypted() -> bool:
-    """Détecte si le disque est chiffré."""
+    """Détecte si le disque est chiffré (BitLocker ou VeraCrypt)."""
     system = platform.system()
     try:
         if system == "Darwin":
@@ -123,6 +123,7 @@ def detect_disk_encrypted() -> bool:
             except (subprocess.CalledProcessError, FileNotFoundError):
                 pass
         elif system == "Windows":
+            # Vérifier BitLocker
             output = subprocess.check_output(
                 [
                     "powershell",
@@ -133,10 +134,50 @@ def detect_disk_encrypted() -> bool:
                 ],
                 text=True,
             ).strip()
-            return output == "On"
+            if output == "On":
+                return True
+            # Vérifier VeraCrypt (driver actif)
+            try:
+                output = subprocess.check_output(
+                    [
+                        "powershell",
+                        "-NoProfile",
+                        "-Command",
+                        "Get-Service veracrypt -ErrorAction SilentlyContinue"
+                        " | Select-Object -ExpandProperty Status",
+                    ],
+                    text=True,
+                ).strip()
+                if output == "Running":
+                    return True
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                pass
     except Exception:
         pass
     return False
+
+
+def detect_chrome_installed() -> bool:
+    """Détecte si Google Chrome est installé."""
+    if platform.system() != "Windows":
+        return True  # Non vérifié hors Windows
+    chrome_paths = [
+        os.path.join(os.environ.get("PROGRAMFILES", ""), "Google", "Chrome", "Application", "chrome.exe"),
+        os.path.join(os.environ.get("PROGRAMFILES(X86)", ""), "Google", "Chrome", "Application", "chrome.exe"),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "Application", "chrome.exe"),
+    ]
+    return any(os.path.isfile(p) for p in chrome_paths if p)
+
+
+def detect_veracrypt_installed() -> bool:
+    """Détecte si VeraCrypt est installé."""
+    if platform.system() != "Windows":
+        return True  # Non vérifié hors Windows
+    veracrypt_paths = [
+        os.path.join(os.environ.get("PROGRAMFILES", ""), "VeraCrypt", "VeraCrypt.exe"),
+        os.path.join(os.environ.get("PROGRAMFILES(X86)", ""), "VeraCrypt", "VeraCrypt.exe"),
+    ]
+    return any(os.path.isfile(p) for p in veracrypt_paths if p)
 
 
 def detect_system_config() -> SystemConfig:
@@ -147,6 +188,34 @@ def detect_system_config() -> SystemConfig:
         disk_free_gb=detect_disk_free_gb(),
         disk_encrypted=detect_disk_encrypted(),
     )
+
+
+# ── Détection de synchronisation cloud ────────────────────
+
+CLOUD_SYNC_MARKERS = [
+    "OneDrive",
+    "Dropbox",
+    "Google Drive",
+    "iCloudDrive",
+    "MEGA",
+    "pCloud",
+]
+
+
+def detect_cloud_sync(install_path: str) -> str | None:
+    """Détecte si le chemin d'installation est dans un dossier synchronisé.
+
+    Args:
+        install_path: Chemin d'installation de Judi-Expert.
+
+    Returns:
+        Nom du service cloud détecté, ou None si aucun.
+    """
+    normalized = os.path.normpath(install_path).replace("\\", "/").lower()
+    for marker in CLOUD_SYNC_MARKERS:
+        if marker.lower() in normalized:
+            return marker
+    return None
 
 
 # ── Validation ────────────────────────────────────────────
@@ -199,6 +268,9 @@ def main() -> int:
     print("╚══════════════════════════════════════════════════╝")
     print("")
 
+    # Chemin d'installation recommandé
+    install_path = os.environ.get("JUDI_INSTALL_PATH", r"C:\judi-expert")
+
     print("Détection de la configuration système...")
     config = detect_system_config()
 
@@ -206,21 +278,65 @@ def main() -> int:
     print(f"  RAM        : {config.ram_gb} Go")
     print(f"  Disque     : {config.disk_free_gb} Go libres")
     print(f"  Chiffrement: {'Oui' if config.disk_encrypted else 'Non'}")
+    print(f"  Installation: {install_path}")
+
+    # Détection logiciels
+    chrome_ok = detect_chrome_installed()
+    veracrypt_ok = detect_veracrypt_installed()
+    print(f"  Chrome     : {'Installé' if chrome_ok else 'Non trouvé'}")
+    if not config.disk_encrypted:
+        print(f"  VeraCrypt  : {'Installé' if veracrypt_ok else 'Non trouvé'}")
     print("")
 
     result = validate_prerequisites(config)
 
-    if result.valid:
+    # Vérification synchronisation cloud
+    cloud_service = detect_cloud_sync(install_path)
+    if cloud_service:
+        print(f"⚠ ATTENTION : Le répertoire d'installation est dans un")
+        print(f"  dossier synchronisé ({cloud_service}).")
+        print(f"  Les données d'expertise ne doivent PAS être")
+        print(f"  synchronisées dans le cloud (RGPD/secret professionnel).")
+        print(f"  → Utilisez C:\\judi-expert comme répertoire.")
+        print("")
+
+    # Vérification logiciels
+    warnings: list[str] = []
+
+    if not chrome_ok:
+        warnings.append(
+            "Google Chrome n'est pas installé. Il est requis pour "
+            "l'interface Judi-Expert. Téléchargez-le sur https://www.google.com/chrome/"
+        )
+
+    if not config.disk_encrypted and not veracrypt_ok:
+        warnings.append(
+            "Le disque n'est pas chiffré et VeraCrypt n'est pas installé. "
+            "Installez VeraCrypt (https://veracrypt.eu) puis chiffrez le "
+            "disque système pour protéger les données d'expertise."
+        )
+
+    for w in warnings:
+        print(f"⚠ {w}")
+        print("")
+
+    if result.valid and not cloud_service and not warnings:
         print("✔ Tous les prérequis sont satisfaits.")
         print("  L'installation peut continuer.")
         return 0
     else:
-        print("✖ Prérequis non satisfaits :")
-        print("")
-        for error in result.errors:
-            print(f"  ✖ {error}")
-        print("")
-        print("L'installation ne peut pas continuer.")
+        if result.errors:
+            print("✖ Prérequis non satisfaits :")
+            print("")
+            for error in result.errors:
+                print(f"  ✖ {error}")
+            print("")
+        if cloud_service:
+            print("✖ Répertoire d'installation dans un dossier cloud.")
+            print("")
+        if warnings:
+            print("⚠ Logiciels manquants (voir ci-dessus).")
+            print("")
         print("Veuillez corriger les problèmes ci-dessus et réessayer.")
         return 1
 

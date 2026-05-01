@@ -16,6 +16,7 @@ import {
   type DossierDetail,
 } from "@/lib/api";
 import FileList from "@/components/FileList";
+import StepProgressList from "@/components/StepProgressList";
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                           */
@@ -177,30 +178,42 @@ export default function StepViewPage() {
               <span className={styles.hourglass} aria-hidden="true">⏳</span>
               <div>
                 {stepNumber === 0 && (
-                  <>
-                    <div>Étape 1/3 — OCR (extraction du texte)</div>
-                    <div>Étape 2/3 — Structuration Markdown par l&apos;IA</div>
-                    <div>Étape 3/3 — Génération du document Word</div>
-                  </>
+                  <StepProgressList
+                    active
+                    steps={[
+                      "Étape 1/3 — OCR (extraction du texte)",
+                      "Étape 2/3 — Structuration Markdown par l'IA",
+                      "Étape 3/3 — Génération du document Word",
+                    ]}
+                  />
                 )}
                 {stepNumber === 1 && (
-                  <>
-                    <div>Étape 1/2 — Génération du plan d&apos;entretien par l&apos;IA</div>
-                    <div>Étape 2/2 — Génération du document Word</div>
-                  </>
+                  <StepProgressList
+                    active
+                    steps={[
+                      "Étape 1/2 — Génération du plan d'entretien par l'IA",
+                      "Étape 2/2 — Génération du document Word",
+                    ]}
+                  />
                 )}
                 {stepNumber === 2 && (
-                  <>
-                    <div>Étape 1/2 — Génération du RE-Projet par l&apos;IA</div>
-                    <div>Étape 2/2 — Génération du RE-Projet-Auxiliaire</div>
-                  </>
+                  <StepProgressList
+                    active
+                    steps={[
+                      "Étape 1/2 — Génération du RE-Projet par l'IA",
+                      "Étape 2/2 — Génération du RE-Projet-Auxiliaire",
+                    ]}
+                  />
                 )}
                 {stepNumber === 3 && (
-                  <>
-                    <div>Étape 1/3 — Génération de l&apos;archive ZIP</div>
-                    <div>Étape 2/3 — Génération du hash pour horodatage</div>
-                    <div>Étape 3/3 — Stockage du hash</div>
-                  </>
+                  <StepProgressList
+                    active
+                    steps={[
+                      "Étape 1/3 — Génération de l'archive ZIP",
+                      "Étape 2/3 — Génération du hash pour horodatage",
+                      "Étape 3/3 — Stockage du hash",
+                    ]}
+                  />
                 )}
                 <div style={{ marginTop: 8, fontStyle: "italic", fontSize: "0.85rem" }}>
                   Vous pouvez quitter cette page, le traitement continue en arrière-plan.
@@ -362,9 +375,14 @@ function Step0View({ dossierId, step, isLocked, onRefresh }: StepViewProps) {
               <div className={styles.extractingIndicator}>
                 <span className={styles.hourglass} aria-hidden="true">⏳</span>
                 <div>
-                  <div>Étape 1/3 — OCR (extraction du texte)</div>
-                  <div>Étape 2/3 — Structuration Markdown par l&apos;IA</div>
-                  <div>Étape 3/3 — Génération du document Word</div>
+                  <StepProgressList
+                    active
+                    steps={[
+                      "Étape 1/3 — OCR (extraction du texte)",
+                      "Étape 2/3 — Structuration Markdown par l'IA",
+                      "Étape 3/3 — Génération du document Word",
+                    ]}
+                  />
                   <div style={{ marginTop: 8, fontStyle: "italic" }}>
                     Cette opération peut prendre plusieurs minutes…
                   </div>
@@ -493,8 +511,13 @@ function Step1View({ dossierId, step, isLocked, onRefresh }: StepViewProps) {
             <div className={styles.extractingIndicator}>
               <span className={styles.hourglass} aria-hidden="true">⏳</span>
               <div>
-                <div>Étape 1/2 — Génération du plan d&apos;entretien par l&apos;IA</div>
-                <div>Étape 2/2 — Génération du document Word</div>
+                <StepProgressList
+                  active
+                  steps={[
+                    "Étape 1/2 — Génération du plan d'entretien par l'IA",
+                    "Étape 2/2 — Génération du document Word",
+                  ]}
+                />
                 <div style={{ marginTop: 8, fontStyle: "italic" }}>
                   Cette opération peut prendre plusieurs minutes…
                 </div>
@@ -613,9 +636,14 @@ function Step2View({ dossierId, step, isLocked, onRefresh }: StepViewProps) {
             {uploading ? (
               <div className={styles.extractingIndicator}>
                 <span className={styles.hourglass} aria-hidden="true">⏳</span>
-<div>
-                  <div>Étape 1/2 — Génération du RE-Projet par l&apos;IA</div>
-                  <div>Étape 2/2 — Génération du RE-Projet-Auxiliaire</div>
+                <div>
+                  <StepProgressList
+                    active
+                    steps={[
+                      "Étape 1/2 — Génération du RE-Projet par l'IA",
+                      "Étape 2/2 — Génération du RE-Projet-Auxiliaire",
+                    ]}
+                  />
                   <div style={{ marginTop: 8, fontStyle: 'italic' }}>
                     Cette opération peut prendre plusieurs minutes…
                   </div>
@@ -659,9 +687,14 @@ function Step2View({ dossierId, step, isLocked, onRefresh }: StepViewProps) {
             {uploading ? (
               <div className={styles.extractingIndicator}>
                 <span className={styles.hourglass} aria-hidden="true">⏳</span>
-<div>
-                  <div>Étape 1/2 — Génération du RE-Projet par l&apos;IA</div>
-                  <div>Étape 2/2 — Génération du RE-Projet-Auxiliaire</div>
+                <div>
+                  <StepProgressList
+                    active
+                    steps={[
+                      "Étape 1/2 — Génération du RE-Projet par l'IA",
+                      "Étape 2/2 — Génération du RE-Projet-Auxiliaire",
+                    ]}
+                  />
                   <div style={{ marginTop: 8, fontStyle: 'italic' }}>
                     Cette opération peut prendre plusieurs minutes…
                   </div>
@@ -776,9 +809,14 @@ function Step3View({ dossierId, step, isLocked, onRefresh }: StepViewProps) {
                 <div className={styles.extractingIndicator}>
                   <span className={styles.hourglass} aria-hidden="true">⏳</span>
                   <div>
-                    <div>Étape 1/3 — Génération de l&apos;archive ZIP</div>
-                    <div>Étape 2/3 — Génération du hash pour horodatage</div>
-                    <div>Étape 3/3 — Stockage du hash</div>
+                    <StepProgressList
+                      active
+                      steps={[
+                        "Étape 1/3 — Génération de l'archive ZIP",
+                        "Étape 2/3 — Génération du hash pour horodatage",
+                        "Étape 3/3 — Stockage du hash",
+                      ]}
+                    />
                     <div style={{ marginTop: 8, fontStyle: "italic" }}>
                       Cette opération peut prendre quelques instants…
                     </div>

@@ -29,7 +29,7 @@
 
 Name "Judi-Expert ${VERSION}"
 OutFile "${OUTPUT_DIR}\judi-expert-installer-${VERSION}-windows.exe"
-InstallDir "$LOCALAPPDATA\Judi-Expert"
+InstallDir "C:\judi-expert"
 RequestExecutionLevel admin
 SetCompressor /SOLID lzma
 Unicode true
@@ -44,6 +44,15 @@ Var PREREQ_ERRORS
 Var PREREQ_WARNINGS
 Var ACCEPT_NO_ENCRYPT
 Var DOCKER_INSTALLED
+
+; ── Cloud sync detection variables ────────────────────────
+Var CLOUD_SYNC_WARNING
+
+; ── Software detection variables ──────────────────────────
+Var CHROME_FOUND
+Var VERACRYPT_FOUND
+Var BITLOCKER_ON
+Var SOFTWARE_WARNINGS
 
 ; ── Pages ─────────────────────────────────────────────────
 
@@ -82,6 +91,58 @@ Page custom PageFinish
   Pop $DISK_ENCRYPTED
   StrCmp $DISK_ENCRYPTED "On" +2
     StrCpy $PREREQ_WARNINGS "Le disque n est pas chiffre (BitLocker recommande)"
+
+  ; Verification que le repertoire d installation n est pas dans un dossier cloud synchronise
+  StrCpy $CLOUD_SYNC_WARNING ""
+  nsExec::ExecToStack 'powershell -NoProfile -Command "if ($INSTDIR -match ''OneDrive|Dropbox|Google Drive|iCloudDrive'') { Write-Output ''cloud'' } else { Write-Output ''ok'' }"'
+  Pop $0
+  Pop $1
+  StrCmp $1 "cloud" 0 +2
+    StrCpy $PREREQ_WARNINGS "$PREREQ_WARNINGS$\nATTENTION : Le repertoire d installation est dans un dossier synchronise (OneDrive/Dropbox/Google Drive). Les donnees d expertise ne doivent PAS etre synchronisees dans le cloud (RGPD). Choisissez C:\judi-expert comme repertoire."
+
+  ; Verification OneDrive : le dossier C:\judi-expert ne doit pas etre sauvegarde par OneDrive
+  nsExec::ExecToStack 'powershell -NoProfile -Command "try { $folders = (Get-ItemProperty -Path ''HKCU:\Software\Microsoft\OneDrive\Accounts\Personal'' -Name ''UserFolder'' -ErrorAction SilentlyContinue).UserFolder; if ($folders -and ''C:\judi-expert''.StartsWith($folders)) { Write-Output ''synced'' } else { Write-Output ''ok'' } } catch { Write-Output ''ok'' }"'
+  Pop $0
+  Pop $1
+  StrCmp $1 "synced" 0 +2
+    StrCpy $PREREQ_WARNINGS "$PREREQ_WARNINGS$\nATTENTION : C:\judi-expert est dans le dossier OneDrive. Deplacez OneDrive ou changez le repertoire d installation."
+
+  ; Verification Google Chrome
+  StrCpy $SOFTWARE_WARNINGS ""
+  StrCpy $CHROME_FOUND "0"
+  IfFileExists "$PROGRAMFILES\Google\Chrome\Application\chrome.exe" chrome_ok
+  IfFileExists "$PROGRAMFILES64\Google\Chrome\Application\chrome.exe" chrome_ok
+  IfFileExists "$LOCALAPPDATA\Google\Chrome\Application\chrome.exe" chrome_ok
+    StrCpy $SOFTWARE_WARNINGS "$SOFTWARE_WARNINGS$\n- Google Chrome n est pas installe (requis pour l interface Judi-Expert)"
+    Goto chrome_done
+  chrome_ok:
+    StrCpy $CHROME_FOUND "1"
+  chrome_done:
+
+  ; Verification chiffrement : BitLocker ou VeraCrypt
+  StrCpy $BITLOCKER_ON "0"
+  StrCpy $VERACRYPT_FOUND "0"
+
+  ; Verifier BitLocker
+  nsExec::ExecToStack 'powershell -NoProfile -Command "(Get-BitLockerVolume -MountPoint C: -ErrorAction SilentlyContinue).ProtectionStatus"'
+  Pop $0
+  Pop $2
+  StrCmp $2 "On" bitlocker_active
+    Goto check_veracrypt
+  bitlocker_active:
+    StrCpy $BITLOCKER_ON "1"
+    Goto encryption_done
+
+  check_veracrypt:
+  ; Verifier VeraCrypt (installé ou driver actif)
+  IfFileExists "$PROGRAMFILES\VeraCrypt\VeraCrypt.exe" veracrypt_found
+  IfFileExists "$PROGRAMFILES64\VeraCrypt\VeraCrypt.exe" veracrypt_found
+    ; Ni BitLocker ni VeraCrypt
+    StrCpy $SOFTWARE_WARNINGS "$SOFTWARE_WARNINGS$\n- Le disque n est pas chiffre : installez VeraCrypt (https://veracrypt.eu) puis chiffrez le disque systeme"
+    Goto encryption_done
+  veracrypt_found:
+    StrCpy $VERACRYPT_FOUND "1"
+  encryption_done:
 !macroend
 
 Function PagePrerequisites
@@ -101,15 +162,17 @@ Function PagePrerequisites
     ${NSD_CreateLabel} 0 30u 100% 100u "ERREUR - Prerequis non satisfaits :$\n$PREREQ_ERRORS$\n$\nL installation ne peut pas continuer."
     Goto show_done
   no_errors:
-    StrCmp $PREREQ_WARNINGS "" all_ok
-      ; Avertissement chiffrement - afficher checkbox d'acceptation
-      ${NSD_CreateLabel} 0 30u 100% 60u "Prerequis satisfaits :$\n$\nCPU : $CPU_CORES coeurs$\nRAM : $RAM_GB Go$\nDisque libre : $DISK_FREE_GB Go$\n$\nATTENTION : $PREREQ_WARNINGS"
+    ; Combiner les avertissements
+    StrCpy $0 "$PREREQ_WARNINGS$SOFTWARE_WARNINGS"
+    StrCmp $0 "" all_ok
+      ; Avertissements (chiffrement, cloud, logiciels manquants)
+      ${NSD_CreateLabel} 0 30u 100% 60u "Prerequis materiels satisfaits :$\n$\nCPU : $CPU_CORES coeurs$\nRAM : $RAM_GB Go$\nDisque libre : $DISK_FREE_GB Go$\n$\nATTENTION :$PREREQ_WARNINGS$SOFTWARE_WARNINGS"
       Pop $0
-      ${NSD_CreateCheckBox} 0 100u 100% 20u "J accepte de continuer sans chiffrement du disque"
+      ${NSD_CreateCheckBox} 0 100u 100% 20u "J accepte de continuer malgre les avertissements"
       Pop $ACCEPT_NO_ENCRYPT
       Goto show_done
   all_ok:
-    ${NSD_CreateLabel} 0 30u 100% 60u "OK - Tous les prerequis sont satisfaits.$\n$\nCPU : $CPU_CORES coeurs$\nRAM : $RAM_GB Go$\nDisque libre : $DISK_FREE_GB Go$\nChiffrement : Actif"
+    ${NSD_CreateLabel} 0 30u 100% 80u "OK - Tous les prerequis sont satisfaits.$\n$\nCPU : $CPU_CORES coeurs$\nRAM : $RAM_GB Go$\nDisque libre : $DISK_FREE_GB Go$\nChiffrement : Actif$\nGoogle Chrome : Installe"
   show_done:
   Pop $0
 
@@ -121,11 +184,12 @@ Function PagePrerequisitesLeave
   StrCmp $PREREQ_ERRORS "" no_block
     Abort
   no_block:
-  ; Si avertissement chiffrement, verifier que la checkbox est cochee
-  StrCmp $PREREQ_WARNINGS "" done
+  ; Si avertissements (chiffrement, cloud, logiciels), verifier la checkbox
+  StrCpy $0 "$PREREQ_WARNINGS$SOFTWARE_WARNINGS"
+  StrCmp $0 "" done
     ${NSD_GetState} $ACCEPT_NO_ENCRYPT $0
     ${If} $0 == ${BST_UNCHECKED}
-      MessageBox MB_OK "Vous devez accepter de continuer sans chiffrement pour poursuivre l installation."
+      MessageBox MB_OK "Vous devez accepter les avertissements pour poursuivre l installation.$\n$\nIl est fortement recommande d installer les logiciels manquants avant de continuer."
       Abort
     ${EndIf}
   done:

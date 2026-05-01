@@ -26,6 +26,67 @@ LLM_MODEL: str = os.environ.get("LLM_MODEL", "mistral:7b-instruct-v0.3-q4_0")
 LLM_TIMEOUT: float = float(os.environ.get("LLM_TIMEOUT", "1800"))
 
 # ---------------------------------------------------------------------------
+# Estimation de tokens et contexte dynamique
+# ---------------------------------------------------------------------------
+# Ratio moyen caractères → tokens pour du texte français
+CHARS_PER_TOKEN: float = 3.5
+# Marge de sécurité pour le contexte (prompt système + overhead)
+CTX_OVERHEAD_TOKENS: int = 512
+# Taille minimale de contexte
+CTX_MIN: int = 4096
+# Taille maximale de contexte (limite du modèle)
+CTX_MAX: int = 32768
+# Alignement du contexte (arrondi au multiple supérieur)
+CTX_ALIGN: int = 2048
+
+# Vitesse d'inférence estimée (tokens/seconde sur CPU)
+# Ajuster via LLM_TOKENS_PER_SEC si la machine est plus rapide/lente
+LLM_TOKENS_PER_SEC: float = float(os.environ.get("LLM_TOKENS_PER_SEC", "8.0"))
+
+
+def estimate_tokens(text: str) -> int:
+    """Estime le nombre de tokens pour un texte français."""
+    return max(1, int(len(text) / CHARS_PER_TOKEN))
+
+
+def compute_num_ctx(input_text: str, system_prompt: str = "", output_ratio: float = 1.0) -> int:
+    """Calcule dynamiquement num_ctx en fonction de la taille de l'input.
+
+    Args:
+        input_text: Texte envoyé au LLM (contenu user).
+        system_prompt: Prompt système.
+        output_ratio: Ratio output/input estimé (1.0 = output ≈ input).
+
+    Returns:
+        num_ctx arrondi au multiple de CTX_ALIGN supérieur, avec 20% de marge.
+    """
+    input_tokens = estimate_tokens(input_text)
+    prompt_tokens = estimate_tokens(system_prompt)
+    output_tokens = max(int(input_tokens * output_ratio), 512)
+    total = input_tokens + prompt_tokens + output_tokens + CTX_OVERHEAD_TOKENS
+
+    # Ajouter 20% de marge de sécurité
+    total = int(total * 1.2)
+
+    # Arrondir au multiple de CTX_ALIGN supérieur
+    aligned = ((total + CTX_ALIGN - 1) // CTX_ALIGN) * CTX_ALIGN
+    return max(CTX_MIN, min(aligned, CTX_MAX))
+
+
+def estimate_duration_seconds(num_ctx: int, output_ratio: float = 0.5) -> int:
+    """Estime la durée de génération en secondes.
+
+    Args:
+        num_ctx: Taille du contexte alloué.
+        output_ratio: Part du contexte utilisée pour la génération.
+
+    Returns:
+        Durée estimée en secondes (arrondie).
+    """
+    output_tokens = int(num_ctx * output_ratio)
+    return max(5, int(output_tokens / LLM_TOKENS_PER_SEC))
+
+# ---------------------------------------------------------------------------
 # Prompts système
 # ---------------------------------------------------------------------------
 
@@ -257,6 +318,7 @@ class LLMService:
         self,
         messages: list[dict[str, str]],
         system_prompt: str | None = None,
+        num_ctx: int | None = None,
     ) -> str:
         """Appelle ``POST /api/chat`` avec une liste de messages.
 
@@ -266,6 +328,9 @@ class LLMService:
             Liste de dicts ``{"role": "user"|"assistant", "content": "..."}``.
         system_prompt:
             Prompt système optionnel injecté en premier message.
+        num_ctx:
+            Taille de la fenêtre de contexte en tokens.
+            Si None, calculée automatiquement à partir de l'input (+20% marge).
 
         Returns
         -------
@@ -277,12 +342,23 @@ class LLMService:
             full_messages.append({"role": "system", "content": system_prompt})
         full_messages.extend(messages)
 
+        if num_ctx is None:
+            user_content = " ".join(m["content"] for m in messages)
+            num_ctx = compute_num_ctx(user_content, system_prompt or "")
+
+        logger.info(
+            "LLM chat — num_ctx=%d, input≈%d tokens, durée estimée≈%ds",
+            num_ctx,
+            estimate_tokens(" ".join(m["content"] for m in full_messages)),
+            estimate_duration_seconds(num_ctx),
+        )
+
         payload = {
             "model": self.model,
             "messages": full_messages,
             "stream": False,
             "options": {
-                "num_ctx": 16384,
+                "num_ctx": num_ctx,
             },
         }
 
@@ -313,25 +389,31 @@ class LLMService:
                 "Vérifiez que le conteneur judi-llm est démarré."
             )
 
-    async def generate(self, prompt: str) -> str:
+    async def generate(self, prompt: str, num_ctx: int | None = None) -> str:
         """Appelle ``POST /api/generate`` avec un prompt simple.
 
         Parameters
         ----------
         prompt:
             Texte du prompt à envoyer au LLM.
+        num_ctx:
+            Taille de la fenêtre de contexte en tokens.
+            Si None, calculée automatiquement à partir de l'input (+20% marge).
 
         Returns
         -------
         str
             Texte de la réponse générée.
         """
+        if num_ctx is None:
+            num_ctx = compute_num_ctx(prompt)
+
         payload = {
             "model": self.model,
             "prompt": prompt,
             "stream": False,
             "options": {
-                "num_ctx": 16384,
+                "num_ctx": num_ctx,
             },
         }
 
@@ -473,7 +555,7 @@ class LLMService:
         )
         messages = [{"role": "user", "content": contenu}]
         return await self.chat(
-            messages, system_prompt=PROMPT_GENERATION_RE_PROJET_AUXILIAIRE
+            messages, system_prompt=PROMPT_GENERATION_RE_PROJET_AUXILIAIRE,
         )
 
     async def generer_ref_projet(
@@ -498,6 +580,7 @@ class LLMService:
         self,
         messages: list[dict[str, str]],
         system_prompt: str | None = None,
+        num_ctx: int | None = None,
     ):
         """Appelle ``POST /api/chat`` en mode streaming.
 
@@ -508,12 +591,16 @@ class LLMService:
             full_messages.append({"role": "system", "content": system_prompt})
         full_messages.extend(messages)
 
+        if num_ctx is None:
+            user_content = " ".join(m["content"] for m in messages)
+            num_ctx = compute_num_ctx(user_content, system_prompt or "", output_ratio=0.5)
+
         payload = {
             "model": self.model,
             "messages": full_messages,
             "stream": True,
             "options": {
-                "num_ctx": 16384,
+                "num_ctx": num_ctx,
             },
         }
 

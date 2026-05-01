@@ -27,10 +27,12 @@ sys.path.insert(
 )
 
 from prerequisites import (
+    CLOUD_SYNC_MARKERS,
     MIN_CPU_CORES,
     MIN_DISK_FREE_GB,
     MIN_RAM_GB,
     SystemConfig,
+    detect_cloud_sync,
     validate_prerequisites,
 )
 
@@ -51,6 +53,9 @@ disk_free_gb_strategy = st.floats(min_value=1.0, max_value=2000.0, allow_nan=Fal
 # Chiffrement : booléen
 disk_encrypted_strategy = st.booleans()
 
+# Chemin d'installation : chemins sûrs (hors cloud) pour les tests de base
+safe_install_path_strategy = st.just(r"C:\judi-expert")
+
 
 # Stratégie composite pour une configuration système complète
 system_config_strategy = st.builds(
@@ -59,6 +64,7 @@ system_config_strategy = st.builds(
     ram_gb=ram_gb_strategy,
     disk_free_gb=disk_free_gb_strategy,
     disk_encrypted=disk_encrypted_strategy,
+    install_path=safe_install_path_strategy,
 )
 
 
@@ -186,3 +192,53 @@ def test_valid_config_has_no_errors(config: SystemConfig):
         assert len(result.errors) > 0, (
             f"Config invalide mais aucune erreur listée"
         )
+
+
+# ---------------------------------------------------------------------------
+# Propriété 2 — Détection de synchronisation cloud
+# ---------------------------------------------------------------------------
+
+# Stratégie : chemins contenant un marqueur cloud
+cloud_path_strategy = st.sampled_from(CLOUD_SYNC_MARKERS).flatmap(
+    lambda marker: st.just(f"C:\\Users\\expert\\{marker}\\judi-expert")
+)
+
+# Stratégie : chemins sûrs (sans marqueur cloud)
+safe_path_strategy = st.sampled_from([
+    r"C:\judi-expert",
+    r"D:\apps\judi-expert",
+    r"C:\Program Files\Judi-Expert",
+    r"C:\Users\expert\Desktop\judi",
+])
+
+
+@settings(max_examples=50)
+@given(path=cloud_path_strategy)
+def test_cloud_sync_detected_in_cloud_paths(path: str):
+    """Un chemin contenant un marqueur cloud est toujours détecté."""
+    result = detect_cloud_sync(path)
+    assert result is not None, f"Cloud non détecté pour {path}"
+
+
+@settings(max_examples=50)
+@given(path=safe_path_strategy)
+def test_no_cloud_sync_in_safe_paths(path: str):
+    """Un chemin sûr ne déclenche jamais de détection cloud."""
+    result = detect_cloud_sync(path)
+    assert result is None, f"Faux positif cloud pour {path}: {result}"
+
+
+@settings(max_examples=100)
+@given(path=cloud_path_strategy)
+def test_cloud_path_produces_warning(path: str):
+    """Une config avec un chemin cloud produit un warning."""
+    config = SystemConfig(
+        cpu_cores=8,
+        ram_gb=16.0,
+        disk_free_gb=100.0,
+        disk_encrypted=True,
+        install_path=path,
+    )
+    result = validate_prerequisites(config)
+    assert len(result.warnings) > 0, f"Pas de warning pour {path}"
+    assert not result.valid, f"Config valide malgré chemin cloud {path}"
