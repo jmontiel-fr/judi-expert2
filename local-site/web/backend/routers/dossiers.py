@@ -266,9 +266,9 @@ async def create_dossier(
     db.add(dossier)
     await db.flush()  # get dossier.id
 
-    # Create 4 steps (0, 1, 2, 3) all with statut="initial"
+    # Create 5 steps (1, 2, 3, 4, 5) all with statut="initial"
     steps: list[Step] = []
-    for step_number in range(4):
+    for step_number in range(1, 6):
         step = Step(
             dossier_id=dossier.id,
             step_number=step_number,
@@ -367,10 +367,10 @@ async def get_step_detail(
     db: AsyncSession = Depends(get_db),
 ):
     """Retourne le détail d'une étape spécifique avec ses fichiers."""
-    if step_number not in (0, 1, 2, 3):
+    if step_number not in (1, 2, 3, 4, 5):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Le numéro d'étape doit être entre 0 et 3",
+            detail="Le numéro d'étape doit être entre 1 et 5",
         )
 
     # Verify dossier exists
@@ -531,7 +531,7 @@ async def reset_all_steps(
             await db.delete(sf)
 
     # Supprimer les fichiers sur disque pour chaque step
-    for step_num in range(4):
+    for step_num in range(1, 6):
         step_dir = os.path.join(DATA_DIR, "dossiers", str(dossier_id), f"step{step_num}")
         if os.path.isdir(step_dir):
             shutil.rmtree(step_dir)
@@ -608,7 +608,7 @@ async def download_dossier(
     zip_buffer = io.BytesIO()
 
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        for step_num in range(4):
+        for step_num in range(1, 6):
             step_dir = os.path.join(dossier_root, f"step{step_num}")
             if not os.path.isdir(step_dir):
                 continue

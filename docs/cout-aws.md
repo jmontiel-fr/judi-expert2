@@ -15,12 +15,14 @@ Ce document estime les coûts mensuels AWS pour le déploiement du Site Central 
 ## Architecture de production
 
 ```
-Internet → Lightsail (Caddy HTTPS + Docker) → RDS PostgreSQL
+Internet → CloudFront (HTTPS ACM + cache + DDoS Shield) → Lightsail (Caddy + Docker) → RDS PostgreSQL
 ```
 
-- **Lightsail** : instance Docker avec Caddy (reverse proxy HTTPS), backend FastAPI, frontend Next.js
+- **CloudFront** : CDN, terminaison HTTPS (certificat ACM gratuit), protection DDoS (AWS Shield Standard gratuit), cache des assets statiques
+- **Lightsail** : instance Docker avec Caddy (reverse proxy HTTP interne), backend FastAPI, frontend Next.js
 - **RDS** : PostgreSQL managé avec backups automatiques
 - **Cognito** : authentification (tier gratuit)
+- **Route 53** : DNS (zone hébergée judi-expert.fr)
 - **Gmail SMTP** : envoi d'emails (tickets, notifications)
 
 ---
@@ -65,33 +67,57 @@ Base de données relationnelle managée avec backups automatiques.
 
 **Total Cognito : 0 $/mois**
 
-### 4. ECR (Images Docker — modules RAG)
-
-| Paramètre | Valeur |
-|-----------|--------|
-| Stockage | ~15 Go |
-| Transfert | ~50 Go/mois |
-
-**Calcul :**
-- Stockage : 15 Go × 0.10 $ = ~1.50 $/mois
-- Transfert : 50 Go × 0.09 $ = ~4.50 $/mois
-- **Total ECR : ~6 $/mois**
-
-### 5. Route 53 (DNS)
+### 4. Route 53 (DNS)
 
 - Zone hébergée : 0.50 $/mois
 - Requêtes : ~0.04 $/mois
 - **Total Route 53 : ~0.54 $/mois**
 
-### 6. S3 + CloudFront (optionnel)
+### 5. ECR (Images Docker — déploiement)
 
-Pour les assets statiques et le package installateur.
+Stockage des images Docker du site central pour déploiement rapide sur Lightsail via `docker pull`.
 
-- S3 : ~0.15 $/mois
-- CloudFront : ~2.61 $/mois
-- **Total S3 + CloudFront : ~3 $/mois** (optionnel, Caddy peut servir les assets)
+| Paramètre | Valeur |
+|-----------|--------|
+| Stockage | ~2 Go (backend + frontend) |
+| Transfert | intra-région (gratuit) |
 
-### 7. Gmail SMTP (Emails)
+**Calcul :**
+- Stockage : 2 Go × 0.10 $ = ~0.20 $/mois
+- Transfert intra-région : gratuit
+- **Total ECR : ~0.20 $/mois**
+
+### 6. CloudFront (CDN + HTTPS)
+
+Terminaison HTTPS, cache des assets statiques, protection DDoS Shield Standard.
+
+| Paramètre | Valeur |
+|-----------|--------|
+| Requêtes | ~10 000/mois |
+| Transfert | < 1 Go/mois |
+| Certificat ACM | Gratuit |
+| Shield Standard | Gratuit (inclus) |
+
+**Calcul :**
+- Tier gratuit : 1 To transfert + 10M requêtes/mois (première année)
+- Après tier gratuit : ~0.50 $/mois pour ce trafic
+- **Total CloudFront : ~0 $/mois** (tier gratuit largement suffisant)
+
+### 7. S3 (Images Docker App Locale + package installateur)
+
+Stockage des images Docker de l'Application Locale (.tar.gz) téléchargées par le package auto-installable, plus le package installateur lui-même.
+
+| Paramètre | Valeur |
+|-----------|--------|
+| Stockage | ~5 Go (images Docker + package) |
+| Transfert | ~10 Go/mois (installations) |
+
+**Calcul :**
+- Stockage : 5 Go × 0.023 $ = ~0.12 $/mois
+- Transfert : 10 Go × 0.09 $ = ~0.90 $/mois
+- **Total S3 : ~1 $/mois**
+
+### 8. Gmail SMTP (Emails)
 
 Pas de coût AWS. Le compte Gmail est gratuit (500 emails/jour).
 
@@ -105,26 +131,30 @@ Pas de coût AWS. Le compte Gmail est gratuit (500 emails/jour).
 |---------|---------------|
 | Lightsail 2 Go | 12.00 |
 | RDS PostgreSQL db.t4g.micro | 16.00 |
+| CloudFront (HTTPS + CDN + DDoS) | 0.00 |
+| ACM (certificat SSL) | 0.00 |
+| ECR (images Docker déploiement) | 0.20 |
 | Cognito | 0.00 |
-| ECR | 6.00 |
 | Route 53 | 0.54 |
-| S3 + CloudFront (optionnel) | 3.00 |
+| S3 (images Docker App Locale + package) | 1.00 |
 | Gmail SMTP | 0.00 |
-| **TOTAL** | **~29-38 $/mois** |
+| **TOTAL** | **~30 $/mois** |
 
 ---
 
 ## Comparaison avec l'ancienne architecture (ECS/Fargate)
 
-| Poste | ECS/Fargate + ALB | Lightsail + RDS | Économie |
-|-------|-------------------|-----------------|----------|
+| Poste | ECS/Fargate + ALB | CloudFront + Lightsail + RDS | Économie |
+|-------|-------------------|------------------------------|----------|
 | Compute | ECS ~18 $ | Lightsail ~12 $ | -33% |
-| Load Balancer | ALB ~22 $ | Caddy (inclus) 0 $ | -100% |
+| Load Balancer | ALB ~22 $ | CloudFront 0 $ (tier gratuit) | -100% |
+| HTTPS/SSL | ACM (gratuit avec ALB) | ACM (gratuit avec CloudFront) | 0% |
+| DDoS | Shield Standard (gratuit) | Shield Standard (gratuit) | 0% |
 | Base de données | RDS ~16 $ | RDS ~16 $ | 0% |
 | Monitoring | CloudWatch ~6 $ | Docker logs 0 $ | -100% |
 | Secrets | Secrets Manager ~2 $ | .env fichier 0 $ | -100% |
 | Emails | SES ~0.10 $ | Gmail 0 $ | -100% |
-| **TOTAL** | **~74 $/mois** | **~29 $/mois** | **-61%** |
+| **TOTAL** | **~74 $/mois** | **~28 $/mois** | **-62%** |
 
 ---
 
@@ -132,9 +162,9 @@ Pas de coût AWS. Le compte Gmail est gratuit (500 emails/jour).
 
 | Scénario | Coût mensuel | Coût annuel |
 |----------|-------------|-------------|
-| Phase lancement (50 experts) | ~29 $ | ~348 $ |
-| Croissance (200 experts) | ~38 $ | ~456 $ |
-| Croissance (500 experts, Lightsail 4 Go) | ~50 $ | ~600 $ |
+| Phase lancement (50 experts) | ~28 $ | ~336 $ |
+| Croissance (200 experts) | ~29 $ | ~348 $ |
+| Croissance (500 experts, Lightsail 4 Go) | ~41 $ | ~492 $ |
 | Migration ECS/Fargate (>500 experts) | ~74-103 $ | ~888-1 236 $ |
 
 ---
@@ -155,7 +185,7 @@ Pas de coût AWS. Le compte Gmail est gratuit (500 emails/jour).
 Avec un ticket à 49 € HT (58.80 € TTC) :
 - Coût Stripe par ticket : ~1.13 € (1.5% + 0.25 €)
 - Revenu net par ticket : ~57.67 €
-- **Seuil de rentabilité : 1 ticket/mois** couvre l'infrastructure (~29 $)
+- **Seuil de rentabilité : 1 ticket/mois** couvre l'infrastructure (~28 $)
 
 ---
 
@@ -164,6 +194,7 @@ Avec un ticket à 49 € HT (58.80 € TTC) :
 ### Court terme
 - **RDS Reserved Instance (1 an)** : ~40% d'économie → ~9.50 $/mois au lieu de 16 $
 - **Lightsail 3 ans** : réduction supplémentaire disponible
+- **CloudFront** : tier gratuit couvre largement le trafic phase lancement
 
 ### Moyen terme (>200 experts)
 - **Lightsail 4 Go** : upgrade simple sans migration

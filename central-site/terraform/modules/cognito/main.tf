@@ -37,11 +37,11 @@ resource "aws_cognito_user_pool" "main" {
     email_sending_account = "COGNITO_DEFAULT"
   }
 
-  # --- Attributs personnalisés ---
+  # --- Attributs personnalises ---
   schema {
     name                = "nom"
     attribute_data_type = "String"
-    required            = true
+    required            = false
     mutable             = true
 
     string_attribute_constraints {
@@ -53,7 +53,7 @@ resource "aws_cognito_user_pool" "main" {
   schema {
     name                = "prenom"
     attribute_data_type = "String"
-    required            = true
+    required            = false
     mutable             = true
 
     string_attribute_constraints {
@@ -65,7 +65,7 @@ resource "aws_cognito_user_pool" "main" {
   schema {
     name                = "adresse"
     attribute_data_type = "String"
-    required            = true
+    required            = false
     mutable             = true
 
     string_attribute_constraints {
@@ -77,7 +77,7 @@ resource "aws_cognito_user_pool" "main" {
   schema {
     name                = "domaine"
     attribute_data_type = "String"
-    required            = true
+    required            = false
     mutable             = true
 
     string_attribute_constraints {

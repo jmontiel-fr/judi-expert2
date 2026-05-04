@@ -20,7 +20,7 @@ class Step(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     dossier_id: Mapped[int] = mapped_column(ForeignKey("dossiers.id"))
-    step_number: Mapped[int] = mapped_column()  # 0, 1, 2, 3
+    step_number: Mapped[int] = mapped_column()  # 1, 2, 3, 4, 5
     statut: Mapped[str] = mapped_column(String(20), default="initial")
     executed_at: Mapped[Optional[datetime]] = mapped_column()
     validated_at: Mapped[Optional[datetime]] = mapped_column()

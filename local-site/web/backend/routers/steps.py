@@ -1,4 +1,4 @@
-"""Router des étapes du workflow d'expertise (Step0–Step3).
+"""Router des étapes du workflow d'expertise (Step1–Step5).
 
 Valide : Exigences 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 7.1, 7.2, 7.3, 7.4,
          9.1, 9.2, 9.3, 9.4, 9.5, 9.6
@@ -94,23 +94,28 @@ class Step3ValidateResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 def _step0_dir(dossier_id: int) -> str:
-    """Retourne le chemin du répertoire step0 pour un dossier."""
-    return os.path.join(DATA_DIR, "dossiers", str(dossier_id), "step0")
-
-
-def _step1_dir(dossier_id: int) -> str:
     """Retourne le chemin du répertoire step1 pour un dossier."""
     return os.path.join(DATA_DIR, "dossiers", str(dossier_id), "step1")
 
 
-def _step2_dir(dossier_id: int) -> str:
+def _step1_dir(dossier_id: int) -> str:
     """Retourne le chemin du répertoire step2 pour un dossier."""
     return os.path.join(DATA_DIR, "dossiers", str(dossier_id), "step2")
 
 
-def _step3_dir(dossier_id: int) -> str:
+def _step2_dir(dossier_id: int) -> str:
     """Retourne le chemin du répertoire step3 pour un dossier."""
     return os.path.join(DATA_DIR, "dossiers", str(dossier_id), "step3")
+
+
+def _step3_dir(dossier_id: int) -> str:
+    """Retourne le chemin du répertoire step4 pour un dossier."""
+    return os.path.join(DATA_DIR, "dossiers", str(dossier_id), "step4")
+
+
+def _step4_dir(dossier_id: int) -> str:
+    """Retourne le chemin du répertoire step5 pour un dossier."""
+    return os.path.join(DATA_DIR, "dossiers", str(dossier_id), "step5")
 
 
 def _dossier_dir(dossier_id: int) -> str:
@@ -159,10 +164,10 @@ async def step0_extract(
     """Upload un PDF-scan, lance l'OCR puis structure en Markdown via LLM."""
 
     # 0. Vérifier que l'étape n'est pas verrouillée (validée)
-    await workflow_engine.require_step_not_validated(dossier_id, 0, db)
+    await workflow_engine.require_step_not_validated(dossier_id, 1, db)
 
     # 0b. Marquer le step comme "en_cours"
-    await workflow_engine.start_step(dossier_id, 0, db)
+    await workflow_engine.start_step(dossier_id, 1, db)
     await db.commit()
 
     # 1. Vérifier que le fichier est un PDF
@@ -228,7 +233,7 @@ async def step0_extract(
         markdown = await llm.structurer_markdown(texte_brut)
     except Exception as exc:
         logger.error("Erreur LLM lors de la structuration Markdown : %s", exc)
-        await workflow_engine.fail_step(dossier_id, 0, db)
+        await workflow_engine.fail_step(dossier_id, 1, db)
         await db.commit()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -270,7 +275,7 @@ async def step0_extract(
     doc.save(docx_path)
 
     # 8. Créer les entrées StepFile en base
-    step = await _get_step(dossier_id, 0, db)
+    step = await _get_step(dossier_id, 1, db)
 
     # Supprimer les anciens StepFile de step0 (ré-extraction)
     for old_file in list(step.files):
@@ -307,7 +312,7 @@ async def step0_extract(
     db.add(step_file_docx)
 
     # 9. Marquer step0 comme "fait"
-    await workflow_engine.execute_step(dossier_id, 0, db)
+    await workflow_engine.execute_step(dossier_id, 1, db)
     await db.commit()
 
     return ExtractResponse(
@@ -331,7 +336,7 @@ async def step0_get_markdown(
     """Retourne le contenu du fichier Markdown généré pour step0."""
 
     # Vérifier l'accès à l'étape
-    await workflow_engine.require_step_access(dossier_id, 0, db)
+    await workflow_engine.require_step_access(dossier_id, 1, db)
 
     md_path = os.path.join(_step0_dir(dossier_id), "requisition.md")
     if not os.path.isfile(md_path):
@@ -361,7 +366,7 @@ async def step0_update_markdown(
     """Met à jour le fichier Markdown (édition manuelle par l'expert)."""
 
     # Vérifier que l'étape n'est pas validée (immuable)
-    await workflow_engine.require_step_not_validated(dossier_id, 0, db)
+    await workflow_engine.require_step_not_validated(dossier_id, 1, db)
 
     md_path = os.path.join(_step0_dir(dossier_id), "requisition.md")
     if not os.path.isfile(md_path):
@@ -374,7 +379,7 @@ async def step0_update_markdown(
         f.write(body.content)
 
     # Mettre à jour la taille du fichier dans StepFile
-    step = await _get_step(dossier_id, 0, db)
+    step = await _get_step(dossier_id, 1, db)
     for sf in step.files:
         if sf.filename == "requisition.md":
             sf.file_size = len(body.content.encode("utf-8"))
@@ -400,7 +405,7 @@ async def step0_import_docx(
     """Importe un .docx modifié par l'expert et met à jour le .md et le .docx."""
     from docx import Document as DocxDocument
 
-    await workflow_engine.require_step_not_validated(dossier_id, 0, db)
+    await workflow_engine.require_step_not_validated(dossier_id, 1, db)
 
     if not file.filename or not file.filename.lower().endswith(".docx"):
         raise HTTPException(
@@ -433,7 +438,7 @@ async def step0_import_docx(
         f.write(markdown)
 
     # Mettre à jour les tailles dans StepFile
-    step = await _get_step(dossier_id, 0, db)
+    step = await _get_step(dossier_id, 1, db)
     for sf in step.files:
         if sf.filename == "requisition.md":
             sf.file_size = len(markdown.encode("utf-8"))
@@ -458,7 +463,7 @@ async def step0_validate(
 ):
     """Valide l'étape 0 (extraction) — passage à "validé"."""
 
-    await workflow_engine.validate_step(dossier_id, 0, db)
+    await workflow_engine.validate_step(dossier_id, 1, db)
     await db.commit()
 
     return Step0ValidateResponse(message="Step0 validé avec succès")
@@ -482,10 +487,10 @@ async def step1_execute(
     """
 
     # 1. Vérifier l'accès au step1
-    await workflow_engine.require_step_access(dossier_id, 1, db)
+    await workflow_engine.require_step_access(dossier_id, 2, db)
 
     # 1b. Marquer le step comme "en_cours"
-    await workflow_engine.start_step(dossier_id, 1, db)
+    await workflow_engine.start_step(dossier_id, 2, db)
     await db.commit()
 
     # 2. Lire le fichier Markdown de step0 pour obtenir les QT
@@ -548,7 +553,7 @@ async def step1_execute(
         qmec = await llm.generer_qmec(qt, tpe, contexte_rag)
     except Exception as exc:
         logger.error("Erreur LLM lors de la génération du QMEC : %s", exc)
-        await workflow_engine.fail_step(dossier_id, 1, db)
+        await workflow_engine.fail_step(dossier_id, 2, db)
         await db.commit()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -595,7 +600,7 @@ async def step1_execute(
     doc.save(qmec_docx_path)
 
     # 8. Créer les entrées StepFile en base
-    step = await _get_step(dossier_id, 1, db)
+    step = await _get_step(dossier_id, 2, db)
 
     # Supprimer les anciens StepFile (ré-exécution)
     for old_file in list(step.files):
@@ -620,7 +625,7 @@ async def step1_execute(
     db.add(step_file_docx)
 
     # 9. Marquer step1 comme "réalisé"
-    await workflow_engine.execute_step(dossier_id, 1, db)
+    await workflow_engine.execute_step(dossier_id, 2, db)
     await db.commit()
 
     return QmecResponse(qmec=qmec)
@@ -642,7 +647,7 @@ async def step1_download(
     """
 
     # Vérifier l'accès à l'étape
-    await workflow_engine.require_step_access(dossier_id, 1, db)
+    await workflow_engine.require_step_access(dossier_id, 2, db)
 
     qmec_path = os.path.join(_step1_dir(dossier_id), "qmec.docx")
     if not os.path.isfile(qmec_path):
@@ -682,7 +687,7 @@ async def step1_validate(
     Valide : Exigence 7.4
     """
 
-    await workflow_engine.validate_step(dossier_id, 1, db)
+    await workflow_engine.validate_step(dossier_id, 2, db)
     await db.commit()
 
     return Step1ValidateResponse(message="Step1 validé avec succès")
@@ -707,10 +712,10 @@ async def step2_upload(
     """
 
     # 1. Vérifier l'accès au step2
-    await workflow_engine.require_step_access(dossier_id, 2, db)
+    await workflow_engine.require_step_access(dossier_id, 4, db)
 
     # 1b. Marquer le step comme "en_cours"
-    await workflow_engine.start_step(dossier_id, 2, db)
+    await workflow_engine.start_step(dossier_id, 4, db)
     await db.commit()
 
     # 2. Valider le format .docx
@@ -779,7 +784,7 @@ async def step2_upload(
         )
     except Exception as exc:
         logger.error("Erreur LLM lors de la génération du RE-Projet : %s", exc)
-        await workflow_engine.fail_step(dossier_id, 2, db)
+        await workflow_engine.fail_step(dossier_id, 4, db)
         await db.commit()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -793,7 +798,7 @@ async def step2_upload(
         )
     except Exception as exc:
         logger.error("Erreur LLM lors de la génération du RE-Projet-Auxiliaire : %s", exc)
-        await workflow_engine.fail_step(dossier_id, 2, db)
+        await workflow_engine.fail_step(dossier_id, 4, db)
         await db.commit()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -801,7 +806,7 @@ async def step2_upload(
         )
 
     # 11. Sauvegarder le NEA en base (visible immédiatement par le polling)
-    step = await _get_step(dossier_id, 2, db)
+    step = await _get_step(dossier_id, 4, db)
 
     # Supprimer les anciens StepFile (ré-exécution)
     for old_file in list(step.files):
@@ -847,7 +852,7 @@ async def step2_upload(
     ))
 
     # 14. Marquer step2 comme "fait"
-    await workflow_engine.execute_step(dossier_id, 2, db)
+    await workflow_engine.execute_step(dossier_id, 4, db)
     await db.commit()
 
     return Step2UploadResponse(
@@ -872,7 +877,7 @@ async def step2_validate(
     Valide : Exigence 8.4
     """
 
-    await workflow_engine.validate_step(dossier_id, 2, db)
+    await workflow_engine.validate_step(dossier_id, 4, db)
     await db.commit()
 
     return Step2ValidateResponse(message="Step2 validé avec succès")
@@ -902,10 +907,10 @@ async def step3_execute(
     import zipfile
 
     # 1. Vérifier l'accès au step3
-    await workflow_engine.require_step_access(dossier_id, 3, db)
+    await workflow_engine.require_step_access(dossier_id, 5, db)
 
     # 1b. Marquer le step comme "en_cours"
-    await workflow_engine.start_step(dossier_id, 3, db)
+    await workflow_engine.start_step(dossier_id, 5, db)
     await db.commit()
 
     step3_path = _step3_dir(dossier_id)
@@ -960,7 +965,7 @@ async def step3_execute(
     logger.info("Hash SHA-256 dossier %s : %s", dossier_id, sha256_hash)
 
     # 6. Créer les entrées StepFile en base
-    step = await _get_step(dossier_id, 3, db)
+    step = await _get_step(dossier_id, 5, db)
 
     # Supprimer les anciens StepFile
     for old_file in list(step.files):
@@ -992,7 +997,7 @@ async def step3_execute(
     ))
 
     # 7. Marquer step3 comme "fait"
-    await workflow_engine.execute_step(dossier_id, 3, db)
+    await workflow_engine.execute_step(dossier_id, 5, db)
     await db.commit()
 
     return Step3ExecuteResponse(
@@ -1018,7 +1023,7 @@ async def step3_download(
     """
 
     # Vérifier l'accès à l'étape
-    await workflow_engine.require_step_access(dossier_id, 3, db)
+    await workflow_engine.require_step_access(dossier_id, 5, db)
 
     if doc_type != "ref_projet":
         raise HTTPException(
@@ -1056,7 +1061,7 @@ async def step3_validate(
     Valide : Exigences 9.5, 9.6
     """
 
-    await workflow_engine.validate_step(dossier_id, 3, db)
+    await workflow_engine.validate_step(dossier_id, 5, db)
     await db.commit()
 
     return Step3ValidateResponse(message="Step3 validé avec succès")

@@ -41,25 +41,24 @@ graph TB
     end
 
     subgraph "AWS — Site Central"
-        CF[CloudFront CDN]
+        CF[CloudFront CDN<br/>HTTPS + ACM + Shield]
         LS[Lightsail Instance<br/>Docker Compose<br/>Caddy + FastAPI + Next.js]
         RDS[RDS PostgreSQL]
         COG[AWS Cognito]
-        S3[S3 Bucket<br/>Assets statiques]
-        ECR[ECR<br/>Images Docker]
+        R53[Route 53 DNS]
+        S3[S3 Bucket<br/>Images Docker .tar.gz<br/>+ package installateur]
         STRIPE[Stripe API]
         GMAIL[Gmail SMTP<br/>Envoi emails]
     end
 
-    WEB -->|Vérification Ticket| LS
-    WEB -->|Téléchargement RAG| ECR
-    CF --> S3
+    WEB -->|Vérification Ticket| CF
+    WEB -->|Téléchargement images Docker| S3
     CF --> LS
     LS --> RDS
     LS --> COG
     LS --> STRIPE
     LS --> GMAIL
-    LS --> ECR
+    R53 --> CF
 ```
 
 ---
@@ -124,18 +123,27 @@ Le Site Central est déployé sur une instance AWS Lightsail avec Docker Compose
 
 | Service | Rôle |
 |---------|------|
-| **Lightsail** | Instance Docker (backend FastAPI + frontend Next.js + Caddy HTTPS) |
+| **CloudFront** | CDN + HTTPS (certificat ACM) + protection DDoS (Shield Standard) |
+| **Lightsail** | Instance Docker (backend FastAPI + frontend Next.js + Caddy reverse proxy) |
 | **RDS PostgreSQL** | Base de données relationnelle (experts, tickets, domaines) — backups auto 7j |
 | **AWS Cognito** | Authentification des experts (User Pools) |
-| **S3** | Stockage des assets statiques et packages |
-| **ECR** | Registre d'images Docker (modules RAG, app locale) |
-| **CloudFront** | CDN pour la distribution des assets (optionnel) |
-| **Route 53** | DNS |
+| **ECR** | Registre d'images Docker (déploiement rapide via docker pull) |
+| **ACM** | Certificat SSL/TLS pour www.judi-expert.fr (gratuit, renouvellement auto) |
+| **Route 53** | DNS (zone hébergée judi-expert.fr) |
+| **S3** | Stockage des images Docker (.tar.gz) pour le package installateur + assets |
 | **Gmail SMTP** | Envoi d'emails (tickets, notifications) via compte Gmail dédié |
 
-### Reverse proxy HTTPS
+### Architecture réseau
 
-Caddy est utilisé comme reverse proxy dans le conteneur Docker. Il gère automatiquement les certificats Let's Encrypt (renouvellement inclus). Pas besoin d'ALB.
+```
+Internet → CloudFront (HTTPS, ACM, cache, DDoS Shield) → Lightsail instance (HTTP port 80, Docker)
+                                                          └→ RDS PostgreSQL (privé)
+```
+
+- **CloudFront** gère le HTTPS (certificat ACM), le cache des assets statiques, et la protection DDoS via AWS Shield Standard (gratuit).
+- **Caddy** sur l'instance Lightsail sert de reverse proxy interne (HTTP uniquement) entre le frontend Next.js et le backend FastAPI.
+- **L'instance Lightsail** n'est pas exposée directement sur Internet — seul CloudFront y accède.
+- **ECR** stocke les images Docker du site central. Le déploiement se fait par `docker pull` depuis l'instance (~30s vs ~40 min par SCP).
 
 ### Migration vers ECS/Fargate
 
@@ -350,7 +358,7 @@ erDiagram
 | Paiement | Stripe Checkout + Webhooks | Standard SaaS, SDK Python officiel |
 | Auth | AWS Cognito + Amplify JS | Intégration native AWS, User Pools |
 | Email | Gmail SMTP (smtplib) | Même config dev et prod, 500 emails/jour |
-| Infra prod | Lightsail + RDS + Caddy | Coût réduit (~29 $/mois), migration ECS possible |
+| Infra prod | CloudFront + Lightsail + RDS | Coût réduit (~28 $/mois), HTTPS ACM, DDoS Shield, migration ECS possible |
 | Conteneurs | Docker Compose (local + prod), ECS/ECR (futur) | Orchestration simple, scalable |
 
 

@@ -1,71 +1,30 @@
 # ==============================================
 # Judi-Expert — Infrastructure AWS (Site Central)
+# Architecture : CloudFront + Lightsail + RDS (~29 $/mois)
 # ==============================================
 
-module "vpc" {
-  source = "./modules/vpc"
-
-  project_name       = var.project_name
-  environment        = var.environment
-  vpc_cidr           = var.vpc_cidr
-  availability_zones = var.availability_zones
-}
-
-module "ecr" {
-  source = "./modules/ecr"
+# --- DNS Zone (created first for ACM validation) ---
+module "dns" {
+  source = "./modules/dns"
 
   project_name = var.project_name
   environment  = var.environment
+  domain_name  = var.domain_name
 }
 
+# --- RDS PostgreSQL ---
 module "rds" {
   source = "./modules/rds"
 
-  project_name          = var.project_name
-  environment           = var.environment
-  db_instance_class     = var.db_instance_class
-  db_name               = var.db_name
-  db_username           = var.db_username
-  db_password           = var.db_password
-  private_subnet_ids    = module.vpc.private_subnet_ids
-  rds_security_group_id = module.vpc.rds_security_group_id
+  project_name      = var.project_name
+  environment       = var.environment
+  db_instance_class = var.db_instance_class
+  db_name           = var.db_name
+  db_username       = var.db_username
+  db_password       = var.db_password
 }
 
-module "s3" {
-  source = "./modules/s3"
-
-  project_name = var.project_name
-  environment  = var.environment
-}
-
-module "alb" {
-  source = "./modules/alb"
-
-  project_name          = var.project_name
-  environment           = var.environment
-  vpc_id                = module.vpc.vpc_id
-  public_subnet_ids     = module.vpc.public_subnet_ids
-  alb_security_group_id = module.vpc.alb_security_group_id
-}
-
-module "ecs" {
-  source = "./modules/ecs"
-
-  project_name              = var.project_name
-  environment               = var.environment
-  aws_region                = var.aws_region
-  private_subnet_ids        = module.vpc.private_subnet_ids
-  ecs_security_group_id     = module.vpc.ecs_security_group_id
-  backend_target_group_arn  = module.alb.backend_target_group_arn
-  frontend_target_group_arn = module.alb.frontend_target_group_arn
-  http_listener_arn         = module.alb.http_listener_arn
-  backend_image             = var.backend_image
-  frontend_image            = var.frontend_image
-  backend_environment = [
-    { name = "DATABASE_URL", value = "postgresql://${var.db_username}:${var.db_password}@${module.rds.endpoint}/${var.db_name}" }
-  ]
-}
-
+# --- Cognito ---
 module "cognito" {
   source = "./modules/cognito"
 
@@ -73,23 +32,69 @@ module "cognito" {
   environment  = var.environment
 }
 
+# --- Lightsail Instance ---
+module "lightsail" {
+  source = "./modules/lightsail"
+
+  project_name  = var.project_name
+  environment   = var.environment
+  aws_region    = var.aws_region
+  instance_plan = var.lightsail_plan
+  rds_endpoint  = module.rds.endpoint
+  rds_db_name   = var.db_name
+  rds_username  = var.db_username
+  rds_password  = var.db_password
+}
+
+# --- CloudFront + ACM (uses DNS zone for cert validation) ---
 module "cloudfront" {
   source = "./modules/cloudfront"
 
-  project_name          = var.project_name
-  environment           = var.environment
-  alb_dns_name          = module.alb.alb_dns_name
-  s3_bucket_name        = module.s3.bucket_name
-  s3_bucket_arn         = module.s3.bucket_arn
-  s3_bucket_domain_name = module.s3.bucket_domain_name
+  providers = {
+    aws           = aws
+    aws.us_east_1 = aws.us_east_1
+  }
+
+  project_name    = var.project_name
+  environment     = var.environment
+  domain_name     = var.domain_name
+  origin_domain   = "origin.${var.domain_name}"
+  route53_zone_id = module.dns.zone_id
 }
 
-module "scheduler" {
-  source = "./modules/scheduler"
+# --- Route 53 Records ---
 
-  project_name     = var.project_name
-  environment      = var.environment
-  ecs_cluster_name = module.ecs.cluster_name
-  ecs_service_name = module.ecs.service_name
-  rds_instance_id  = module.rds.instance_id
+# Origin record: origin.judi-expert.fr -> Lightsail IP (used by CloudFront)
+resource "aws_route53_record" "origin" {
+  zone_id = module.dns.zone_id
+  name    = "origin.${var.domain_name}"
+  type    = "A"
+  ttl     = 300
+  records = [module.lightsail.public_ip]
+}
+
+# Alias: www.judi-expert.fr -> CloudFront
+resource "aws_route53_record" "www" {
+  zone_id = module.dns.zone_id
+  name    = "www.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = module.cloudfront.domain_name
+    zone_id                = module.cloudfront.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+# Alias: judi-expert.fr (apex) -> CloudFront
+resource "aws_route53_record" "apex" {
+  zone_id = module.dns.zone_id
+  name    = var.domain_name
+  type    = "A"
+
+  alias {
+    name                   = module.cloudfront.domain_name
+    zone_id                = module.cloudfront.hosted_zone_id
+    evaluate_target_health = false
+  }
 }

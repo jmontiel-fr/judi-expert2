@@ -193,18 +193,10 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 12px;
-  padding: 36px 32px;
+  padding: 36px 24px;
 }
 
-.workflowExample {
-  text-align: center;
-  font-size: 0.95rem;
-  color: var(--color-text-muted);
-  margin-bottom: 28px;
-  font-style: italic;
-}
-
-.workflowSteps {
+.workflowTimeline {
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -212,47 +204,99 @@
   flex-wrap: wrap;
 }
 
-.workflowStep {
+.workflowCard {
+  flex: 1 1 200px;
+  max-width: 240px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.workflowCard:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.workflowCardHeader {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  min-width: 140px;
-  max-width: 180px;
+  gap: 8px;
+}
+
+.workflowCardTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.3;
 }
 
 .workflowBadge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
   background: var(--color-primary);
   color: #fff;
-  font-size: 0.85rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  margin-bottom: 10px;
+  flex-shrink: 0;
 }
 
-.workflowStepTitle {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--color-text);
-  margin-bottom: 4px;
+.workflowIO {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.workflowStepDesc {
+.workflowInput,
+.workflowOutput {
+  border-radius: 8px;
+  padding: 10px 12px;
   font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--color-text);
+}
+
+.workflowInput {
+  background: #ebf8ff;
+  border-left: 3px solid #4299e1;
+}
+
+.workflowOutput {
+  background: #f0fff4;
+  border-left: 3px solid #48bb78;
+}
+
+.workflowInput p,
+.workflowOutput p {
+  margin: 0;
+}
+
+.workflowIOLabel {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
   color: var(--color-text-muted);
-  line-height: 1.4;
 }
 
 .workflowArrow {
   font-size: 1.6rem;
   color: var(--color-accent);
-  margin-top: 16px;
+  margin-top: 40px;
   font-weight: 700;
+  flex-shrink: 0;
 }
 
 /* ===== AI Act Section ===== */
@@ -318,9 +362,13 @@
     font-size: 0.95rem;
   }
 
-  .workflowSteps {
+  .workflowTimeline {
     flex-direction: column;
     align-items: center;
+  }
+
+  .workflowCard {
+    max-width: 100%;
   }
 
   .workflowArrow {

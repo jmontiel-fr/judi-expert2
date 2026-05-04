@@ -49,6 +49,14 @@ export default function Header() {
               FAQ
             </Link>
           </li>
+          <li>
+            <Link
+              href="/tarification"
+              className={`${styles.link} ${pathname === "/tarification" ? styles.active : ""}`}
+            >
+              Tarifs
+            </Link>
+          </li>
 
           {!user && (
             <>

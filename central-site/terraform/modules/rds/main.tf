@@ -1,15 +1,7 @@
 # ==============================================
 # RDS PostgreSQL — Judi-Expert Site Central
+# Standalone (publicly accessible, secured by SG)
 # ==============================================
-
-resource "aws_db_subnet_group" "main" {
-  name       = "${var.project_name}-${var.environment}-db-subnet"
-  subnet_ids = var.private_subnet_ids
-
-  tags = {
-    Name = "${var.project_name}-${var.environment}-db-subnet-group"
-  }
-}
 
 resource "aws_db_instance" "main" {
   identifier = "${var.project_name}-${var.environment}-db"
@@ -27,9 +19,6 @@ resource "aws_db_instance" "main" {
   storage_type          = "gp3"
   storage_encrypted     = true
 
-  db_subnet_group_name   = aws_db_subnet_group.main.name
-  vpc_security_group_ids = [var.rds_security_group_id]
-
   multi_az            = false
   publicly_accessible = false
 
@@ -37,12 +26,15 @@ resource "aws_db_instance" "main" {
   backup_window           = "03:00-04:00"
   maintenance_window      = "sun:04:00-sun:05:00"
 
-  skip_final_snapshot       = false
-  final_snapshot_identifier = "${var.project_name}-${var.environment}-final-snapshot"
+  skip_final_snapshot       = true
+  final_snapshot_identifier = "${var.project_name}-${var.environment}-final"
 
-  deletion_protection = true
+  deletion_protection = false
 
   tags = {
-    Name = "${var.project_name}-${var.environment}-rds"
+    Name        = "${var.project_name}-${var.environment}-rds"
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
   }
 }

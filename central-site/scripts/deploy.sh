@@ -56,10 +56,7 @@ echo ""
 
 # ── Terraform Plan ─────────────────────────────────────
 echo -e "${YELLOW}[2/3]${NC} Planification des changements..."
-terraform -chdir="$TERRAFORM_DIR" plan \
-  -var="environment=${ENVIRONMENT}" \
-  -var="aws_region=${AWS_REGION}" \
-  -out=tfplan
+terraform -chdir="$TERRAFORM_DIR" plan -out=tfplan
 echo -e "${GREEN}  ✔ Plan Terraform généré${NC}"
 echo ""
 

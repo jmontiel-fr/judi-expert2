@@ -131,47 +131,125 @@ export default function HomePage() {
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Workflow d&apos;expertise</h2>
         <p className={styles.sectionSubtitle}>
-          Chaque dossier suit un workflow en 4 étapes séquentielles assistées par
-          l&apos;IA.
+          Chaque dossier suit un workflow générique en 5 étapes séquentielles
+          assistées par l&apos;IA, quel que soit le domaine d&apos;expertise.
         </p>
         <div className={styles.workflowContainer}>
-          <p className={styles.workflowExample}>
-            Exemple : expertise en psychologie judiciaire
-          </p>
-          <div className={styles.workflowSteps}>
-            <div className={styles.workflowStep}>
-              <div className={styles.workflowBadge}>Step 0</div>
-              <p className={styles.workflowStepTitle}>Extraction</p>
-              <p className={styles.workflowStepDesc}>
-                Conversion de la réquisition PDF-scan en Markdown via OCR et IA
-              </p>
+          <div className={styles.workflowTimeline}>
+            {/* Step 1 */}
+            <div className={styles.workflowCard}>
+              <div className={styles.workflowCardHeader}>
+                <div className={styles.workflowBadge}>1</div>
+                <h3 className={styles.workflowCardTitle}>Création dossier</h3>
+              </div>
+              <div className={styles.workflowIO}>
+                <div className={styles.workflowInput}>
+                  <span className={styles.workflowIOLabel}>Entrée</span>
+                  <p>Import des pièces constitutives</p>
+                </div>
+                <div className={styles.workflowOutput}>
+                  <span className={styles.workflowIOLabel}>Sortie</span>
+                  <p>
+                    Extraction texte OCR, structuration interne du dossier
+                  </p>
+                </div>
+              </div>
             </div>
+
             <span className={styles.workflowArrow}>→</span>
-            <div className={styles.workflowStep}>
-              <div className={styles.workflowBadge}>Step 1</div>
-              <p className={styles.workflowStepTitle}>Préparation entretien</p>
-              <p className={styles.workflowStepDesc}>
-                Génération du plan d&apos;entretien à partir des questions du
-                tribunal et de la trame
-              </p>
+
+            {/* Step 2 */}
+            <div className={styles.workflowCard}>
+              <div className={styles.workflowCardHeader}>
+                <div className={styles.workflowBadge}>2</div>
+                <h3 className={styles.workflowCardTitle}>
+                  Préparation investigations
+                </h3>
+              </div>
+              <div className={styles.workflowIO}>
+                <div className={styles.workflowInput}>
+                  <span className={styles.workflowIOLabel}>Entrée</span>
+                  <p>Trames expert ou trames par défaut</p>
+                </div>
+                <div className={styles.workflowOutput}>
+                  <span className={styles.workflowIOLabel}>Sortie</span>
+                  <p>
+                    Génération des trames d&apos;entretien / auditions, demandes
+                    d&apos;investigation diligentées par l&apos;expert
+                  </p>
+                </div>
+              </div>
             </div>
+
             <span className={styles.workflowArrow}>→</span>
-            <div className={styles.workflowStep}>
-              <div className={styles.workflowBadge}>Step 2</div>
-              <p className={styles.workflowStepTitle}>Mise en forme RE-Projet</p>
-              <p className={styles.workflowStepDesc}>
-                Upload du NEA (Notes d&apos;Entretien et Analyse) et production
-                du RE-Projet et RE-Projet-Auxiliaire par l&apos;IA
-              </p>
+
+            {/* Step 3 */}
+            <div className={styles.workflowCard}>
+              <div className={styles.workflowCardHeader}>
+                <div className={styles.workflowBadge}>3</div>
+                <h3 className={styles.workflowCardTitle}>
+                  Consolidation documentaire
+                </h3>
+              </div>
+              <div className={styles.workflowIO}>
+                <div className={styles.workflowInput}>
+                  <span className={styles.workflowIOLabel}>Entrée</span>
+                  <p>Import des résultats d&apos;investigations diligentées</p>
+                </div>
+                <div className={styles.workflowOutput}>
+                  <span className={styles.workflowIOLabel}>Sortie</span>
+                  <p>Extraction texte OCR</p>
+                </div>
+              </div>
             </div>
+
             <span className={styles.workflowArrow}>→</span>
-            <div className={styles.workflowStep}>
-              <div className={styles.workflowBadge}>Step 3</div>
-              <p className={styles.workflowStepTitle}>Upload / Compression dossier final</p>
-              <p className={styles.workflowStepDesc}>
-                Upload du REF (rapport d&apos;expertise final) par l&apos;expert,
-                génération de l&apos;archive et du timbre à horodater.
-              </p>
+
+            {/* Step 4 */}
+            <div className={styles.workflowCard}>
+              <div className={styles.workflowCardHeader}>
+                <div className={styles.workflowBadge}>4</div>
+                <h3 className={styles.workflowCardTitle}>
+                  Production pré-rapport et contrôle contradictoire
+                </h3>
+              </div>
+              <div className={styles.workflowIO}>
+                <div className={styles.workflowInput}>
+                  <span className={styles.workflowIOLabel}>Entrée</span>
+                  <p>
+                    Notes télégraphiques expert (entretiens / auditions, analyse,
+                    conclusions), modèle de rapport final
+                  </p>
+                </div>
+                <div className={styles.workflowOutput}>
+                  <span className={styles.workflowIOLabel}>Sortie</span>
+                  <p>Pré-rapport d&apos;expertise</p>
+                </div>
+              </div>
+            </div>
+
+            <span className={styles.workflowArrow}>→</span>
+
+            {/* Step 5 */}
+            <div className={styles.workflowCard}>
+              <div className={styles.workflowCardHeader}>
+                <div className={styles.workflowBadge}>5</div>
+                <h3 className={styles.workflowCardTitle}>
+                  Finalisation et archivage sécurisé
+                </h3>
+              </div>
+              <div className={styles.workflowIO}>
+                <div className={styles.workflowInput}>
+                  <span className={styles.workflowIOLabel}>Entrée</span>
+                  <p>Import du rapport final ajusté par l&apos;expert</p>
+                </div>
+                <div className={styles.workflowOutput}>
+                  <span className={styles.workflowIOLabel}>Sortie</span>
+                  <p>
+                    Création archive fichiers (traçabilité), horodatage
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

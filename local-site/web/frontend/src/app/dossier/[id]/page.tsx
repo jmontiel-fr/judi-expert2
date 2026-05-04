@@ -17,10 +17,11 @@ import FileList from "@/components/FileList";
 /* ------------------------------------------------------------------ */
 
 const STEP_NAMES: Record<number, string> = {
-  0: "Extraction",
-  1: "Préparation entretien",
-  2: "Mise en forme RE-Projet",
-  3: "Upload / Compression dossier final",
+  1: "Création dossier",
+  2: "Préparation investigations",
+  3: "Consolidation documentaire",
+  4: "Production pré-rapport",
+  5: "Finalisation et archivage",
 };
 
 /* ------------------------------------------------------------------ */
@@ -99,7 +100,7 @@ export default function DossierDetailPage() {
   }, [hasEnCours, dossierId]);
 
   const allStepsValidated =
-    dossier?.steps.length === 4 &&
+    dossier?.steps.length === 5 &&
     dossier.steps.every((s) => s.statut === "valide");
 
   const handleClose = async () => {

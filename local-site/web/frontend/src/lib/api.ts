@@ -388,6 +388,19 @@ export const step0Api = {
     return res.data;
   },
 
+  async uploadComplementary(dossierId: string | number, file: File, label: string, extractOcr: boolean) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("label", label);
+    formData.append("extract_ocr", String(extractOcr));
+    const res = await apiClient.post<{ message: string }>(
+      `/api/dossiers/${dossierId}/step1/complementary`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" }, timeout: 1_800_000 },
+    );
+    return res.data;
+  },
+
   async getMarkdown(dossierId: string | number) {
     const res = await apiClient.get<{ markdown: string }>(
       `/api/dossiers/${dossierId}/step0/markdown`,
@@ -599,10 +612,10 @@ export const chatbotApi = {
 
 /**
  * Determines if a step is accessible based on the sequential workflow rule:
- * Step N is accessible if N === 0 OR step N-1 has statut "valide".
+ * Step N is accessible if N === 1 OR step N-1 has statut "valide".
  */
 export function isStepAccessible(stepNumber: number, steps: DossierStep[]): boolean {
-  if (stepNumber === 0) return true;
+  if (stepNumber === 1) return true;
   const sorted = [...steps].sort((a, b) => a.step_number - b.step_number);
   const prev = sorted.find((s) => s.step_number === stepNumber - 1);
   return prev?.statut === "valide";

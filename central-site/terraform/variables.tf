@@ -1,68 +1,60 @@
 variable "project_name" {
-  description = "Nom du projet"
+  description = "Project name"
   type        = string
   default     = "judi-expert"
 }
 
 variable "environment" {
-  description = "Environnement de déploiement (dev, staging, production)"
+  description = "Deployment environment"
   type        = string
   default     = "production"
 }
 
 variable "aws_region" {
-  description = "Région AWS"
+  description = "AWS region"
   type        = string
-  default     = "eu-west-3"
+  default     = "eu-west-1"
 }
 
-variable "vpc_cidr" {
-  description = "CIDR block pour le VPC"
+# --- Lightsail ---
+
+variable "lightsail_plan" {
+  description = "Lightsail instance plan (nano_3_0, micro_3_0, small_3_0, medium_3_0)"
   type        = string
-  default     = "10.0.0.0/16"
+  default     = "small_3_0"
 }
 
-variable "availability_zones" {
-  description = "Zones de disponibilité"
-  type        = list(string)
-  default     = ["eu-west-3a", "eu-west-3b"]
-}
+# --- RDS ---
 
 variable "db_instance_class" {
-  description = "Classe d'instance RDS"
+  description = "RDS instance class"
   type        = string
-  default     = "db.t3.micro"
+  default     = "db.t4g.micro"
 }
 
 variable "db_name" {
-  description = "Nom de la base de données PostgreSQL"
+  description = "PostgreSQL database name"
   type        = string
   default     = "judi_expert"
 }
 
 variable "db_username" {
-  description = "Nom d'utilisateur de la base de données"
+  description = "Database username"
   type        = string
   default     = "judi_admin"
   sensitive   = true
 }
 
 variable "db_password" {
-  description = "Mot de passe de la base de données"
+  description = "Database password"
   type        = string
   sensitive   = true
 }
 
-# --- ECS / Container Images ---
+# --- DNS ---
 
-variable "backend_image" {
-  description = "Image Docker du backend (URI ECR ou placeholder)"
+variable "domain_name" {
+  description = "Root domain name (e.g. judi-expert.fr)"
   type        = string
-  default     = "nginx:alpine"
-}
-
-variable "frontend_image" {
-  description = "Image Docker du frontend (URI ECR ou placeholder)"
-  type        = string
-  default     = "nginx:alpine"
+  default     = "judi-expert.fr"
 }

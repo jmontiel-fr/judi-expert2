@@ -1,7 +1,7 @@
 """Moteur de workflow séquentiel pour les dossiers d'expertise.
 
-Impose l'ordre strict Step0 → Step1 → Step2 → Step3 et gère les
-transitions de statut : initial → réalisé → validé.
+Impose l'ordre strict Step1 → Step2 → Step3 → Step4 → Step5 et gère les
+transitions de statut : initial → en_cours → fait → validé.
 
 Valide : Exigences 10.1, 10.2, 10.3, 10.4
 """
@@ -20,8 +20,8 @@ from models.step import Step
 from models.step_file import StepFile
 
 # Nombre total d'étapes dans le workflow
-_TOTAL_STEPS = 4
-_VALID_STEP_NUMBERS = frozenset(range(_TOTAL_STEPS))  # {0, 1, 2, 3}
+_TOTAL_STEPS = 5
+_VALID_STEP_NUMBERS = frozenset(range(1, _TOTAL_STEPS + 1))  # {1, 2, 3, 4, 5}
 
 # Statuts possibles d'une étape
 STATUT_INITIAL = "initial"
@@ -66,7 +66,7 @@ class WorkflowEngine:
         if step_number not in _VALID_STEP_NUMBERS:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Le numéro d'étape doit être entre 0 et 3",
+                detail="Le numéro d'étape doit être entre 1 et 5",
             )
         for s in dossier.steps:
             if s.step_number == step_number:
@@ -100,7 +100,7 @@ class WorkflowEngine:
         l'accès en lecture reste possible via cette méthode).
         """
         dossier = await self._get_dossier_with_steps(dossier_id, db)
-        if step_number == 0:
+        if step_number == 1:
             return True
         return self._previous_steps_validated(dossier, step_number)
 
@@ -120,7 +120,7 @@ class WorkflowEngine:
         step = self._get_step(dossier, step_number)
         if step.statut != STATUT_INITIAL:
             return False
-        if step_number == 0:
+        if step_number == 1:
             return True
         return self._previous_steps_validated(dossier, step_number)
 
@@ -140,7 +140,7 @@ class WorkflowEngine:
         step = self._get_step(dossier, step_number)
         if step.statut != STATUT_REALISE:
             return False
-        if step_number == 0:
+        if step_number == 1:
             return True
         return self._previous_steps_validated(dossier, step_number)
 
@@ -171,7 +171,7 @@ class WorkflowEngine:
                 detail="L'étape ne peut pas être relancée dans son statut actuel",
             )
 
-        if step_number > 0 and not self._previous_steps_validated(dossier, step_number):
+        if step_number > 1 and not self._previous_steps_validated(dossier, step_number):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Étape précédente non validée",
@@ -227,7 +227,7 @@ class WorkflowEngine:
                 detail="L'étape doit être au statut 'initial' ou 'en_cours' pour être exécutée",
             )
 
-        if step_number > 0 and not self._previous_steps_validated(dossier, step_number):
+        if step_number > 1 and not self._previous_steps_validated(dossier, step_number):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Étape précédente non validée",
@@ -276,7 +276,7 @@ class WorkflowEngine:
                 detail="L'étape doit être au statut 'réalisé' pour être validée",
             )
 
-        if step_number > 0 and not self._previous_steps_validated(dossier, step_number):
+        if step_number > 1 and not self._previous_steps_validated(dossier, step_number):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Étape précédente non validée",
@@ -306,7 +306,7 @@ class WorkflowEngine:
 
         Args:
             dossier_id: Identifiant du dossier.
-            step_number: Numéro de l'étape (0-3).
+            step_number: Numéro de l'étape (1-5).
             filename: Nom du fichier recherché.
             db: Session async SQLAlchemy.
 
@@ -369,7 +369,7 @@ class WorkflowEngine:
     ) -> Dossier:
         """Ferme le dossier si toutes les étapes sont validées.
 
-        Vérifie que les 4 étapes ont statut "validé".
+        Vérifie que les 5 étapes ont statut "validé".
         Met le dossier.statut à "fermé".
         Lève HTTP 403 si pré-conditions non remplies.
         """
