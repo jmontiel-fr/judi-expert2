@@ -1,0 +1,245 @@
+.container {
+  padding: 8px 0;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.subtitle {
+  text-align: center;
+  color: var(--color-text-muted);
+  max-width: 600px;
+  margin: 0 auto 40px;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+/* Promo box */
+.promoBox {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: linear-gradient(135deg, #f0fff4 0%, #ebf8ff 100%);
+  border: 2px solid #48bb78;
+  border-radius: 14px;
+  padding: 28px 32px;
+  margin-bottom: 48px;
+}
+
+.promoIcon {
+  font-size: 2.5rem;
+  flex-shrink: 0;
+}
+
+.promoTitle {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #166534;
+  margin-bottom: 6px;
+}
+
+.promoText {
+  font-size: 1rem;
+  color: var(--color-text);
+  line-height: 1.6;
+}
+
+/* Section */
+.section {
+  margin-bottom: 48px;
+}
+
+.sectionTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.sectionSubtitle {
+  text-align: center;
+  color: var(--color-text-muted);
+  max-width: 560px;
+  margin: 0 auto 32px;
+  font-size: 0.95rem;
+}
+
+/* Pricing grid */
+.pricingGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.pricingCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 28px 20px;
+  text-align: center;
+  position: relative;
+  opacity: 0.7;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.pricingCardActive {
+  opacity: 1;
+  border-color: var(--color-accent);
+  box-shadow: 0 4px 20px rgba(43, 108, 176, 0.12);
+}
+
+.pricingCardActive:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(43, 108, 176, 0.18);
+}
+
+.pricingBadge {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 14px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pricingBadgeInactive {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #94a3b8;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 14px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pricingIcon {
+  font-size: 2.2rem;
+  margin-bottom: 12px;
+}
+
+.pricingName {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 12px;
+}
+
+.pricingPrice {
+  margin-bottom: 16px;
+}
+
+.priceAmount {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+.priceUnit {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.priceAmountMuted {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.pricingFeatures {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+}
+
+.pricingFeatures li {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  padding: 6px 0;
+  border-top: 1px solid var(--color-border);
+  line-height: 1.4;
+}
+
+.pricingFeatures li::before {
+  content: "✓ ";
+  color: #48bb78;
+  font-weight: 700;
+}
+
+/* How it works */
+.howItWorks {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.howStep {
+  text-align: center;
+}
+
+.howNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.howText {
+  font-size: 0.9rem;
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+/* Note box */
+.noteBox {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  padding: 18px 24px;
+  font-size: 0.9rem;
+  color: #92400e;
+  line-height: 1.6;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .promoBox {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .howItWorks {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .pricingGrid {
+    grid-template-columns: 1fr;
+  }
+}
