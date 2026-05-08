@@ -24,6 +24,10 @@ function CorpusManager({ domaine, onUpdate }: { domaine: string; onUpdate: () =>
   const [addFile, setAddFile] = useState<File | null>(null);
   const [newUrl, setNewUrl] = useState("");
 
+  // Données du Site Central
+  const [centralDocs, setCentralDocs] = useState<Array<{ nom: string; description: string; type: string }>>([]);
+  const [centralUrls, setCentralUrls] = useState<Array<{ nom: string; description: string; url: string }>>([]);
+
   // Popup state
   const [showPopup, setShowPopup] = useState(false);
   const [popupTitle, setPopupTitle] = useState("");
@@ -36,12 +40,22 @@ function CorpusManager({ domaine, onUpdate }: { domaine: string; onUpdate: () =>
   const fetchCorpusList = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL}/api/config/corpus/list`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
+      const [listRes, contenuRes, urlsRes] = await Promise.all([
+        fetch(`${API_URL}/api/config/corpus/list`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/api/config/corpus/central-contenu`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/api/config/corpus/central-urls`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (listRes.ok) {
+        const data = await listRes.json();
         setCorpusDocs(data.documents ?? []);
+      }
+      if (contenuRes.ok) {
+        const data = await contenuRes.json();
+        setCentralDocs(data.documents ?? []);
+      }
+      if (urlsRes.ok) {
+        const data = await urlsRes.json();
+        setCentralUrls(data.urls ?? []);
       }
     } catch { /* ignore */ }
   }, []);
@@ -324,28 +338,38 @@ function CorpusManager({ domaine, onUpdate }: { domaine: string; onUpdate: () =>
       {message && !showPopup && <p className={styles.success} role="status">{message}</p>}
       {error && !showPopup && <p className={styles.error} role="alert">{error}</p>}
 
-      {/* Corpus en 2 colonnes */}
+      {/* Corpus en 2 colonnes (miroir du Site Central) */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginTop: 16 }}>
         {/* Colonne 1 : URLs de référence */}
         <div>
           <p style={{ fontWeight: 600, marginBottom: 8 }}>🔗 URLs de référence</p>
-          {corpusDocs.filter((d) => d.type === "url").length === 0 ? (
-            <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>Aucune URL</p>
+          {centralUrls.length === 0 && corpusDocs.filter((d) => d.type === "url").length === 0 ? (
+            <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>Aucune URL (Site Central indisponible ?)</p>
           ) : (
             <div className={styles.documentList}>
-              {corpusDocs.filter((d) => d.type === "url").map((doc) => (
+              {centralUrls.map((urlItem) => (
+                <div key={urlItem.nom} className={styles.documentItem}>
+                  <span className={styles.documentName}>{urlItem.nom}</span>
+                  {urlItem.description && (
+                    <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: "2px 0 4px" }}>{urlItem.description}</p>
+                  )}
+                  <a href={urlItem.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "0.75rem", color: "#2563eb" }}>
+                    {urlItem.url} ↗
+                  </a>
+                </div>
+              ))}
+              {/* URLs custom ajoutées par l'expert */}
+              {corpusDocs.filter((d) => d.type === "url" && d.source === "custom").map((doc) => (
                 <div key={doc.filename} className={styles.documentItem}>
                   <span className={styles.documentName}>{doc.filename}</span>
                   <div className={styles.documentMeta}>
-                    <span className={styles.badge}>{doc.source}</span>
-                    {doc.source === "custom" && (
-                      <button
-                        onClick={() => handleRemoveDocument(doc.filename)}
-                        style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: "0.8rem" }}
-                      >
-                        ✕
-                      </button>
-                    )}
+                    <span className={styles.badge}>custom</span>
+                    <button
+                      onClick={() => handleRemoveDocument(doc.filename)}
+                      style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: "0.8rem" }}
+                    >
+                      ✕
+                    </button>
                   </div>
                 </div>
               ))}
@@ -375,24 +399,44 @@ function CorpusManager({ domaine, onUpdate }: { domaine: string; onUpdate: () =>
 
         {/* Colonne 2 : Documents */}
         <div>
-          <p style={{ fontWeight: 600, marginBottom: 8 }}>📄 Documents</p>
-          {corpusDocs.filter((d) => d.type === "document" || d.type === "custom").length === 0 ? (
+          <p style={{ fontWeight: 600, marginBottom: 8 }}>📄 Documents de référence</p>
+          {centralDocs.length === 0 && corpusDocs.filter((d) => d.type === "document" || d.type === "custom").length === 0 ? (
             <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>Aucun document</p>
           ) : (
             <div className={styles.documentList}>
-              {corpusDocs.filter((d) => d.type === "document" || d.type === "custom").map((doc) => (
-                <div key={doc.filename} className={styles.documentItem}>
-                  <span className={styles.documentName}>{doc.filename}</span>
-                  <div className={styles.documentMeta}>
-                    <span className={styles.badge}>{doc.source}</span>
-                    {doc.source === "custom" && (
-                      <button
-                        onClick={() => handleRemoveDocument(doc.filename)}
-                        style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: "0.8rem" }}
-                      >
-                        ✕
-                      </button>
+              {/* Documents du Site Central */}
+              {centralDocs.map((doc) => {
+                const isIndexed = corpusDocs.some((d) => d.filename.includes(doc.nom.replace("/", "_")));
+                return (
+                  <div key={doc.nom} className={styles.documentItem}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: "0.75rem" }}>{isIndexed ? "✔" : "⚠"}</span>
+                      <span className={styles.documentName}>{doc.nom.replace("documents/", "")}</span>
+                    </div>
+                    {doc.description && (
+                      <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: "2px 0 0" }}>{doc.description}</p>
                     )}
+                    {!isIndexed && (
+                      <span style={{ fontSize: "0.7rem", color: "#d97706" }}>Non téléchargé</span>
+                    )}
+                  </div>
+                );
+              })}
+              {/* Documents custom ajoutés par l'expert */}
+              {corpusDocs.filter((d) => (d.type === "document" || d.type === "custom") && d.source === "custom").map((doc) => (
+                <div key={doc.filename} className={styles.documentItem}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: "0.75rem" }}>✔</span>
+                    <span className={styles.documentName}>{doc.filename}</span>
+                  </div>
+                  <div className={styles.documentMeta}>
+                    <span className={styles.badge}>custom</span>
+                    <button
+                      onClick={() => handleRemoveDocument(doc.filename)}
+                      style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: "0.8rem" }}
+                    >
+                      ✕
+                    </button>
                   </div>
                 </div>
               ))}

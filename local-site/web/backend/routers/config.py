@@ -749,3 +749,48 @@ async def get_default_template(
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f'attachment; filename="template_rapport_{domaine}.docx"'},
     )
+
+
+# ---- GET /corpus/central-contenu — Récupérer le contenu corpus depuis le Site Central
+
+@router.get("/corpus/central-contenu")
+async def get_central_contenu(
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Récupère la liste du contenu corpus depuis le Site Central (documents)."""
+    config = await _get_config(db)
+    domaine = config.domaine
+
+    client = SiteCentralClient()
+    try:
+        resp = await client.get(f"/api/corpus/{domaine}/contenu")
+        if resp.status_code == 200:
+            items = resp.json()
+            # Filtrer les templates
+            docs = [item for item in items if item.get("type") != "template"]
+            return {"documents": docs}
+        return {"documents": []}
+    except SiteCentralError:
+        return {"documents": []}
+
+
+# ---- GET /corpus/central-urls — Récupérer les URLs depuis le Site Central
+
+@router.get("/corpus/central-urls")
+async def get_central_urls(
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Récupère la liste des URLs de référence depuis le Site Central."""
+    config = await _get_config(db)
+    domaine = config.domaine
+
+    client = SiteCentralClient()
+    try:
+        resp = await client.get(f"/api/corpus/{domaine}/urls")
+        if resp.status_code == 200:
+            return {"urls": resp.json()}
+        return {"urls": []}
+    except SiteCentralError:
+        return {"urls": []}
