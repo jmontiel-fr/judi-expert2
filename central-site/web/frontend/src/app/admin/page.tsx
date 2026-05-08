@@ -348,6 +348,12 @@ function CorpusTab({ accessToken }: { accessToken: string | null }) {
   const [uploadError, setUploadError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState("");
 
+  // Bulk upload state
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [bulkFiles, setBulkFiles] = useState<FileList | null>(null);
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState("");
+
   // Add URL state
   const [showAddUrl, setShowAddUrl] = useState(false);
   const [urlType, setUrlType] = useState<"pdf_externe" | "site_web">("pdf_externe");
@@ -464,6 +470,41 @@ function CorpusTab({ accessToken }: { accessToken: string | null }) {
     }
   };
 
+  const handleBulkUpload = async () => {
+    if (!accessToken || !selected || !bulkFiles || bulkFiles.length === 0) return;
+    setBulkUploading(true);
+    setUploadError("");
+    setUploadSuccess("");
+    let uploaded = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < bulkFiles.length; i++) {
+      const file = bulkFiles[i];
+      setBulkProgress(`Upload ${i + 1}/${bulkFiles.length} : ${file.name}…`);
+      try {
+        await apiAdminUploadDocument(accessToken, selected.nom, file);
+        uploaded++;
+      } catch (err) {
+        errors.push(`${file.name}: ${err instanceof ApiError ? err.message : "erreur"}`);
+      }
+    }
+
+    setBulkProgress("");
+    setBulkUploading(false);
+    setShowBulkUpload(false);
+    setBulkFiles(null);
+
+    if (errors.length > 0) {
+      setUploadError(`${uploaded} uploadé(s), ${errors.length} erreur(s) : ${errors.join(", ")}`);
+    } else {
+      setUploadSuccess(`${uploaded} document(s) uploadé(s) avec succès.`);
+    }
+
+    // Refresh content
+    const c = await apiGetCorpusContenu(selected.nom);
+    setContenu(c);
+  };
+
   return (
     <>
       <div className={styles.corpusDomainList}>
@@ -491,6 +532,9 @@ function CorpusTab({ accessToken }: { accessToken: string | null }) {
               <div className={styles.corpusActions}>
                 <button type="button" className={styles.actionBtn} onClick={() => { setShowUpload(!showUpload); setShowAddUrl(false); }}>
                   Uploader un PDF
+                </button>
+                <button type="button" className={styles.actionBtn} onClick={() => { setShowBulkUpload(!showBulkUpload); setShowUpload(false); setShowAddUrl(false); }}>
+                  📁 Uploader plusieurs PDFs
                 </button>
                 <button type="button" className={styles.actionBtn} onClick={() => { setShowAddUrl(!showAddUrl); setShowUpload(false); }}>
                   Ajouter une URL
@@ -546,6 +590,44 @@ function CorpusTab({ accessToken }: { accessToken: string | null }) {
                       </button>
                     </div>
                   </form>
+                </div>
+              )}
+
+              {showBulkUpload && (
+                <div className={styles.formSection}>
+                  <h3 className={styles.formTitle}>Uploader plusieurs documents PDF</h3>
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel} htmlFor="bulk-files">Sélectionner les fichiers PDF</label>
+                    <input
+                      id="bulk-files"
+                      type="file"
+                      accept=".pdf"
+                      multiple
+                      className={styles.formInput}
+                      onChange={(e) => setBulkFiles(e.target.files)}
+                    />
+                  </div>
+                  {bulkFiles && bulkFiles.length > 0 && (
+                    <p style={{ fontSize: "0.85rem", color: "#374151", marginBottom: 8 }}>
+                      {bulkFiles.length} fichier(s) sélectionné(s)
+                    </p>
+                  )}
+                  {bulkProgress && (
+                    <p style={{ fontSize: "0.85rem", color: "#2563eb", marginBottom: 8 }}>⏳ {bulkProgress}</p>
+                  )}
+                  <div className={styles.formActions}>
+                    <button
+                      type="button"
+                      className={styles.submitBtn}
+                      onClick={handleBulkUpload}
+                      disabled={bulkUploading || !bulkFiles || bulkFiles.length === 0}
+                    >
+                      {bulkUploading ? "Upload en cours…" : "Uploader tout"}
+                    </button>
+                    <button type="button" className={styles.cancelBtn} onClick={() => setShowBulkUpload(false)}>
+                      Annuler
+                    </button>
+                  </div>
                 </div>
               )}
 
