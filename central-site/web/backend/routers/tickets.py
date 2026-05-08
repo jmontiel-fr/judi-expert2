@@ -129,20 +129,18 @@ async def purchase_ticket(
         f"= {prix_ttc:.2f} € TTC"
     )
 
-    # En dev : pré-créer le ticket en attente de confirmation Stripe
-    ticket_code = None
-    if IS_DEV:
-        ticket_code = f"DEV-{uuid.uuid4().hex[:12].upper()}"
-        ticket, _token = _create_ticket_and_token(
-            ticket_code=ticket_code,
-            expert=expert,
-            montant=prix_ttc,
-            stripe_payment_id=f"dev-pending-{uuid.uuid4()}",
-        )
-        ticket.statut = "en_attente"
-        db.add(ticket)
-        await db.commit()
-        logger.info("Ticket dev en attente: %s pour %s", ticket_code, expert.email)
+    # Pré-créer le ticket en attente de confirmation
+    ticket_code = f"TKT-{uuid.uuid4().hex[:12].upper()}"
+    ticket, _token = _create_ticket_and_token(
+        ticket_code=ticket_code,
+        expert=expert,
+        montant=prix_ttc,
+        stripe_payment_id=f"pending-{uuid.uuid4()}",
+    )
+    ticket.statut = "en_attente"
+    db.add(ticket)
+    await db.commit()
+    logger.info("Ticket en attente: %s pour %s", ticket_code, expert.email)
 
     try:
         session = stripe_service.create_checkout_session(
@@ -156,6 +154,9 @@ async def purchase_ticket(
         return PurchaseResponse(checkout_url=session.url)
     except Exception as e:
         logger.error("Erreur Stripe: %s", e)
+        # Supprimer le ticket en attente si Stripe échoue
+        await db.delete(ticket)
+        await db.commit()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Erreur lors de la création de la session de paiement",
@@ -168,14 +169,11 @@ async def confirm_ticket(
     current: tuple[Expert, str] = Depends(get_current_expert),
     db: AsyncSession = Depends(get_db),
 ):
-    """Confirme un ticket après retour de Stripe Checkout (dev uniquement).
+    """Confirme un ticket après retour de Stripe Checkout.
 
-    En dev, le webhook Stripe ne fonctionne pas (pas d'URL publique).
-    Ce endpoint est appelé par le frontend au retour de la page success.
+    Appelé par le frontend au retour de la page success Stripe.
+    Active le ticket et envoie le token par email.
     """
-    if not IS_DEV:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Endpoint dev uniquement")
-
     expert, _ = current
     result = await db.execute(
         select(Ticket).where(
@@ -191,7 +189,7 @@ async def confirm_ticket(
     if ticket.statut == "en_attente":
         ticket.statut = "actif"
         await db.commit()
-        logger.info("Ticket dev confirmé: %s", ticket_code)
+        logger.info("Ticket confirmé: %s", ticket_code)
 
         # Envoyer le token par email
         try:

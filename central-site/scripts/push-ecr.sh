@@ -5,22 +5,38 @@ set -e
 # push-ecr.sh — Authenticate to ECR and push production images
 # ─────────────────────────────────────────────────────────
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CENTRAL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # Colors
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m'
+
+# ── Read version from VERSION file ────────────────────
+VERSION_FILE="$CENTRAL_DIR/VERSION"
+if [ -f "$VERSION_FILE" ]; then
+    VERSION=$(head -n 1 "$VERSION_FILE")
+else
+    echo -e "${RED}ERROR: VERSION file not found at $VERSION_FILE${NC}"
+    exit 1
+fi
 
 # Config
 ECR_REGISTRY="059247592146.dkr.ecr.eu-west-1.amazonaws.com"
 AWS_REGION="eu-west-1"
 BACKEND_IMAGE="${ECR_REGISTRY}/judi-expert/central-backend"
 FRONTEND_IMAGE="${ECR_REGISTRY}/judi-expert/central-frontend"
-TAG="${1:-latest}"
+TAG="${1:-$VERSION}"
 
 echo -e "${BLUE}══════════════════════════════════════════════${NC}"
 echo -e "${BLUE}  Judi-Expert — Push des images vers ECR${NC}"
 echo -e "${BLUE}══════════════════════════════════════════════${NC}"
+echo ""
+echo -e "  Version  : ${GREEN}${VERSION}${NC}"
+echo -e "  Tag      : ${GREEN}${TAG}${NC}"
 echo ""
 
 # ── ECR Authentication ─────────────────────────────────

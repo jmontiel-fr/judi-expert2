@@ -51,7 +51,7 @@ app.add_middleware(
 )
 
 # --- Routers ---
-from routers import auth, chatbot, config, dossiers, step_files, steps, tickets
+from routers import auth, chatbot, config, dossiers, step_files, steps, tickets, version
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(config.router, prefix="/api/config", tags=["config"])
@@ -60,6 +60,7 @@ app.include_router(steps.router, prefix="/api/dossiers", tags=["steps"])
 app.include_router(step_files.router, prefix="/api/dossiers", tags=["step_files"])
 app.include_router(chatbot.router, prefix="/api/chatbot", tags=["chatbot"])
 app.include_router(tickets.router, prefix="/api/tickets", tags=["tickets"])
+app.include_router(version.router, prefix="/api", tags=["version"])
 
 
 @app.get("/api/health", tags=["health"])

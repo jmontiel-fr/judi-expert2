@@ -20,7 +20,7 @@ echo -e "${YELLOW}[1/4] Docker...${NC}"
 ensure_docker
 echo ""
 echo -e "${YELLOW}[2/4] Arrêt...${NC}"
-docker compose -f "$COMPOSE" down --remove-orphans || true
+docker compose -f "$COMPOSE" --env-file "$ROOT_DIR/central-site/.env.dev" down --remove-orphans || true
 echo -e "${GREEN}  ✔ Arrêté${NC}"
 echo ""
 echo -e "${YELLOW}[3/4] Libération des ports...${NC}"
@@ -28,7 +28,12 @@ free_ports "${PORTS[@]}"
 echo -e "${GREEN}  ✔ Ports libres${NC}"
 echo ""
 echo -e "${YELLOW}[4/4] Démarrage${BUILD_FLAG:+ + build}...${NC}"
-docker compose -f "$COMPOSE" up -d $BUILD_FLAG
+ENV_FILE="$ROOT_DIR/central-site/.env.dev"
+if [ -f "$ENV_FILE" ]; then
+  docker compose -f "$COMPOSE" --env-file "$ENV_FILE" up -d $BUILD_FLAG
+else
+  docker compose -f "$COMPOSE" up -d $BUILD_FLAG
+fi
 echo ""
 echo -e "${GREEN}  ✔ Site Central redémarré${NC}"
 echo -e "  Frontend   : ${GREEN}http://localhost:3001${NC}"

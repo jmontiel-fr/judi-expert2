@@ -17,6 +17,12 @@ class LocalConfig(Base):
     domaine: Mapped[str] = mapped_column(String(100))
     email: Mapped[Optional[str]] = mapped_column(String(255))
     rag_version: Mapped[Optional[str]] = mapped_column(String(50))
+    app_version: Mapped[Optional[str]] = mapped_column(String(20))
+    # Version applicative courante (ex: "1.2.0"), mise à jour après MAJ forcée
+
+    llm_model_version: Mapped[Optional[str]] = mapped_column(String(100))
+    # Digest SHA256 du modèle LLM courant (ex: "sha256:abc123...")
+
     is_configured: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(default=func.now())
     updated_at: Mapped[datetime] = mapped_column(default=func.now(), onupdate=func.now())

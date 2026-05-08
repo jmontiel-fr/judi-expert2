@@ -25,6 +25,7 @@ from models.step import Step
 from models.step_file import StepFile
 from routers.auth import get_current_user
 from services.file_service import FileService
+from services.file_paths import create_dossier_tree, dossier_root, step_in_dir, step_out_dir, step_dir as fp_step_dir
 from services.site_central_client import SiteCentralClient, SiteCentralError
 from services.workflow_engine import (
     DOSSIER_ACTIF,
@@ -34,12 +35,6 @@ from services.workflow_engine import (
 )
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
-DATA_DIR: str = os.environ.get("DATA_DIR", "data")
 
 # ---------------------------------------------------------------------------
 # Pydantic schemas
@@ -69,6 +64,7 @@ class StepItem(BaseModel):
     statut: str
     executed_at: datetime | None = None
     validated_at: datetime | None = None
+    execution_duration_seconds: float | None = None
     files: list["StepFileItem"] = []
 
 
@@ -282,6 +278,9 @@ async def create_dossier(
     for s in steps:
         await db.refresh(s)
 
+    # Créer l'arborescence sur disque (step1-5/in + out)
+    create_dossier_tree(dossier.nom)
+
     return DossierDetailResponse(
         id=dossier.id,
         nom=dossier.nom,
@@ -296,6 +295,7 @@ async def create_dossier(
                 statut=s.statut,
                 executed_at=s.executed_at,
                 validated_at=s.validated_at,
+                execution_duration_seconds=s.execution_duration_seconds,
             )
             for s in sorted(steps, key=lambda s: s.step_number)
         ],
@@ -337,6 +337,7 @@ async def get_dossier(
                 statut=s.statut,
                 executed_at=s.executed_at,
                 validated_at=s.validated_at,
+                execution_duration_seconds=s.execution_duration_seconds,
                 files=[
                     StepFileItem(
                         id=f.id,
@@ -455,13 +456,22 @@ async def reset_step(
     """
     import shutil
 
+    # Récupérer le nom du dossier pour le chemin disque
+    dossier_result = await db.execute(select(Dossier).where(Dossier.id == dossier_id))
+    dossier = dossier_result.scalar_one_or_none()
+    if dossier is None:
+        raise HTTPException(status_code=404, detail="Dossier non trouvé")
+
     # Déléguer la logique métier au WorkflowEngine
     await workflow_engine.reset_step(dossier_id, step_number, db)
 
-    # Supprimer les fichiers sur disque
-    step_dir = os.path.join(DATA_DIR, "dossiers", str(dossier_id), f"step{step_number}")
-    if os.path.isdir(step_dir):
-        shutil.rmtree(step_dir)
+    # Supprimer les fichiers sur disque (in + out)
+    in_dir = step_in_dir(dossier.nom, step_number)
+    out_dir = step_out_dir(dossier.nom, step_number)
+    for d in (in_dir, out_dir):
+        if os.path.isdir(d):
+            shutil.rmtree(d)
+            os.makedirs(d, exist_ok=True)  # Recréer le dossier vide
 
     await db.commit()
 
@@ -530,11 +540,12 @@ async def reset_all_steps(
         for sf in list(step.files):
             await db.delete(sf)
 
-    # Supprimer les fichiers sur disque pour chaque step
+    # Supprimer les fichiers sur disque pour chaque step (vider in/ et out/)
     for step_num in range(1, 6):
-        step_dir = os.path.join(DATA_DIR, "dossiers", str(dossier_id), f"step{step_num}")
-        if os.path.isdir(step_dir):
-            shutil.rmtree(step_dir)
+        for d in (step_in_dir(dossier.nom, step_num), step_out_dir(dossier.nom, step_num)):
+            if os.path.isdir(d):
+                shutil.rmtree(d)
+                os.makedirs(d, exist_ok=True)
 
     await db.commit()
 
@@ -604,19 +615,20 @@ async def download_dossier(
         )
 
     # Générer l'archive ZIP en mémoire
-    dossier_root = os.path.join(DATA_DIR, "dossiers", str(dossier_id))
+    dossier_path = dossier_root(dossier.nom)
     zip_buffer = io.BytesIO()
 
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for step_num in range(1, 6):
-            step_dir = os.path.join(dossier_root, f"step{step_num}")
-            if not os.path.isdir(step_dir):
-                continue
-            for filename in sorted(os.listdir(step_dir)):
-                file_path = os.path.join(step_dir, filename)
-                if os.path.isfile(file_path):
-                    arcname = f"step{step_num}/{filename}"
-                    zf.write(file_path, arcname)
+            for sub in ("in", "out"):
+                sub_dir = os.path.join(dossier_path, f"step{step_num}", sub)
+                if not os.path.isdir(sub_dir):
+                    continue
+                for filename in sorted(os.listdir(sub_dir)):
+                    file_path = os.path.join(sub_dir, filename)
+                    if os.path.isfile(file_path):
+                        arcname = f"step{step_num}/{sub}/{filename}"
+                        zf.write(file_path, arcname)
 
     zip_buffer.seek(0)
 
@@ -773,11 +785,9 @@ async def replace_file(
         )
 
     # Remplacer sur le disque
-    step_dir = os.path.join(
-        DATA_DIR, "dossiers", str(dossier_id), f"step{step.step_number}"
-    )
+    replace_dir = step_out_dir(dossier.nom, step.step_number)
     try:
-        file_service.replace_file(step_file, content, step_dir)
+        file_service.replace_file(step_file, content, replace_dir)
     except OSError:
         logger.exception("Erreur lors de l'écriture du fichier sur le disque")
         raise HTTPException(

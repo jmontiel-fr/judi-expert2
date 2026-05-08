@@ -24,7 +24,12 @@ free_ports "${PORTS[@]}"
 echo -e "${GREEN}  ✔ Ports libres${NC}"
 echo ""
 echo -e "${YELLOW}[3/3] Démarrage${BUILD_FLAG:+ + build}...${NC}"
-docker compose -f "$COMPOSE" up -d $BUILD_FLAG
+ENV_FILE="$ROOT_DIR/central-site/.env.dev"
+if [ -f "$ENV_FILE" ]; then
+  docker compose -f "$COMPOSE" --env-file "$ENV_FILE" up -d $BUILD_FLAG
+else
+  docker compose -f "$COMPOSE" up -d $BUILD_FLAG
+fi
 echo ""
 echo -e "${GREEN}  ✔ Site Central démarré${NC}"
 echo -e "  Frontend   : ${GREEN}http://localhost:3001${NC}"

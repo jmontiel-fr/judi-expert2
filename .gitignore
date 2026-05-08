@@ -26,6 +26,7 @@ out/
 
 # ── Environment ──
 .env
+.env.aws
 .env.dev
 .env.local
 .env.*.local
@@ -63,3 +64,4 @@ data/
 *.tfstate
 *.tfstate.backup
 .terraform.lock.hcl
+nul

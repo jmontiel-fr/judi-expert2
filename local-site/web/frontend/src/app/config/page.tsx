@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, ChangeEvent } from "react";
+import { useState, useEffect, useCallback, useRef, ChangeEvent } from "react";
 import styles from "./config.module.css";
 import {
   configApi,
@@ -8,6 +8,332 @@ import {
   type RAGVersion,
   type DocumentItem,
 } from "@/lib/api";
+
+/* ------------------------------------------------------------------ */
+/* CorpusManager sub-component                                         */
+/* ------------------------------------------------------------------ */
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+function CorpusManager({ domaine, onUpdate }: { domaine: string; onUpdate: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [action, setAction] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [corpusDocs, setCorpusDocs] = useState<Array<{ filename: string; type: string; source: string }>>([]);
+  const [addFile, setAddFile] = useState<File | null>(null);
+
+  // Popup state
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupTitle, setPopupTitle] = useState("");
+  const [popupLogs, setPopupLogs] = useState<string[]>([]);
+  const [popupDone, setPopupDone] = useState(false);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchCorpusList = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/api/config/corpus/list`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCorpusDocs(data.documents ?? []);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { fetchCorpusList(); }, [fetchCorpusList]);
+
+  // Timer for popup
+  useEffect(() => {
+    if (showPopup && !popupDone) {
+      setElapsed(0);
+      intervalRef.current = setInterval(() => setElapsed((p) => p + 1), 1000);
+    } else {
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [showPopup, popupDone]);
+
+  function formatTime(s: number): string {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m > 0 ? `${m}min ${sec.toString().padStart(2, "0")}s` : `${sec}s`;
+  }
+
+  async function handleAction(endpoint: string, actionName: string, title: string) {
+    const controller = new AbortController();
+    setAbortController(controller);
+    setShowPopup(true);
+    setPopupTitle(title);
+    setPopupLogs(["Démarrage…"]);
+    setPopupDone(false);
+    setLoading(true);
+    setAction(actionName);
+    setMessage("");
+    setError("");
+
+    try {
+      const token = localStorage.getItem("token");
+
+      // Pour initialize et reset, utiliser SSE (streaming)
+      if (endpoint === "initialize" || endpoint === "reset") {
+        const res = await fetch(`${API_URL}/api/config/corpus/${endpoint}`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          setPopupLogs((prev) => [...prev, `✕ Erreur : ${data.detail || "Erreur inconnue"}`]);
+          setError(data.detail || "Erreur");
+          setPopupDone(true);
+          return;
+        }
+
+        // Lire le stream SSE
+        const reader = res.body?.getReader();
+        const decoder = new TextDecoder();
+        if (reader) {
+          let buffer = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n\n");
+            buffer = lines.pop() || "";
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  if (data.log) {
+                    setPopupLogs((prev) => [...prev, data.log]);
+                  }
+                  if (data.done) {
+                    setMessage(`${data.indexed ?? 0} documents indexés`);
+                    fetchCorpusList();
+                    onUpdate();
+                  }
+                } catch { /* ignore parse errors */ }
+              }
+            }
+          }
+        }
+      } else {
+        // Pour rebuild et autres, appel classique
+        setPopupLogs((prev) => [...prev, `Appel ${endpoint}…`]);
+        const res = await fetch(`${API_URL}/api/config/corpus/${endpoint}`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setPopupLogs((prev) => [
+            ...prev,
+            `✔ ${data.message || "Opération réussie"}`,
+            `Documents indexés : ${data.indexed ?? 0}`,
+            ...(data.errors?.length ? data.errors.map((e: string) => `⚠ ${e}`) : []),
+          ]);
+          setMessage(data.message || "Opération réussie");
+          fetchCorpusList();
+          onUpdate();
+        } else {
+          setPopupLogs((prev) => [...prev, `✕ Erreur : ${data.detail || "Erreur inconnue"}`]);
+          setError(data.detail || "Erreur");
+        }
+      }
+    } catch (err: unknown) {
+      if ((err as Error).name === "AbortError") {
+        setPopupLogs((prev) => [...prev, "⏹ Opération interrompue par l'utilisateur"]);
+      } else {
+        setPopupLogs((prev) => [...prev, "✕ Erreur réseau"]);
+        setError("Erreur réseau");
+      }
+    } finally {
+      setPopupDone(true);
+      setLoading(false);
+      setAction("");
+      setAbortController(null);
+    }
+  }
+
+  function handleStop() {
+    if (abortController) {
+      abortController.abort();
+    }
+  }
+
+  async function handleAddDocument() {
+    if (!addFile) return;
+    setLoading(true);
+    setAction("add");
+    setMessage("");
+    setError("");
+    try {
+      const token = localStorage.getItem("token");
+      const formData = new FormData();
+      formData.append("file", addFile);
+      const res = await fetch(`${API_URL}/api/config/corpus/add`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage(data.message || "Document ajouté");
+        setAddFile(null);
+        fetchCorpusList();
+        onUpdate();
+      } else {
+        setError(data.detail || "Erreur");
+      }
+    } catch {
+      setError("Erreur réseau");
+    } finally {
+      setLoading(false);
+      setAction("");
+    }
+  }
+
+  async function handleRemoveDocument(filename: string) {
+    if (!confirm(`Supprimer "${filename}" du corpus ?`)) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/api/config/corpus/${encodeURIComponent(filename)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setMessage(`"${filename}" supprimé`);
+        fetchCorpusList();
+        onUpdate();
+      } else {
+        const data = await res.json();
+        setError(data.detail || "Erreur");
+      }
+    } catch {
+      setError("Erreur réseau");
+    }
+  }
+
+  return (
+    <div>
+      {/* Popup modal */}
+      {showPopup && (
+        <div className={styles.overlay} onClick={() => popupDone && setShowPopup(false)}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ margin: "0 0 12px", fontSize: "1.1rem" }}>
+              {!popupDone && <span style={{ marginRight: 8 }}>⏳</span>}
+              {popupDone && <span style={{ marginRight: 8 }}>✔</span>}
+              {popupTitle}
+            </h3>
+            <p style={{ fontSize: "0.85rem", color: "#6b7280", marginBottom: 12 }}>
+              {popupDone ? `Terminé en ${formatTime(elapsed)}` : `En cours… ${formatTime(elapsed)}`}
+            </p>
+            <div style={{
+              background: "#1e293b", color: "#e2e8f0", padding: 12, borderRadius: 8,
+              fontSize: "0.8rem", fontFamily: "monospace", maxHeight: 200, overflowY: "auto",
+              marginBottom: 16,
+            }}>
+              {popupLogs.map((log, i) => (
+                <div key={i}>{log}</div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              {!popupDone && (
+                <button className={styles.button} onClick={handleStop} style={{ backgroundColor: "#dc2626" }}>
+                  ⏹ Stop
+                </button>
+              )}
+              {popupDone && (
+                <button className={styles.button} onClick={() => setShowPopup(false)}>
+                  Fermer
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className={styles.defaultActions} style={{ marginBottom: 16, gap: 8, display: "flex", flexWrap: "wrap" }}>
+        <button
+          className={styles.button}
+          onClick={() => handleAction("initialize", "initialize", "Initialisation du corpus")}
+          disabled={loading}
+        >
+          {action === "initialize" ? "Initialisation…" : "Initialiser le corpus"}
+        </button>
+        <button
+          className={`${styles.button} ${styles.buttonSmall}`}
+          onClick={() => handleAction("rebuild", "rebuild", "Reconstruction du RAG")}
+          disabled={loading}
+        >
+          {action === "rebuild" ? "Reconstruction…" : "Rebuilder le RAG"}
+        </button>
+        <button
+          className={`${styles.button} ${styles.buttonSmall}`}
+          onClick={() => handleAction("reset", "reset", "Reset to original")}
+          disabled={loading}
+          style={{ backgroundColor: "#dc2626" }}
+        >
+          {action === "reset" ? "Réinitialisation…" : "Reset to original"}
+        </button>
+      </div>
+
+      {message && !showPopup && <p className={styles.success} role="status">{message}</p>}
+      {error && !showPopup && <p className={styles.error} role="alert">{error}</p>}
+
+      {/* Liste des documents du corpus */}
+      {corpusDocs.length > 0 && (
+        <div className={styles.documentList} style={{ marginTop: 16 }}>
+          {corpusDocs.map((doc) => (
+            <div key={doc.filename} className={styles.documentItem}>
+              <span className={styles.documentName}>{doc.filename}</span>
+              <div className={styles.documentMeta}>
+                <span className={styles.badge}>{doc.source}</span>
+                <span className={styles.badge}>{doc.type}</span>
+                {doc.source === "custom" && (
+                  <button
+                    onClick={() => handleRemoveDocument(doc.filename)}
+                    style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: "0.8rem" }}
+                  >
+                    ✕ Supprimer
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Ajouter un document */}
+      <div className={styles.uploadArea} style={{ marginTop: 16 }}>
+        <div className={styles.fileInputRow}>
+          <input
+            type="file"
+            className={styles.fileInput}
+            accept=".pdf,.md,.txt,.docx"
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setAddFile(e.target.files?.[0] ?? null)}
+            aria-label="Ajouter un document au corpus"
+          />
+          <button
+            className={`${styles.button} ${styles.buttonSmall}`}
+            onClick={handleAddDocument}
+            disabled={!addFile || loading}
+          >
+            {action === "add" ? "Ajout…" : "Ajouter au corpus"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /* Main component                                                      */
@@ -151,9 +477,17 @@ export default function ConfigPage() {
     setTpeError("");
     setTpeSuccess("");
     try {
-      const response = await fetch("/defaults/TPE_psychologie.tpl");
+      // Télécharger le TPE par défaut via le backend local (proxy vers Site Central)
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_URL}/api/config/defaults/tpe`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ detail: "TPE par défaut non disponible" }));
+        throw new Error(err.detail);
+      }
       const blob = await response.blob();
-      const file = new File([blob], "TPE_psychologie.tpl", { type: "text/plain" });
+      const file = new File([blob], "TPE_psychologie.md", { type: "text/markdown" });
       const data = await configApi.uploadTpe(file);
       setTpeSuccess(data.message ?? "TPE par défaut installé.");
       fetchDocuments();
@@ -169,7 +503,15 @@ export default function ConfigPage() {
     setTemplateError("");
     setTemplateSuccess("");
     try {
-      const response = await fetch("/defaults/template_rapport_psychologie.docx");
+      // Télécharger le template par défaut via le backend local (proxy vers Site Central)
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_URL}/api/config/defaults/template`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ detail: "Template par défaut non disponible" }));
+        throw new Error(err.detail);
+      }
       const blob = await response.blob();
       const file = new File([blob], "template_rapport_psychologie.docx", {
         type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -363,11 +705,21 @@ export default function ConfigPage() {
         </div>
       </section>
 
-      {/* ---- Section 4: Documents RAG ---- */}
+      {/* ---- Section 4: Gestion du Corpus ---- */}
+      <section className={styles.section} aria-labelledby="corpus-title">
+        <h2 className={styles.sectionTitle} id="corpus-title">
+          <span className={styles.sectionIcon} aria-hidden="true">📚</span>
+          Corpus RAG
+        </h2>
+
+        <CorpusManager domaine={domaine} onUpdate={fetchDocuments} />
+      </section>
+
+      {/* ---- Section 5: Documents RAG (indexés) ---- */}
       <section className={styles.section} aria-labelledby="docs-title">
         <h2 className={styles.sectionTitle} id="docs-title">
-          <span className={styles.sectionIcon} aria-hidden="true">📚</span>
-          Documents RAG
+          <span className={styles.sectionIcon} aria-hidden="true">🔍</span>
+          Documents indexés (RAG)
         </h2>
 
         {docsLoading ? (

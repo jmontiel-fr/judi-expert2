@@ -34,7 +34,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 OCR_HOST: str = os.environ.get("OCR_HOST", "http://judi-ocr:8001")
-DATA_DIR: str = os.environ.get("DATA_DIR", "data")
 
 # ---------------------------------------------------------------------------
 # Pydantic schemas
@@ -93,34 +92,33 @@ class Step3ValidateResponse(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _step0_dir(dossier_id: int) -> str:
-    """Retourne le chemin du répertoire step1 pour un dossier."""
-    return os.path.join(DATA_DIR, "dossiers", str(dossier_id), "step1")
+
+async def _get_dossier_name(dossier_id: int, db: AsyncSession) -> str:
+    """Récupère le nom du dossier par son ID."""
+    from models.dossier import Dossier as DossierModel
+    result = await db.execute(select(DossierModel).where(DossierModel.id == dossier_id))
+    dossier = result.scalar_one_or_none()
+    if dossier is None:
+        raise HTTPException(status_code=404, detail="Dossier non trouvé")
+    return dossier.nom
 
 
-def _step1_dir(dossier_id: int) -> str:
-    """Retourne le chemin du répertoire step2 pour un dossier."""
-    return os.path.join(DATA_DIR, "dossiers", str(dossier_id), "step2")
+def _step_in(dossier_name: str, step_number: int) -> str:
+    """Retourne le chemin du sous-dossier d'entrée d'un step."""
+    from services.file_paths import step_in_dir
+    return step_in_dir(dossier_name, step_number)
 
 
-def _step2_dir(dossier_id: int) -> str:
-    """Retourne le chemin du répertoire step3 pour un dossier."""
-    return os.path.join(DATA_DIR, "dossiers", str(dossier_id), "step3")
+def _step_out(dossier_name: str, step_number: int) -> str:
+    """Retourne le chemin du sous-dossier de sortie d'un step."""
+    from services.file_paths import step_out_dir
+    return step_out_dir(dossier_name, step_number)
 
 
-def _step3_dir(dossier_id: int) -> str:
-    """Retourne le chemin du répertoire step4 pour un dossier."""
-    return os.path.join(DATA_DIR, "dossiers", str(dossier_id), "step4")
-
-
-def _step4_dir(dossier_id: int) -> str:
-    """Retourne le chemin du répertoire step5 pour un dossier."""
-    return os.path.join(DATA_DIR, "dossiers", str(dossier_id), "step5")
-
-
-def _dossier_dir(dossier_id: int) -> str:
+def _dossier_dir(dossier_name: str) -> str:
     """Retourne le chemin du répertoire racine d'un dossier."""
-    return os.path.join(DATA_DIR, "dossiers", str(dossier_id))
+    from services.file_paths import dossier_root
+    return dossier_root(dossier_name)
 
 
 async def _get_step(
@@ -148,40 +146,39 @@ async def _get_step(
 router = APIRouter()
 
 
-# ---- Step0 : POST /api/dossiers/{id}/step0/extract -----------------------
+# ---- Step1 : POST /api/dossiers/{id}/step1/upload -------------------------
+
+
+class UploadResponse(BaseModel):
+    message: str
+    filename: str
+    file_size: int
+
 
 @router.post(
-    "/{dossier_id}/step0/extract",
-    response_model=ExtractResponse,
+    "/{dossier_id}/step1/upload",
+    response_model=UploadResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def step0_extract(
+async def step1_upload(
     dossier_id: int,
     file: UploadFile,
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Upload un PDF-scan, lance l'OCR puis structure en Markdown via LLM."""
+    """Upload l'ordonnance PDF dans step1/in/ sans lancer de traitement."""
 
-    # 0. Vérifier que l'étape n'est pas verrouillée (validée)
+    # Vérifier que l'étape n'est pas verrouillée
     await workflow_engine.require_step_not_validated(dossier_id, 1, db)
 
-    # 0b. Marquer le step comme "en_cours"
-    await workflow_engine.start_step(dossier_id, 1, db)
-    await db.commit()
-
-    # 1. Vérifier que le fichier est un PDF
+    # Vérifier que le fichier est un PDF
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Seuls les fichiers PDF sont acceptés",
         )
 
-    # 2. Créer le répertoire de destination
-    step_dir = _step0_dir(dossier_id)
-    os.makedirs(step_dir, exist_ok=True)
-
-    # 3. Lire le contenu du fichier uploadé
+    # Lire le contenu
     pdf_content = await file.read()
     if not pdf_content:
         raise HTTPException(
@@ -189,45 +186,139 @@ async def step0_extract(
             detail="Le fichier PDF est vide",
         )
 
-    # 4. Sauvegarder le PDF original
-    pdf_path = os.path.join(step_dir, "requisition.pdf")
+    # Résoudre le nom du dossier et sauvegarder
+    dossier_name = await _get_dossier_name(dossier_id, db)
+    in_dir = _step_in(dossier_name, 1)
+    os.makedirs(in_dir, exist_ok=True)
+
+    pdf_path = os.path.join(in_dir, "ordonnance.pdf")
     with open(pdf_path, "wb") as f:
         f.write(pdf_content)
 
-    # 5. Appeler le service OCR
+    # Créer le StepFile en base
+    step = await _get_step(dossier_id, 1, db)
+
+    # Supprimer l'ancien fichier ordonnance s'il existe (ré-upload)
+    for old_file in list(step.files):
+        if old_file.filename == "ordonnance.pdf":
+            await db.delete(old_file)
+    await db.flush()
+
+    step_file = StepFile(
+        step_id=step.id,
+        filename="ordonnance.pdf",
+        file_path=pdf_path,
+        file_type="pdf_scan",
+        file_size=len(pdf_content),
+    )
+    db.add(step_file)
+    await db.commit()
+
+    return UploadResponse(
+        message="Ordonnance importée avec succès",
+        filename="ordonnance.pdf",
+        file_size=len(pdf_content),
+    )
+
+
+# ---- Step1 : POST /api/dossiers/{id}/step1/execute -----------------------
+
+@router.post(
+    "/{dossier_id}/step1/execute",
+    response_model=ExtractResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def step1_execute(
+    dossier_id: int,
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Lance l'OCR + structuration LLM sur les fichiers déjà uploadés dans step1/in/.
+
+    Produit : ordonnance.md, questions.md, place_holders.csv dans step1/out/.
+    """
+
+    # 0. Vérifier que l'étape n'est pas verrouillée
+    await workflow_engine.require_step_not_validated(dossier_id, 1, db)
+
+    # 0b. Vérifier que le step n'est pas déjà en cours (éviter re-lancement sur refresh)
+    step = await _get_step(dossier_id, 1, db)
+    if step.statut == "en_cours":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Le traitement est déjà en cours",
+        )
+
+    # 0c. Vérifier qu'il y a au moins un fichier uploadé
+    dossier_name = await _get_dossier_name(dossier_id, db)
+    in_dir = _step_in(dossier_name, 1)
+    out_dir = _step_out(dossier_name, 1)
+
+    pdf_path = os.path.join(in_dir, "ordonnance.pdf")
+    if not os.path.isfile(pdf_path):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Aucune ordonnance uploadée — importez d'abord le PDF",
+        )
+
+    # 1. Marquer le step comme "en_cours"
+    await workflow_engine.start_step(dossier_id, 1, db)
+    await db.commit()
+
+    # 2. Lire le PDF
+    with open(pdf_path, "rb") as f:
+        pdf_content = f.read()
+
+    # 3. Appeler le service OCR
+    logger.info("[Step1] Dossier %d — Phase 1/3 : OCR en cours…", dossier_id)
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(
                 f"{OCR_HOST}/api/ocr/extract",
-                files={"file": ("requisition.pdf", pdf_content, "application/pdf")},
+                files={"file": ("ordonnance.pdf", pdf_content, "application/pdf")},
             )
             resp.raise_for_status()
             ocr_data = resp.json()
             texte_brut = ocr_data.get("text", "")
     except httpx.ConnectError:
+        await workflow_engine.fail_step(dossier_id, 1, db)
+        await db.commit()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Service OCR indisponible — vérifiez que le conteneur judi-ocr est démarré",
         )
     except httpx.TimeoutException:
+        await workflow_engine.fail_step(dossier_id, 1, db)
+        await db.commit()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Service OCR indisponible — délai de connexion dépassé",
         )
     except httpx.HTTPStatusError as exc:
         logger.error("Erreur OCR HTTP %s", exc.response.status_code)
+        await workflow_engine.fail_step(dossier_id, 1, db)
+        await db.commit()
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Erreur du service OCR lors de l'extraction",
         )
 
     if not texte_brut.strip():
+        await workflow_engine.fail_step(dossier_id, 1, db)
+        await db.commit()
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Le PDF ne contient pas de texte exploitable",
         )
 
-    # 6. Appeler le LLM pour structurer en Markdown
+    # 3b. Vérifier si l'opération a été annulée entre OCR et LLM
+    step_check = await _get_step(dossier_id, 1, db)
+    if step_check.statut != "en_cours":
+        logger.info("Step 1 annulé après OCR — abandon du traitement")
+        return ExtractResponse(markdown="", pdf_path=pdf_path, md_path="")
+
+    # 4. Appeler le LLM pour structurer en Markdown
+    logger.info("[Step1] Dossier %d — Phase 2/3 : Structuration ordonnance (LLM)…", dossier_id)
     llm = LLMService()
     try:
         markdown = await llm.structurer_markdown(texte_brut)
@@ -240,7 +331,13 @@ async def step0_extract(
             detail="Service LLM indisponible — essayez de redémarrer le conteneur judi-llm",
         )
 
-    # 6b. Nettoyer le markdown (supprimer les blocs ``` ajoutés par le LLM)
+    # 4b. Vérifier si l'opération a été annulée pendant le LLM
+    await db.refresh(step_check)
+    if step_check.statut != "en_cours":
+        logger.info("Step 1 annulé après LLM — abandon du traitement")
+        return ExtractResponse(markdown="", pdf_path=pdf_path, md_path="")
+
+    # 4b. Nettoyer le markdown (supprimer les blocs ``` ajoutés par le LLM)
     markdown = markdown.strip()
     if markdown.startswith("```markdown"):
         markdown = markdown[len("```markdown"):].strip()
@@ -251,67 +348,111 @@ async def step0_extract(
     if markdown.endswith("```"):
         markdown = markdown[:-3].strip()
 
-    # 7. Sauvegarder le fichier Markdown (usage interne pour Step1)
-    md_path = os.path.join(step_dir, "requisition.md")
+    # 5. Sauvegarder les fichiers de sortie
+    os.makedirs(out_dir, exist_ok=True)
+
+    md_path = os.path.join(out_dir, "ordonnance.md")
     with open(md_path, "w", encoding="utf-8") as f:
         f.write(markdown)
 
-    # 7b. Générer le .docx pour l'expert
-    from docx import Document as DocxDocument
-    docx_path = os.path.join(step_dir, "requisition.docx")
-    doc = DocxDocument()
-    for line in markdown.split("\n"):
-        stripped = line.strip()
-        if stripped.startswith("### "):
-            doc.add_heading(stripped[4:], level=3)
-        elif stripped.startswith("## "):
-            doc.add_heading(stripped[3:], level=2)
-        elif stripped.startswith("# "):
-            doc.add_heading(stripped[2:], level=1)
-        elif stripped.startswith("- "):
-            doc.add_paragraph(stripped[2:], style="List Bullet")
-        elif stripped:
-            doc.add_paragraph(stripped)
-    doc.save(docx_path)
+    # 5b. Vérifier annulation avant extraction des questions
+    step_check = await _get_step(dossier_id, 1, db)
+    if step_check.statut != "en_cours":
+        logger.info("Step 1 annulé avant extraction questions — abandon")
+        return ExtractResponse(markdown=markdown, pdf_path=pdf_path, md_path=md_path)
 
-    # 8. Créer les entrées StepFile en base
+    # 6. Extraire les questions du tribunal
+    logger.info("[Step1] Dossier %d — Phase 3a/3 : Extraction des questions (LLM)…", dossier_id)
+    try:
+        questions_md = await llm.extraire_questions(markdown)
+    except Exception as exc:
+        logger.warning("Extraction questions échouée : %s — on continue sans", exc)
+        questions_md = ""
+
+    # Nettoyer le markdown des questions
+    if questions_md:
+        questions_md = questions_md.strip()
+        if questions_md.startswith("```"):
+            questions_md = questions_md.split("\n", 1)[-1] if "\n" in questions_md else ""
+        if questions_md.endswith("```"):
+            questions_md = questions_md[:-3].strip()
+
+    questions_path = ""
+    if questions_md.strip():
+        questions_path = os.path.join(out_dir, "questions.md")
+        with open(questions_path, "w", encoding="utf-8") as f:
+            f.write(questions_md)
+
+    # 6b. Vérifier annulation avant extraction des placeholders
+    await db.refresh(step_check)
+    if step_check.statut != "en_cours":
+        logger.info("Step 1 annulé avant extraction placeholders — abandon")
+        return ExtractResponse(markdown=markdown, pdf_path=pdf_path, md_path=md_path)
+
+    # 7. Extraire les placeholders
+    logger.info("[Step1] Dossier %d — Phase 3b/3 : Extraction des placeholders (LLM)…", dossier_id)
+    try:
+        placeholders_csv = await llm.extraire_placeholders(markdown)
+    except Exception as exc:
+        logger.warning("Extraction placeholders échouée : %s — on continue sans", exc)
+        placeholders_csv = ""
+
+    # Nettoyer le CSV
+    if placeholders_csv:
+        placeholders_csv = placeholders_csv.strip()
+        if placeholders_csv.startswith("```"):
+            placeholders_csv = placeholders_csv.split("\n", 1)[-1] if "\n" in placeholders_csv else ""
+        if placeholders_csv.endswith("```"):
+            placeholders_csv = placeholders_csv[:-3].strip()
+
+    placeholders_path = ""
+    if placeholders_csv.strip():
+        placeholders_path = os.path.join(out_dir, "place_holders.csv")
+        with open(placeholders_path, "w", encoding="utf-8") as f:
+            f.write(placeholders_csv)
+
+    # 8. Créer les entrées StepFile de sortie en base
     step = await _get_step(dossier_id, 1, db)
 
-    # Supprimer les anciens StepFile de step0 (ré-extraction)
+    # Supprimer les anciens fichiers de sortie (ré-exécution)
     for old_file in list(step.files):
-        await db.delete(old_file)
+        if old_file.file_type in ("markdown", "questions", "placeholders"):
+            await db.delete(old_file)
     await db.flush()
 
-    pdf_size = len(pdf_content)
     md_size = len(markdown.encode("utf-8"))
-    docx_size = os.path.getsize(docx_path)
-
-    step_file_pdf = StepFile(
-        step_id=step.id,
-        filename="requisition.pdf",
-        file_path=pdf_path,
-        file_type="pdf_scan",
-        file_size=pdf_size,
-    )
     step_file_md = StepFile(
         step_id=step.id,
-        filename="requisition.md",
+        filename="ordonnance.md",
         file_path=md_path,
         file_type="markdown",
         file_size=md_size,
     )
-    step_file_docx = StepFile(
-        step_id=step.id,
-        filename="requisition.docx",
-        file_path=docx_path,
-        file_type="docx",
-        file_size=docx_size,
-    )
-    db.add(step_file_pdf)
     db.add(step_file_md)
-    db.add(step_file_docx)
 
-    # 9. Marquer step0 comme "fait"
+    if questions_path:
+        db.add(StepFile(
+            step_id=step.id,
+            filename="questions.md",
+            file_path=questions_path,
+            file_type="questions",
+            file_size=len(questions_md.encode("utf-8")),
+        ))
+
+    if placeholders_path:
+        db.add(StepFile(
+            step_id=step.id,
+            filename="place_holders.csv",
+            file_path=placeholders_path,
+            file_type="placeholders",
+            file_size=len(placeholders_csv.encode("utf-8")),
+        ))
+
+    # 9. Marquer step1 comme "fait"
+    logger.info("[Step1] Dossier %d — Terminé. Fichiers générés : ordonnance.md%s%s",
+                dossier_id,
+                ", questions.md" if questions_path else "",
+                ", place_holders.csv" if placeholders_path else "")
     await workflow_engine.execute_step(dossier_id, 1, db)
     await db.commit()
 
@@ -322,10 +463,48 @@ async def step0_extract(
     )
 
 
-# ---- Step0 : GET /api/dossiers/{id}/step0/markdown -----------------------
+# ---- Step1 : POST /api/dossiers/{id}/step1/extract (legacy — redirige) ---
+
+@router.post(
+    "/{dossier_id}/step1/extract",
+    response_model=ExtractResponse,
+    status_code=status.HTTP_201_CREATED,
+    deprecated=True,
+)
+async def step0_extract(
+    dossier_id: int,
+    file: UploadFile,
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """[LEGACY] Upload + extraction en un seul appel. Utiliser /upload puis /execute."""
+    # Upload d'abord
+    await step1_upload.__wrapped__(dossier_id, file, _user, db) if hasattr(step1_upload, '__wrapped__') else None
+
+    # Sauvegarder le fichier manuellement (fallback si __wrapped__ n'existe pas)
+    dossier_name = await _get_dossier_name(dossier_id, db)
+    in_dir = _step_in(dossier_name, 1)
+    os.makedirs(in_dir, exist_ok=True)
+
+    pdf_content = await file.read()
+    if not pdf_content:
+        # Le fichier a déjà été lu par step1_upload, relire depuis le disque
+        pdf_path = os.path.join(in_dir, "ordonnance.pdf")
+        if os.path.isfile(pdf_path):
+            with open(pdf_path, "rb") as f:
+                pdf_content = f.read()
+
+    if not pdf_content:
+        raise HTTPException(status_code=400, detail="Fichier vide")
+
+    # Puis exécuter
+    return await step1_execute(dossier_id, _user, db)
+
+
+# ---- Step1 : GET /api/dossiers/{id}/step1/markdown -----------------------
 
 @router.get(
-    "/{dossier_id}/step0/markdown",
+    "/{dossier_id}/step1/markdown",
     response_model=MarkdownResponse,
 )
 async def step0_get_markdown(
@@ -338,7 +517,8 @@ async def step0_get_markdown(
     # Vérifier l'accès à l'étape
     await workflow_engine.require_step_access(dossier_id, 1, db)
 
-    md_path = os.path.join(_step0_dir(dossier_id), "requisition.md")
+    dossier_name = await _get_dossier_name(dossier_id, db)
+    md_path = os.path.join(_step_out(dossier_name, 1), "requisition.md")
     if not os.path.isfile(md_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -351,10 +531,10 @@ async def step0_get_markdown(
     return MarkdownResponse(markdown=content)
 
 
-# ---- Step0 : PUT /api/dossiers/{id}/step0/markdown -----------------------
+# ---- Step1 : PUT /api/dossiers/{id}/step1/markdown -----------------------
 
 @router.put(
-    "/{dossier_id}/step0/markdown",
+    "/{dossier_id}/step1/markdown",
     response_model=MarkdownUpdateResponse,
 )
 async def step0_update_markdown(
@@ -368,7 +548,8 @@ async def step0_update_markdown(
     # Vérifier que l'étape n'est pas validée (immuable)
     await workflow_engine.require_step_not_validated(dossier_id, 1, db)
 
-    md_path = os.path.join(_step0_dir(dossier_id), "requisition.md")
+    dossier_name = await _get_dossier_name(dossier_id, db)
+    md_path = os.path.join(_step_out(dossier_name, 1), "requisition.md")
     if not os.path.isfile(md_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -390,10 +571,10 @@ async def step0_update_markdown(
     return MarkdownUpdateResponse(message="Fichier Markdown mis à jour")
 
 
-# ---- Step0 : POST /api/dossiers/{id}/step0/import-docx -------------------
+# ---- Step1 : POST /api/dossiers/{id}/step1/import-docx -------------------
 
 @router.post(
-    "/{dossier_id}/step0/import-docx",
+    "/{dossier_id}/step1/import-docx",
     response_model=MarkdownUpdateResponse,
 )
 async def step0_import_docx(
@@ -420,20 +601,22 @@ async def step0_import_docx(
             detail="Le fichier est vide",
         )
 
-    step_dir = _step0_dir(dossier_id)
+    dossier_name = await _get_dossier_name(dossier_id, db)
+    in_dir = _step_in(dossier_name, 1)
+    out_dir = _step_out(dossier_name, 1)
 
-    # Sauvegarder le .docx importé
-    docx_path = os.path.join(step_dir, "requisition.docx")
+    # Sauvegarder le .docx importé (input — uploadé par l'expert)
+    docx_path = os.path.join(in_dir, "requisition.docx")
     with open(docx_path, "wb") as f:
         f.write(content)
 
-    # Extraire le texte du .docx pour mettre à jour le .md
+    # Extraire le texte du .docx pour mettre à jour le .md (output)
     import io
     doc = DocxDocument(io.BytesIO(content))
     paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
     markdown = "\n\n".join(paragraphs)
 
-    md_path = os.path.join(step_dir, "requisition.md")
+    md_path = os.path.join(out_dir, "requisition.md")
     with open(md_path, "w", encoding="utf-8") as f:
         f.write(markdown)
 
@@ -450,33 +633,167 @@ async def step0_import_docx(
     return MarkdownUpdateResponse(message="Document importé avec succès")
 
 
-# ---- Step0 : POST /api/dossiers/{id}/step0/validate ---------------------
+# ---- Step1 : POST /api/dossiers/{id}/step1/complementary -----------------
+
+# Types de pièces complémentaires
+VALID_DOC_TYPES = ("rapport", "plainte", "autre")
+# Formats acceptés et ceux qui passent à l'OCR
+VALID_DOC_FORMATS = ("pdf", "scan", "image", "csv", "xlsx")
+OCR_FORMATS = ("pdf", "scan")
+
+
+class ComplementaryResponse(BaseModel):
+    message: str
+    filename: str
+    ocr_applied: bool
+    output_file: str | None = None
+
 
 @router.post(
-    "/{dossier_id}/step0/validate",
+    "/{dossier_id}/step1/complementary",
+    response_model=ComplementaryResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def step1_upload_complementary(
+    dossier_id: int,
+    file: UploadFile,
+    label: str = "",
+    doc_type: str = "autre",
+    doc_format: str = "pdf",
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload une pièce complémentaire au dossier (Step 1).
+
+    - type : rapport, plainte, autre
+    - format : pdf, scan, image, csv, xlsx
+    - Seuls les formats pdf et scan passent à l'OCR → produisent un .md
+    - Les formats csv et xlsx sont stockés tels quels
+    """
+    # Validation
+    if doc_type not in VALID_DOC_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Type invalide. Valeurs acceptées : {', '.join(VALID_DOC_TYPES)}",
+        )
+    if doc_format not in VALID_DOC_FORMATS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Format invalide. Valeurs acceptées : {', '.join(VALID_DOC_FORMATS)}",
+        )
+
+    # Vérifier que l'étape n'est pas verrouillée
+    await workflow_engine.require_step_not_validated(dossier_id, 1, db)
+
+    # Lire le fichier
+    content = await file.read()
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le fichier est vide",
+        )
+
+    # Créer le répertoire
+    dossier_name = await _get_dossier_name(dossier_id, db)
+    in_dir = _step_in(dossier_name, 1)
+    out_dir = _step_out(dossier_name, 1)
+    os.makedirs(in_dir, exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
+
+    # Sauvegarder le fichier original (input — uploadé par l'expert)
+    safe_filename = file.filename or f"piece_{doc_type}.{doc_format}"
+    file_path = os.path.join(in_dir, safe_filename)
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    # OCR si format pdf ou scan
+    ocr_applied = False
+    output_file = None
+
+    if doc_format in OCR_FORMATS:
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                resp = await client.post(
+                    f"{OCR_HOST}/api/ocr/extract",
+                    files={"file": (safe_filename, content, "application/pdf")},
+                )
+                resp.raise_for_status()
+                ocr_data = resp.json()
+                texte_brut = ocr_data.get("text", "")
+
+            if texte_brut.strip():
+                # Sauvegarder le résultat OCR en .md (output — généré par OCR)
+                md_filename = os.path.splitext(safe_filename)[0] + ".md"
+                md_path = os.path.join(out_dir, md_filename)
+                with open(md_path, "w", encoding="utf-8") as f:
+                    f.write(texte_brut)
+                ocr_applied = True
+                output_file = md_filename
+
+                # Créer le StepFile pour le .md
+                step = await _get_step(dossier_id, 1, db)
+                md_step_file = StepFile(
+                    step_id=step.id,
+                    filename=md_filename,
+                    file_path=md_path,
+                    file_type="complementary_ocr",
+                    file_size=len(texte_brut.encode("utf-8")),
+                    doc_type=doc_type,
+                    doc_format=doc_format,
+                )
+                db.add(md_step_file)
+        except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError) as e:
+            logger.warning("OCR indisponible pour pièce complémentaire : %s", e)
+
+    # Créer le StepFile pour le fichier original
+    step = await _get_step(dossier_id, 1, db)
+    step_file = StepFile(
+        step_id=step.id,
+        filename=safe_filename,
+        file_path=file_path,
+        file_type="complementary",
+        file_size=len(content),
+        doc_type=doc_type,
+        doc_format=doc_format,
+    )
+    db.add(step_file)
+    await db.commit()
+
+    return ComplementaryResponse(
+        message=f"Pièce complémentaire '{label or safe_filename}' ajoutée.",
+        filename=safe_filename,
+        ocr_applied=ocr_applied,
+        output_file=output_file,
+    )
+
+
+# ---- Step1 : POST /api/dossiers/{id}/step1/validate ---------------------
+
+@router.post(
+    "/{dossier_id}/step1/validate",
     response_model=Step0ValidateResponse,
 )
-async def step0_validate(
+async def step1_validate(
     dossier_id: int,
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Valide l'étape 0 (extraction) — passage à "validé"."""
+    """Valide l'étape 1 (extraction) — passage à "validé"."""
 
     await workflow_engine.validate_step(dossier_id, 1, db)
     await db.commit()
 
-    return Step0ValidateResponse(message="Step0 validé avec succès")
+    return Step0ValidateResponse(message="Step 1 validé avec succès")
 
 
-# ---- Step1 : POST /api/dossiers/{id}/step1/execute -----------------------
+# ---- Step2 : POST /api/dossiers/{id}/step2/execute -----------------------
 
 @router.post(
-    "/{dossier_id}/step1/execute",
+    "/{dossier_id}/step2/execute",
     response_model=QmecResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def step1_execute(
+async def step2_execute(
     dossier_id: int,
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -493,8 +810,11 @@ async def step1_execute(
     await workflow_engine.start_step(dossier_id, 2, db)
     await db.commit()
 
+    # Résoudre le nom du dossier pour les chemins
+    dossier_name = await _get_dossier_name(dossier_id, db)
+
     # 2. Lire le fichier Markdown de step0 pour obtenir les QT
-    md_path = os.path.join(_step0_dir(dossier_id), "requisition.md")
+    md_path = os.path.join(_step_out(dossier_name, 1), "requisition.md")
     if not os.path.isfile(md_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -571,20 +891,20 @@ async def step1_execute(
     if qmec.endswith("```"):
         qmec = qmec[:-3].strip()
 
-    # 7. Sauvegarder le QMEC en .md (interne) et .docx (pour l'expert)
-    step1_path = _step1_dir(dossier_id)
-    os.makedirs(step1_path, exist_ok=True)
+    # 7. Sauvegarder le PE en .md (interne) et .docx (pour l'expert)
+    step2_out = _step_out(dossier_name, 2)
+    os.makedirs(step2_out, exist_ok=True)
 
     # .md interne
-    qmec_md_path = os.path.join(step1_path, "qmec.md")
-    with open(qmec_md_path, "w", encoding="utf-8") as f:
+    pe_md_path = os.path.join(step2_out, "pe.md")
+    with open(pe_md_path, "w", encoding="utf-8") as f:
         f.write(qmec)
 
     # .docx pour l'expert
     from docx import Document as DocxDocument
-    qmec_docx_path = os.path.join(step1_path, "qmec.docx")
+    pe_docx_path = os.path.join(step2_out, "pe.docx")
     doc = DocxDocument()
-    doc.add_heading("Plan d'entretien (QMEC)", level=1)
+    doc.add_heading("Plan d'Entretien (PE)", level=1)
     for line in qmec.split("\n"):
         stripped = line.strip()
         if stripped.startswith("### "):
@@ -597,7 +917,7 @@ async def step1_execute(
             doc.add_paragraph(stripped[2:], style="List Bullet")
         elif stripped:
             doc.add_paragraph(stripped)
-    doc.save(qmec_docx_path)
+    doc.save(pe_docx_path)
 
     # 8. Créer les entrées StepFile en base
     step = await _get_step(dossier_id, 2, db)
@@ -609,17 +929,17 @@ async def step1_execute(
 
     step_file_md = StepFile(
         step_id=step.id,
-        filename="qmec.md",
-        file_path=qmec_md_path,
-        file_type="qmec",
+        filename="pe.md",
+        file_path=pe_md_path,
+        file_type="plan_entretien",
         file_size=len(qmec.encode("utf-8")),
     )
     step_file_docx = StepFile(
         step_id=step.id,
-        filename="qmec.docx",
-        file_path=qmec_docx_path,
-        file_type="qmec_docx",
-        file_size=os.path.getsize(qmec_docx_path),
+        filename="pe.docx",
+        file_path=pe_docx_path,
+        file_type="plan_entretien_docx",
+        file_size=os.path.getsize(pe_docx_path),
     )
     db.add(step_file_md)
     db.add(step_file_docx)
@@ -631,12 +951,12 @@ async def step1_execute(
     return QmecResponse(qmec=qmec)
 
 
-# ---- Step1 : GET /api/dossiers/{id}/step1/download -----------------------
+# ---- Step2 : GET /api/dossiers/{id}/step2/download -----------------------
 
 @router.get(
-    "/{dossier_id}/step1/download",
+    "/{dossier_id}/step2/download",
 )
-async def step1_download(
+async def step2_download(
     dossier_id: int,
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -649,40 +969,46 @@ async def step1_download(
     # Vérifier l'accès à l'étape
     await workflow_engine.require_step_access(dossier_id, 2, db)
 
-    qmec_path = os.path.join(_step1_dir(dossier_id), "qmec.docx")
-    if not os.path.isfile(qmec_path):
-        # Fallback to .md for backward compatibility
-        qmec_path = os.path.join(_step1_dir(dossier_id), "qmec.md")
-        if not os.path.isfile(qmec_path):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Fichier QMEC non trouvé — lancez d'abord l'exécution du Step1",
-            )
+    dossier_name = await _get_dossier_name(dossier_id, db)
+    step2_out = _step_out(dossier_name, 2)
+
+    pe_path = os.path.join(step2_out, "pe.docx")
+    if not os.path.isfile(pe_path):
+        # Fallback to .md
+        pe_path = os.path.join(step2_out, "pe.md")
+        if not os.path.isfile(pe_path):
+            # Legacy fallback
+            pe_path = os.path.join(step2_out, "qmec.docx")
+            if not os.path.isfile(pe_path):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Plan d'Entretien non trouvé — lancez d'abord l'exécution du Step 2",
+                )
         return FileResponse(
-            path=qmec_path,
-            filename="qmec.md",
+            path=pe_path,
+            filename="pe.md",
             media_type="text/markdown",
         )
 
     return FileResponse(
-        path=qmec_path,
-        filename="qmec.docx",
+        path=pe_path,
+        filename="pe.docx",
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
 
 
-# ---- Step1 : POST /api/dossiers/{id}/step1/validate ---------------------
+# ---- Step2 : POST /api/dossiers/{id}/step2/validate ---------------------
 
 @router.post(
-    "/{dossier_id}/step1/validate",
+    "/{dossier_id}/step2/validate",
     response_model=Step1ValidateResponse,
 )
-async def step1_validate(
+async def step2_validate(
     dossier_id: int,
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Valide le Step1 (verrouillage) et autorise l'accès au Step2.
+    """Valide le Step 2 (verrouillage) et autorise l'accès au Step 3.
 
     Valide : Exigence 7.4
     """
@@ -690,17 +1016,17 @@ async def step1_validate(
     await workflow_engine.validate_step(dossier_id, 2, db)
     await db.commit()
 
-    return Step1ValidateResponse(message="Step1 validé avec succès")
+    return Step1ValidateResponse(message="Step 2 validé avec succès")
 
 
-# ---- Step2 : POST /api/dossiers/{id}/step2/upload ------------------------
+# ---- Step4 : POST /api/dossiers/{id}/step4/execute ------------------------
 
 @router.post(
-    "/{dossier_id}/step2/upload",
+    "/{dossier_id}/step4/execute",
     response_model=Step2UploadResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def step2_upload(
+async def step4_execute(
     dossier_id: int,
     file: UploadFile,
     _user: dict = Depends(get_current_user),
@@ -728,17 +1054,22 @@ async def step2_upload(
     # 3. Lire le contenu du fichier NEA
     nea_content_bytes = await file.read()
 
-    # 4. Créer le répertoire de destination
-    step_dir = _step2_dir(dossier_id)
-    os.makedirs(step_dir, exist_ok=True)
+    # Résoudre le nom du dossier pour les chemins
+    dossier_name = await _get_dossier_name(dossier_id, db)
 
-    # 5. Sauvegarder le NEA
-    nea_path = os.path.join(step_dir, "nea.docx")
+    # 4. Créer le répertoire de destination
+    in_dir = _step_in(dossier_name, 3)
+    out_dir = _step_out(dossier_name, 3)
+    os.makedirs(in_dir, exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
+
+    # 5. Sauvegarder le NEA (input — uploadé par l'expert)
+    nea_path = os.path.join(in_dir, "nea.docx")
     with open(nea_path, "wb") as f:
         f.write(nea_content_bytes)
 
-    # 6. Lire la réquisition Markdown de step0
-    md_path = os.path.join(_step0_dir(dossier_id), "requisition.md")
+    # 6. Lire la réquisition Markdown de step0 (output du step1)
+    md_path = os.path.join(_step_out(dossier_name, 1), "requisition.md")
     if not os.path.isfile(md_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -822,9 +1153,9 @@ async def step2_upload(
     ))
     await db.commit()
 
-    # 12. Sauvegarder le RE-Projet
+    # 12. Sauvegarder le RE-Projet (output — généré par LLM)
     re_projet_bytes = re_projet_content.encode("utf-8")
-    re_projet_path = os.path.join(step_dir, "re_projet.docx")
+    re_projet_path = os.path.join(out_dir, "re_projet.docx")
     with open(re_projet_path, "wb") as f:
         f.write(re_projet_bytes)
 
@@ -837,9 +1168,9 @@ async def step2_upload(
     ))
     await db.commit()
 
-    # 13. Sauvegarder le RE-Projet-Auxiliaire
+    # 13. Sauvegarder le RE-Projet-Auxiliaire (output — généré par LLM)
     re_projet_aux_bytes = re_projet_aux_content.encode("utf-8")
-    re_projet_aux_path = os.path.join(step_dir, "re_projet_auxiliaire.docx")
+    re_projet_aux_path = os.path.join(out_dir, "re_projet_auxiliaire.docx")
     with open(re_projet_aux_path, "wb") as f:
         f.write(re_projet_aux_bytes)
 
@@ -861,18 +1192,18 @@ async def step2_upload(
     )
 
 
-# ---- Step2 : POST /api/dossiers/{id}/step2/validate ---------------------
+# ---- Step4 : POST /api/dossiers/{id}/step4/validate ---------------------
 
 @router.post(
-    "/{dossier_id}/step2/validate",
+    "/{dossier_id}/step4/validate",
     response_model=Step2ValidateResponse,
 )
-async def step2_validate(
+async def step4_validate(
     dossier_id: int,
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Valide le Step2 (verrouillage) et autorise l'accès au Step3.
+    """Valide le Step 4 (verrouillage) et autorise l'accès au Step 5.
 
     Valide : Exigence 8.4
     """
@@ -880,17 +1211,17 @@ async def step2_validate(
     await workflow_engine.validate_step(dossier_id, 4, db)
     await db.commit()
 
-    return Step2ValidateResponse(message="Step2 validé avec succès")
+    return Step2ValidateResponse(message="Step 4 validé avec succès")
 
 
-# ---- Step3 : POST /api/dossiers/{id}/step3/execute -----------------------
+# ---- Step5 : POST /api/dossiers/{id}/step5/execute -----------------------
 
 @router.post(
-    "/{dossier_id}/step3/execute",
+    "/{dossier_id}/step5/execute",
     response_model=Step3ExecuteResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def step3_execute(
+async def step5_execute(
     dossier_id: int,
     file: UploadFile = None,
     _user: dict = Depends(get_current_user),
@@ -913,33 +1244,38 @@ async def step3_execute(
     await workflow_engine.start_step(dossier_id, 5, db)
     await db.commit()
 
-    step3_path = _step3_dir(dossier_id)
-    os.makedirs(step3_path, exist_ok=True)
+    # Résoudre le nom du dossier pour les chemins
+    dossier_name = await _get_dossier_name(dossier_id, db)
 
-    # 2. Sauvegarder le ProjetFinal uploadé (optionnel)
+    in_dir = _step_in(dossier_name, 5)
+    out_dir = _step_out(dossier_name, 5)
+    os.makedirs(in_dir, exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
+
+    # 2. Sauvegarder le ProjetFinal uploadé (optionnel — input)
     if file and file.filename:
         projet_final_bytes = await file.read()
-        projet_final_path = os.path.join(step3_path, "projet_final.docx")
+        projet_final_path = os.path.join(in_dir, "projet_final.docx")
         with open(projet_final_path, "wb") as f:
             f.write(projet_final_bytes)
 
     # 3. Construire le ZIP avec tous les fichiers classés Expert/ et IA/
-    dossier_root = _dossier_dir(dossier_id)
+    dossier_root = _dossier_dir(dossier_name)
     zip_buffer = io.BytesIO()
 
     # Mapping des fichiers vers Expert/ ou IA/
     expert_files = {
-        "step0/requisition.pdf": "Expert/requisition.pdf",
-        "step0/requisition.docx": "Expert/requisition_modifiee.docx",
-        "step2/nea.docx": "Expert/nea.docx",
-        "step3/projet_final.docx": "Expert/projet_final.docx",
+        "step1/in/requisition.pdf": "Expert/requisition.pdf",
+        "step1/in/requisition.docx": "Expert/requisition_modifiee.docx",
+        "step3/in/nea.docx": "Expert/nea.docx",
+        "step5/in/projet_final.docx": "Expert/projet_final.docx",
     }
     ia_files = {
-        "step0/requisition.md": "IA/requisition_structuree.md",
-        "step1/qmec.md": "IA/qmec.md",
-        "step1/qmec.docx": "IA/qmec.docx",
-        "step2/re_projet.docx": "IA/re_projet.docx",
-        "step2/re_projet_auxiliaire.docx": "IA/re_projet_auxiliaire.docx",
+        "step1/out/requisition.md": "IA/requisition_structuree.md",
+        "step2/out/pe.md": "IA/qmec.md",
+        "step2/out/pe.docx": "IA/qmec.docx",
+        "step3/out/re_projet.docx": "IA/re_projet.docx",
+        "step3/out/re_projet_auxiliaire.docx": "IA/re_projet_auxiliaire.docx",
     }
 
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -949,13 +1285,13 @@ async def step3_execute(
                 zf.write(src_path, arc_name)
 
     zip_bytes = zip_buffer.getvalue()
-    zip_path = os.path.join(step3_path, "dossier_archive.zip")
+    zip_path = os.path.join(out_dir, "dossier_archive.zip")
     with open(zip_path, "wb") as f:
         f.write(zip_bytes)
 
     # 4. Générer le hash SHA-256 du ZIP
     sha256_hash = hashlib.sha256(zip_bytes).hexdigest()
-    hash_path = os.path.join(step3_path, "hash_sha256.txt")
+    hash_path = os.path.join(out_dir, "hash_sha256.txt")
     with open(hash_path, "w") as f:
         f.write(f"SHA-256: {sha256_hash}\n")
         f.write(f"Fichier: dossier_archive.zip\n")
@@ -976,7 +1312,7 @@ async def step3_execute(
         db.add(StepFile(
             step_id=step.id,
             filename="projet_final.docx",
-            file_path=os.path.join(step3_path, "projet_final.docx"),
+            file_path=os.path.join(in_dir, "projet_final.docx"),
             file_type="projet_final",
             file_size=len(projet_final_bytes),
         ))
@@ -1006,12 +1342,12 @@ async def step3_execute(
     )
 
 
-# ---- Step3 : GET /api/dossiers/{id}/step3/download/{doc_type} ------------
+# ---- Step5 : GET /api/dossiers/{id}/step5/download/{doc_type} ------------
 
 @router.get(
-    "/{dossier_id}/step3/download/{doc_type}",
+    "/{dossier_id}/step5/download/{doc_type}",
 )
-async def step3_download(
+async def step5_download(
     dossier_id: int,
     doc_type: str,
     _user: dict = Depends(get_current_user),
@@ -1031,7 +1367,8 @@ async def step3_download(
             detail="Type de document invalide — utilisez 'ref_projet'",
         )
 
-    file_path = os.path.join(_step3_dir(dossier_id), "ref_projet.docx")
+    dossier_name = await _get_dossier_name(dossier_id, db)
+    file_path = os.path.join(_step_out(dossier_name, 5), "ref_projet.docx")
     if not os.path.isfile(file_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -1045,18 +1382,18 @@ async def step3_download(
     )
 
 
-# ---- Step3 : POST /api/dossiers/{id}/step3/validate ---------------------
+# ---- Step5 : POST /api/dossiers/{id}/step5/validate ---------------------
 
 @router.post(
-    "/{dossier_id}/step3/validate",
+    "/{dossier_id}/step5/validate",
     response_model=Step3ValidateResponse,
 )
-async def step3_validate(
+async def step5_validate(
     dossier_id: int,
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Valide le Step3 (verrouillage).
+    """Valide le Step 5 (verrouillage).
 
     Valide : Exigences 9.5, 9.6
     """
@@ -1064,4 +1401,4 @@ async def step3_validate(
     await workflow_engine.validate_step(dossier_id, 5, db)
     await db.commit()
 
-    return Step3ValidateResponse(message="Step3 validé avec succès")
+    return Step3ValidateResponse(message="Step 5 validé avec succès")

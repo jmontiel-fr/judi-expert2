@@ -177,11 +177,54 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
             refresh_token=auth_result["RefreshToken"],
         )
 
-    except ClientError:
+    except cognito_service.NewPasswordRequiredError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="NEW_PASSWORD_REQUIRED",
+            headers={"X-Cognito-Session": e.session},
+        )
+
+    except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code", "")
+        if error_code == "UserNotConfirmedException":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="USER_NOT_CONFIRMED",
+            )
         # Message uniforme — ne révèle pas si c'est l'email ou le mot de passe
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=UNIFORM_LOGIN_ERROR,
+        )
+
+
+class NewPasswordRequest(BaseModel):
+    email: str
+    new_password: str
+    session: str
+
+
+@router.post("/new-password", response_model=AuthResponse)
+async def new_password(request: NewPasswordRequest):
+    """Changement de mot de passe obligatoire (première connexion admin).
+
+    Répond au challenge NEW_PASSWORD_REQUIRED de Cognito.
+    """
+    try:
+        auth_result = cognito_service.respond_to_new_password_challenge(
+            email=request.email,
+            new_password=request.new_password,
+            session=request.session,
+        )
+        return AuthResponse(
+            access_token=auth_result["AccessToken"],
+            id_token=auth_result["IdToken"],
+            refresh_token=auth_result["RefreshToken"],
+        )
+    except ClientError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Impossible de changer le mot de passe. Veuillez réessayer.",
         )
 
 
@@ -221,3 +264,56 @@ async def forgot_password(request: ForgotPasswordRequest, db: AsyncSession = Dep
         pass  # Ne pas révéler si l'email existe
 
     return {"message": "Si un compte existe avec cet email, un lien de réinitialisation a été envoyé."}
+
+
+class ConfirmSignUpRequest(BaseModel):
+    email: str
+    code: str
+
+
+@router.post("/confirm")
+async def confirm_sign_up(request: ConfirmSignUpRequest):
+    """Confirme l'inscription avec le code reçu par email."""
+    if IS_DEV:
+        return {"message": "Compte confirmé (mode dev)"}
+
+    try:
+        cognito_service.confirm_sign_up(
+            email=request.email,
+            confirmation_code=request.code,
+        )
+        return {"message": "Compte confirmé avec succès. Vous pouvez maintenant vous connecter."}
+    except ClientError as e:
+        error_code = e.response["Error"]["Code"]
+        if error_code == "CodeMismatchException":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Code de confirmation invalide.",
+            )
+        if error_code == "ExpiredCodeException":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Code expiré. Demandez un nouveau code.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Erreur lors de la confirmation. Veuillez réessayer.",
+        )
+
+
+class ResendCodeRequest(BaseModel):
+    email: str
+
+
+@router.post("/resend-code")
+async def resend_code(request: ResendCodeRequest):
+    """Renvoie le code de confirmation par email."""
+    if IS_DEV:
+        return {"message": "Code renvoyé (mode dev)"}
+
+    try:
+        cognito_service.resend_confirmation_code(email=request.email)
+    except ClientError:
+        pass  # Ne pas révéler si l'email existe
+
+    return {"message": "Si un compte existe avec cet email, un nouveau code a été envoyé."}

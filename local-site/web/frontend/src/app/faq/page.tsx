@@ -52,12 +52,12 @@ const FAQ_DATA: FAQSection[] = [
       {
         question: "Comment importer ma trame d'entretien personnalisée ?",
         answer:
-          "Dans la page Configuration, section « Trame d'entretien », cliquez sur « Importer » et sélectionnez votre fichier TPE. La trame sera utilisée pour générer les plans d'entretien à l'étape 1 du workflow.",
+          "Dans la page Configuration, section « Trame d'entretien », cliquez sur « Importer » et sélectionnez votre fichier TPE. La trame sera utilisée pour générer les plans d'entretien à l'étape 2 (Préparation investigations) du workflow.",
       },
       {
         question: "Comment importer mon template de rapport Word ?",
         answer:
-          "Dans la page Configuration, section « Template rapport », cliquez sur « Importer » et sélectionnez votre fichier .docx. Ce template sera utilisé pour générer le rapport final à l'étape 3.",
+          "Dans la page Configuration, section « Template rapport », cliquez sur « Importer » et sélectionnez votre fichier .docx. Ce template sera utilisé pour générer le pré-rapport à l'étape 4 (Production pré-rapport).",
       },
       {
         question: "Puis-je changer de domaine d'expertise ?",
@@ -72,17 +72,17 @@ const FAQ_DATA: FAQSection[] = [
       {
         question: "Comment créer un nouveau dossier d'expertise ?",
         answer:
-          "Depuis la page Dossiers, cliquez sur « Nouveau dossier ». Saisissez un nom et le code du ticket acheté sur le site central. Le ticket est vérifié en ligne puis le dossier est créé avec les 4 étapes du workflow.",
+          "Depuis la page Dossiers, cliquez sur « Nouveau dossier ». Saisissez un nom et le code du ticket acheté sur le site central. Le ticket est vérifié en ligne puis le dossier est créé avec les 5 étapes du workflow.",
       },
       {
-        question: "Quelles sont les 4 étapes du workflow ?",
+        question: "Quelles sont les étapes du workflow ?",
         answer:
-          "Step 0 : Extraction OCR de la réquisition PDF en Markdown. Step 1 : Génération du plan d'entretien (QMEC) à partir des questions du tribunal. Step 2 : Upload de vos notes d'entretien et du rapport brut. Step 3 : Génération du rapport final et du rapport auxiliaire d'analyse.",
+          "Étape 1 — Création dossier : import de l'ordonnance et des pièces, extraction OCR, identification des questions (Q1…Qn) et des placeholders. Étape 2 — Préparation investigations : génération du Plan d'Entretien (PE) ou du Plan d'Analyse (PA). Étape E/A — Entretien ou Analyse : l'expert mène ses entretiens ou analyses hors application et annote le plan (PEA/PAA). Étape 3 — Consolidation documentaire : import des pièces de diligence et extraction OCR. Étape 4 — Production pré-rapport : import du PEA/PAA annoté, génération du Pré-Rapport (PRE) et du Document d'Analyse Contradictoire (DAC). Étape 5 — Finalisation et archivage : import du rapport final (REF), création de l'archive ZIP avec timbre SHA-256.",
       },
       {
         question: "Puis-je modifier le texte extrait par l'OCR ?",
         answer:
-          "Oui. Après l'extraction OCR (Step 0), le Markdown généré est affiché dans un éditeur. Vous pouvez le corriger librement avant de valider l'étape.",
+          "Oui. Après l'extraction OCR (étape 1 — Création dossier), le Markdown généré est affiché dans un éditeur. Vous pouvez le corriger librement avant de valider l'étape.",
       },
       {
         question: "Puis-je revenir en arrière une fois une étape validée ?",
@@ -92,7 +92,7 @@ const FAQ_DATA: FAQSection[] = [
       {
         question: "Comment télécharger le rapport final ?",
         answer:
-          "Une fois l'étape 3 terminée, les boutons de téléchargement apparaissent pour le rapport final (REF) et le rapport auxiliaire (RAUX) au format Word.",
+          "Une fois l'étape 4 (Production pré-rapport) terminée, les boutons de téléchargement apparaissent pour le Pré-Rapport d'Expertise (PRE) et le Document d'Analyse Contradictoire (DAC) au format Word. Après relecture et ajustement, vous importez le rapport final (REF) à l'étape 5 pour l'archivage.",
       },
     ],
   },

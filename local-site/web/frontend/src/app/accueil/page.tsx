@@ -34,7 +34,7 @@ export default function AccueilPage() {
           <h3 className={styles.featureTitle}>Gestion des dossiers</h3>
           <p className={styles.featureDesc}>
             Créez et suivez vos dossiers d&apos;expertise. Chaque dossier suit
-            un workflow en 4 étapes guidées par l&apos;IA.
+            un workflow en 5 étapes guidées par l&apos;IA.
           </p>
           <Link href="/" className={styles.featureLink}>
             Accéder aux dossiers →
@@ -81,8 +81,8 @@ export default function AccueilPage() {
           <div className={styles.featureIcon}>📄</div>
           <h3 className={styles.featureTitle}>Génération de rapports</h3>
           <p className={styles.featureDesc}>
-            Générez automatiquement le rapport final et le rapport auxiliaire
-            d&apos;analyse au format Word.
+            Générez automatiquement le pré-rapport d&apos;expertise et le
+            document d&apos;analyse contradictoire au format Word.
           </p>
           <Link href="/" className={styles.featureLink}>
             Voir les dossiers →
@@ -111,35 +111,55 @@ export default function AccueilPage() {
       <section className={styles.stepsSection}>
         <h2 className={styles.sectionTitle}>Workflow d&apos;expertise</h2>
         <p className={styles.sectionSubtitle}>
-          Chaque dossier suit 4 étapes séquentielles assistées par l&apos;IA.
+          Chaque dossier suit 5 étapes séquentielles assistées par l&apos;IA,
+          plus une étape intermédiaire réalisée par l&apos;expert hors application.
         </p>
         <div className={styles.stepsRow}>
           <div className={styles.stepItem}>
-            <div className={styles.stepNumber}>0</div>
-            <p className={styles.stepLabel}>Extraction</p>
-            <p className={styles.stepDesc}>
-              OCR de la réquisition PDF en Markdown structuré
-            </p>
-          </div>
-          <div className={styles.stepItem}>
             <div className={styles.stepNumber}>1</div>
-            <p className={styles.stepLabel}>Plan d&apos;entretien</p>
+            <p className={styles.stepLabel}>Création dossier</p>
             <p className={styles.stepDesc}>
-              Génération du QMEC à partir des questions du tribunal
+              Import de l&apos;ordonnance et des pièces, extraction OCR,
+              identification des questions et des placeholders
             </p>
           </div>
           <div className={styles.stepItem}>
             <div className={styles.stepNumber}>2</div>
-            <p className={styles.stepLabel}>Notes &amp; rapport brut</p>
+            <p className={styles.stepLabel}>Préparation investigations</p>
             <p className={styles.stepDesc}>
-              Upload de vos notes d&apos;entretien et du rapport brut
+              Génération du Plan d&apos;Entretien (PE) ou Plan d&apos;Analyse (PA)
+              à partir du TPE/TPA et du contexte RAG
+            </p>
+          </div>
+          <div className={styles.stepItem}>
+            <div className={styles.stepNumber}>E/A</div>
+            <p className={styles.stepLabel}>Entretien ou Analyse</p>
+            <p className={styles.stepDesc}>
+              L&apos;expert mène ses entretiens ou analyses hors application
+              et annote le plan (PEA/PAA)
             </p>
           </div>
           <div className={styles.stepItem}>
             <div className={styles.stepNumber}>3</div>
-            <p className={styles.stepLabel}>Rapport final</p>
+            <p className={styles.stepLabel}>Consolidation documentaire</p>
             <p className={styles.stepDesc}>
-              Génération du rapport final et du rapport auxiliaire
+              Import des pièces de diligence complémentaires et extraction OCR
+            </p>
+          </div>
+          <div className={styles.stepItem}>
+            <div className={styles.stepNumber}>4</div>
+            <p className={styles.stepLabel}>Production pré-rapport</p>
+            <p className={styles.stepDesc}>
+              Import du PEA/PAA annoté, génération du Pré-Rapport (PRE)
+              et du Document d&apos;Analyse Contradictoire (DAC)
+            </p>
+          </div>
+          <div className={styles.stepItem}>
+            <div className={styles.stepNumber}>5</div>
+            <p className={styles.stepLabel}>Finalisation et archivage</p>
+            <p className={styles.stepDesc}>
+              Import du rapport final, création de l&apos;archive ZIP
+              avec timbre d&apos;horodatage SHA-256
             </p>
           </div>
         </div>

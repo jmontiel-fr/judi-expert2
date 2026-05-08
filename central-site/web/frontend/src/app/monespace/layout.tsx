@@ -16,15 +16,19 @@ export default function MonEspaceLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!user) {
+    if (!loading && !user) {
       router.replace("/connexion");
     }
-  }, [user, router]);
+  }, [user, loading, router]);
+
+  if (loading) {
+    return <div className={styles.loading}>Chargement…</div>;
+  }
 
   if (!user) {
     return <div className={styles.loading}>Redirection…</div>;

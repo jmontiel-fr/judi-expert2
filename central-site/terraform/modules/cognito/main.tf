@@ -105,6 +105,26 @@ resource "aws_cognito_user_pool" "main" {
 }
 
 # ==============================================
+# Admin user (force password change at first login)
+# ==============================================
+
+resource "aws_cognito_user" "admin" {
+  user_pool_id = aws_cognito_user_pool.main.id
+  username     = var.admin_email
+
+  attributes = {
+    email          = var.admin_email
+    email_verified = true
+  }
+
+  temporary_password = var.admin_temporary_password
+
+  lifecycle {
+    ignore_changes = [temporary_password]
+  }
+}
+
+# ==============================================
 # App Client pour le frontend (SPA — pas de secret)
 # ==============================================
 

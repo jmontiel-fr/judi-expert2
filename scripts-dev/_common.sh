@@ -79,29 +79,25 @@ LLM_CONTAINER="judi-llm"
 
 ensure_llm_model() {
   if ! docker ps --format '{{.Names}}' | grep -q "^${LLM_CONTAINER}$"; then
-    echo -e "${YELLOW}  ⚠ Conteneur $LLM_CONTAINER non démarré${NC}"
-    return
+    echo -e "${RED}  ✘ Conteneur $LLM_CONTAINER non démarré — impossible de vérifier le modèle LLM${NC}"
+    exit 1
   fi
   local MAX_WAIT=30 ELAPSED=0
   while ! docker exec "$LLM_CONTAINER" curl -sf http://localhost:11434/api/tags > /dev/null 2>&1; do
     if [ "$ELAPSED" -ge "$MAX_WAIT" ]; then
-      echo -e "${YELLOW}  ⚠ Ollama pas prêt après ${MAX_WAIT}s${NC}"
-      return
+      echo -e "${RED}  ✘ Ollama pas prêt après ${MAX_WAIT}s — abandon${NC}"
+      exit 1
     fi
     sleep 2; ELAPSED=$((ELAPSED + 2))
   done
-  if docker exec "$LLM_CONTAINER" ollama list 2>/dev/null | grep -q "mistral"; then
-    echo -e "${GREEN}  ✔ Modèle LLM $LLM_MODEL disponible${NC}"
-    return
+  echo -e "${YELLOW}  ⬇ Vérification/téléchargement du modèle $LLM_MODEL...${NC}"
+  echo -e "${YELLOW}    ollama pull vérifie le digest et télécharge si nécessaire.${NC}"
+  if ! docker exec "$LLM_CONTAINER" ollama pull "$LLM_MODEL"; then
+    echo -e "${RED}  ✘ Échec du téléchargement du modèle $LLM_MODEL — abandon du démarrage${NC}"
+    echo -e "${RED}    Réessayez : docker exec $LLM_CONTAINER ollama pull $LLM_MODEL${NC}"
+    exit 1
   fi
-  echo -e "${YELLOW}  ⬇ Téléchargement du modèle $LLM_MODEL (~4 Go)...${NC}"
-  echo -e "${YELLOW}    Cela peut prendre plusieurs minutes.${NC}"
-  docker exec "$LLM_CONTAINER" ollama pull "$LLM_MODEL"
-  if [ $? -eq 0 ]; then
-    echo -e "${GREEN}  ✔ Modèle $LLM_MODEL téléchargé${NC}"
-  else
-    echo -e "${RED}  ✘ Erreur téléchargement. Réessayez : docker exec $LLM_CONTAINER ollama pull $LLM_MODEL${NC}"
-  fi
+  echo -e "${GREEN}  ✔ Modèle $LLM_MODEL à jour${NC}"
 }
 
 # ── Vérifier le statut d'un conteneur ─────────────────────
@@ -160,6 +156,7 @@ show_help() {
   echo "Options :"
   if [ "$has_build" = "yes" ]; then
     echo "  --build      Reconstruire les images Docker avant de démarrer"
+    echo "  --no-cache   Reconstruire sans cache Docker (force rebuild complet)"
   fi
   if [ "$has_pull_llm" = "yes" ]; then
     echo "  --pull-llm   Vérifier et télécharger le modèle LLM si absent"
@@ -182,10 +179,12 @@ parse_args() {
   shift 4
   BUILD_FLAG=""
   PULL_LLM=""
+  NO_CACHE=""
   for arg in "$@"; do
     case "$arg" in
       --help|-h) show_help "$script_name" "$description" "$has_build" "$has_pull_llm" ;;
       --build) BUILD_FLAG="--build" ;;
+      --no-cache) NO_CACHE="yes" ; BUILD_FLAG="--build" ;;
       --pull-llm) PULL_LLM="yes" ;;
       *) echo "Option inconnue : $arg"; show_help "$script_name" "$description" "$has_build" "$has_pull_llm" ;;
     esac

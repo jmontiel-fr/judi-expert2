@@ -1,5 +1,6 @@
 """Modèles SQLAlchemy du Site Central."""
 
+from .app_version import AppVersion
 from .base import Base
 from .contact_message import ContactMessage
 from .corpus_version import CorpusVersion
@@ -10,6 +11,7 @@ from .ticket import Ticket
 from .ticket_config import TicketConfig
 
 __all__ = [
+    "AppVersion",
     "Base",
     "ContactMessage",
     "CorpusVersion",

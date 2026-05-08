@@ -178,6 +178,7 @@ class WorkflowEngine:
             )
 
         step.statut = STATUT_EN_COURS
+        step.executed_at = datetime.now(UTC)  # Timestamp de début d'exécution
         await db.flush()
         return step
 
@@ -234,7 +235,16 @@ class WorkflowEngine:
             )
 
         step.statut = STATUT_REALISE
-        step.executed_at = datetime.now(UTC)
+        now = datetime.now(UTC)
+        # Calculer la durée d'exécution si le step a été démarré
+        if step.executed_at:
+            # Gérer le cas où executed_at est naive (SQLite ne stocke pas la timezone)
+            start = step.executed_at
+            if start.tzinfo is None:
+                start = start.replace(tzinfo=UTC)
+            duration = (now - start).total_seconds()
+            step.execution_duration_seconds = round(duration, 1)
+        step.executed_at = now
         await db.flush()
         return step
 

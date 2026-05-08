@@ -123,6 +123,23 @@ Pas de coût AWS. Le compte Gmail est gratuit (500 emails/jour).
 
 **Total emails : 0 $/mois**
 
+### 9. Mistral API (Chatbot site central)
+
+Le chatbot du site central utilise l'API publique Mistral (La Plateforme) pour répondre aux questions des visiteurs, avec un RAG basé sur les docs du site (FAQ, CGU, mentions légales, méthodologie, confidentialité).
+
+| Paramètre | Valeur |
+|-----------|--------|
+| Modèle | mistral-small-latest |
+| Messages estimés | 100 à 500/mois |
+| Tokens/message | ~500 input + ~300 output |
+
+**Calcul :**
+- Input : 500 msg × 500 tokens = 250K tokens × 0.20 $/M = ~0.05 $
+- Output : 500 msg × 300 tokens = 150K tokens × 0.60 $/M = ~0.09 $
+- **Total Mistral API : ~0.15 $/mois** (< 1 $ même en usage intensif)
+
+Note : Qdrant (base vectorielle RAG) tourne dans un conteneur Docker sur l'instance Lightsail existante — pas de coût AWS supplémentaire.
+
 ---
 
 ## Récapitulatif mensuel
@@ -138,6 +155,7 @@ Pas de coût AWS. Le compte Gmail est gratuit (500 emails/jour).
 | Route 53 | 0.54 |
 | S3 (images Docker App Locale + package) | 1.00 |
 | Gmail SMTP | 0.00 |
+| Mistral API (chatbot) | 0.15 |
 | **TOTAL** | **~30 $/mois** |
 
 ---
@@ -174,8 +192,9 @@ Pas de coût AWS. Le compte Gmail est gratuit (500 emails/jour).
 | Service | Coût |
 |---------|------|
 | Stripe | 1.5% + 0.25 € par transaction |
+| Mistral API (chatbot) | ~0.15 $/mois (usage modéré) |
 | Nom de domaine (judi-expert.fr) | ~10-15 €/an |
-| Certificat SSL | Gratuit (Let's Encrypt via Caddy) |
+| Certificat SSL | Gratuit (ACM via CloudFront) |
 | Compte Gmail | Gratuit |
 
 ---

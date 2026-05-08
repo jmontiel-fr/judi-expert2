@@ -5,16 +5,17 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function MonEspacePage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
+    if (loading) return;
     if (!user) {
       router.replace("/connexion");
     } else {
       router.replace("/monespace/profil");
     }
-  }, [user, router]);
+  }, [user, loading, router]);
 
   return null;
 }

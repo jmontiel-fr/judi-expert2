@@ -45,7 +45,7 @@ const FAQ_DATA: FAQSection[] = [
       {
         question: "Comment fonctionne le workflow d'expertise ?",
         answer:
-          "Chaque dossier suit 4 étapes séquentielles : Step 0 (extraction OCR de la réquisition), Step 1 (génération du plan d'entretien QMEC), Step 2 (upload des notes d'entretien et du rapport brut), Step 3 (génération du rapport final et du rapport auxiliaire). Chaque étape doit être validée avant de passer à la suivante.",
+          "Chaque dossier suit 5 étapes séquentielles : Step 1 (création dossier — extraction OCR et identification des questions), Step 2 (préparation investigations — génération du plan d'entretien PE ou plan d'analyse PA), Step 3 (consolidation documentaire — import des pièces de diligence), Step 4 (production pré-rapport — génération du PRE et du DAC à partir du plan annoté PEA/PAA), Step 5 (finalisation et archivage — import du rapport final et création de l'archive ZIP avec timbre SHA-256). Entre les étapes 2 et 3, l'expert mène ses entretiens ou analyses hors application (étape E/A). Chaque étape doit être validée avant de passer à la suivante.",
       },
       {
         question: "Puis-je revenir en arrière une fois une étape validée ?",

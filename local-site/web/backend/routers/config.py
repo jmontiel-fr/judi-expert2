@@ -20,6 +20,7 @@ from database import get_db
 from models.local_config import LocalConfig
 from routers.auth import get_current_user
 from services.rag_service import RAGService
+from services.corpus_service import CorpusService
 from services.site_central_client import (
     SiteCentralClient,
     SiteCentralError,
@@ -259,16 +260,24 @@ async def upload_tpe(
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Upload (ou remplacement) du fichier TPE.
+    """Upload (ou remplacement) du fichier TPE (.docx ou .md).
 
-    Sauvegarde dans data/config/ et indexe dans la collection config_{domaine}.
+    Sauvegarde dans data/config/. Si le RAG est configuré, indexe dans
+    la collection config_{domaine}. Sinon, stocke uniquement sur disque.
     """
     config = await _get_config(db)
-    _require_rag_configured(config)
+
+    # Valider le format
+    filename = file.filename or "TPE_upload"
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in (".docx", ".md"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le TPE doit être au format .docx ou .md",
+        )
 
     config_dir = _ensure_config_dir()
     domaine = config.domaine
-    collection = f"config_{domaine}"
 
     # Supprimer l'ancien TPE s'il existe
     existing_tpe = _find_existing_file(config_dir, "TPE_")
@@ -276,37 +285,39 @@ async def upload_tpe(
         os.remove(existing_tpe)
 
     # Sauvegarder le nouveau fichier
-    filename = file.filename or "TPE_upload"
-    file_path = os.path.join(config_dir, filename)
+    safe_filename = f"TPE_{domaine}{ext}"
+    file_path = os.path.join(config_dir, safe_filename)
     content = await file.read()
     with open(file_path, "wb") as f:
         f.write(content)
 
-    # Indexer dans le RAG
-    rag = RAGService()
-    try:
-        # Écrire un fichier texte temporaire pour l'indexation
-        text_path = file_path + ".txt"
-        with open(text_path, "w", encoding="utf-8") as f:
-            f.write(content.decode("utf-8", errors="replace"))
-        doc_id = await rag.index_document(
-            file_path=text_path,
-            collection=collection,
-            metadata={"type": "tpe", "domaine": domaine},
-        )
-        # Nettoyer le fichier texte temporaire
-        if os.path.exists(text_path):
-            os.remove(text_path)
-    except Exception as exc:
-        logger.error("Erreur indexation TPE : %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur lors de l'indexation du TPE : {exc}",
-        )
-    finally:
-        await rag.close()
+    # Indexer dans le RAG si configuré (optionnel)
+    doc_id = "local-only"
+    if config.rag_version is not None:
+        collection = f"config_{domaine}"
+        rag = RAGService()
+        try:
+            # Supprimer l'ancien TPE du RAG (par défaut ou custom précédent)
+            await rag.delete_by_metadata(collection, "type", "tpe")
 
-    return UploadResponse(message="TPE uploadé et indexé", filename=filename, doc_id=doc_id)
+            # Indexer le nouveau
+            text_path = file_path + ".txt"
+            with open(text_path, "w", encoding="utf-8") as f:
+                f.write(content.decode("utf-8", errors="replace"))
+            doc_id = await rag.index_document(
+                file_path=text_path,
+                collection=collection,
+                metadata={"type": "tpe", "domaine": domaine},
+            )
+            if os.path.exists(text_path):
+                os.remove(text_path)
+        except Exception as exc:
+            logger.warning("Indexation RAG du TPE échouée (non bloquant) : %s", exc)
+            doc_id = "index-failed"
+        finally:
+            await rag.close()
+
+    return UploadResponse(message="TPE uploadé avec succès", filename=safe_filename, doc_id=doc_id)
 
 
 # ---- 6. POST /template -----------------------------------------------------
@@ -319,14 +330,22 @@ async def upload_template(
 ):
     """Upload (ou remplacement) du Template Rapport (.docx).
 
-    Sauvegarde dans data/config/ et indexe dans la collection config_{domaine}.
+    Sauvegarde dans data/config/. Si le RAG est configuré, indexe dans
+    la collection config_{domaine}. Sinon, stocke uniquement sur disque.
     """
     config = await _get_config(db)
-    _require_rag_configured(config)
+
+    # Valider le format
+    filename = file.filename or "template_upload.docx"
+    ext = os.path.splitext(filename)[1].lower()
+    if ext != ".docx":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le Template Rapport doit être au format .docx",
+        )
 
     config_dir = _ensure_config_dir()
     domaine = config.domaine
-    collection = f"config_{domaine}"
 
     # Supprimer l'ancien template s'il existe
     existing_template = _find_existing_file(config_dir, "template_")
@@ -334,35 +353,39 @@ async def upload_template(
         os.remove(existing_template)
 
     # Sauvegarder le nouveau fichier
-    filename = file.filename or "template_upload.docx"
-    file_path = os.path.join(config_dir, filename)
+    safe_filename = f"template_{domaine}.docx"
+    file_path = os.path.join(config_dir, safe_filename)
     content = await file.read()
     with open(file_path, "wb") as f:
         f.write(content)
 
-    # Indexer dans le RAG
-    rag = RAGService()
-    try:
-        text_path = file_path + ".txt"
-        with open(text_path, "w", encoding="utf-8") as f:
-            f.write(content.decode("utf-8", errors="replace"))
-        doc_id = await rag.index_document(
-            file_path=text_path,
-            collection=collection,
-            metadata={"type": "template_rapport", "domaine": domaine},
-        )
-        if os.path.exists(text_path):
-            os.remove(text_path)
-    except Exception as exc:
-        logger.error("Erreur indexation Template : %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur lors de l'indexation du Template : {exc}",
-        )
-    finally:
-        await rag.close()
+    # Indexer dans le RAG si configuré (optionnel)
+    doc_id = "local-only"
+    if config.rag_version is not None:
+        collection = f"config_{domaine}"
+        rag = RAGService()
+        try:
+            # Supprimer l'ancien template du RAG
+            await rag.delete_by_metadata(collection, "type", "template_rapport")
 
-    return UploadResponse(message="Template Rapport uploadé et indexé", filename=filename, doc_id=doc_id)
+            # Indexer le nouveau
+            text_path = file_path + ".txt"
+            with open(text_path, "w", encoding="utf-8") as f:
+                f.write(content.decode("utf-8", errors="replace"))
+            doc_id = await rag.index_document(
+                file_path=text_path,
+                collection=collection,
+                metadata={"type": "template_rapport", "domaine": domaine},
+            )
+            if os.path.exists(text_path):
+                os.remove(text_path)
+        except Exception as exc:
+            logger.warning("Indexation RAG du Template échouée (non bloquant) : %s", exc)
+            doc_id = "index-failed"
+        finally:
+            await rag.close()
+
+    return UploadResponse(message="Template Rapport uploadé avec succès", filename=safe_filename, doc_id=doc_id)
 
 
 # ---- 7. GET /documents -----------------------------------------------------
@@ -374,7 +397,10 @@ async def list_documents(
 ):
     """Liste les documents présents dans les collections RAG config et corpus."""
     config = await _get_config(db)
-    _require_rag_configured(config)
+
+    # Si RAG pas configuré, retourner une liste vide
+    if not config.is_configured or config.rag_version is None:
+        return DocumentsListResponse(documents=[])
 
     domaine = config.domaine
     config_collection = f"config_{domaine}"
@@ -420,3 +446,306 @@ def _find_existing_file(directory: str, prefix: str) -> Optional[str]:
         if fname.lower().startswith(prefix.lower()):
             return os.path.join(directory, fname)
     return None
+
+
+# ---------------------------------------------------------------------------
+# Corpus RAG — Initialisation, rebuild, reset, ajout/suppression
+# ---------------------------------------------------------------------------
+
+
+class CorpusActionResponse(BaseModel):
+    message: str
+    indexed: int = 0
+    errors: list[str] = []
+
+
+class CorpusDocumentItem(BaseModel):
+    filename: str
+    type: str
+    collection: str
+    source: str  # "default" ou "custom"
+
+
+class CorpusListResponse(BaseModel):
+    documents: list[CorpusDocumentItem]
+    rag_initialized: bool
+
+
+# ---- POST /corpus/initialize — Initialiser le corpus (premier démarrage) ---
+
+@router.post("/corpus/initialize")
+async def initialize_corpus(
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Initialise le corpus RAG avec les documents par défaut (streaming SSE)."""
+    from fastapi.responses import StreamingResponse
+    import json
+
+    config = await _get_config(db)
+    domaine = config.domaine
+
+    async def stream_initialize():
+        service = CorpusService(domaine)
+        rag = RAGService()
+        indexed = 0
+        errors = []
+
+        try:
+            yield f"data: {json.dumps({'log': 'Suppression des collections existantes…'})}\n\n"
+            await rag.delete_collection(service.config_collection)
+            await rag.delete_collection(service.corpus_collection)
+
+            yield f"data: {json.dumps({'log': 'Téléchargement de la liste du corpus depuis le Site Central…'})}\n\n"
+            contenu_items = await service._fetch_contenu_from_central()
+
+            if contenu_items:
+                yield f"data: {json.dumps({'log': f'{len(contenu_items)} éléments trouvés sur le Site Central'})}\n\n"
+
+                for item in contenu_items:
+                    nom = item.get("nom", "")
+                    item_type = item.get("type", "document")
+
+                    # Ignorer les templates (TPE/TRE) — gérés séparément
+                    if item_type == "template":
+                        yield f"data: {json.dumps({'log': f'  ⏭ Ignoré (template) : {nom}'})}\n\n"
+                        continue
+
+                    collection = service.corpus_collection
+
+                    yield f"data: {json.dumps({'log': f'Téléchargement : {nom}…'})}\n\n"
+
+                    try:
+                        content = await service._download_file_from_central(nom)
+                        if not content:
+                            yield f"data: {json.dumps({'log': f'  ⚠ Non trouvé : {nom}'})}\n\n"
+                            continue
+
+                        safe_name = nom.replace("/", "_")
+                        cache_dir = service._ensure_cache_dir()
+                        cache_path = os.path.join(cache_dir, safe_name)
+                        with open(cache_path, "wb") as f:
+                            f.write(content)
+
+                        text = service._read_document_text(cache_path)
+                        if text.strip():
+                            await rag.index_document(
+                                file_path=None,
+                                collection=collection,
+                                metadata={
+                                    "type": item_type,
+                                    "filename": safe_name,
+                                    "domaine": domaine,
+                                    "description": item.get("description", ""),
+                                },
+                                text_content=text,
+                            )
+                            indexed += 1
+                            yield f"data: {json.dumps({'log': f'  ✔ Indexé : {safe_name}'})}\n\n"
+                        else:
+                            yield f"data: {json.dumps({'log': f'  ⚠ Contenu vide : {safe_name}'})}\n\n"
+                    except Exception as exc:
+                        errors.append(f"{nom}: {exc}")
+                        yield f"data: {json.dumps({'log': f'  ✕ Erreur : {nom} — {exc}'})}\n\n"
+            else:
+                yield f"data: {json.dumps({'log': 'Site Central indisponible — indexation des fichiers locaux'})}\n\n"
+                for doc in service._get_default_documents():
+                    try:
+                        text = service._read_document_text(doc["path"])
+                        if text.strip():
+                            await rag.index_document(
+                                file_path=None,
+                                collection=doc["collection"],
+                                metadata={"type": doc["type"], "filename": doc["filename"], "domaine": domaine},
+                                text_content=text,
+                            )
+                            indexed += 1
+                            fname = doc["filename"]
+                            yield f"data: {json.dumps({'log': f'  ✔ Indexé local : {fname}'})}\n\n"
+                    except Exception as exc:
+                        errors.append(f"{doc['filename']}: {exc}")
+                        fname = doc["filename"]
+                        yield f"data: {json.dumps({'log': f'  ✕ Erreur : {fname} — {exc}'})}\n\n"
+
+            # Nettoyer les documents custom
+            if os.path.isdir(service.custom_dir):
+                shutil.rmtree(service.custom_dir)
+
+        finally:
+            await rag.close()
+
+        # Mettre à jour la config
+        config.rag_version = "default-1.0"
+        config.is_configured = True
+        await db.commit()
+
+        yield f"data: {json.dumps({'log': f'✔ Terminé — {indexed} documents indexés', 'done': True, 'indexed': indexed, 'errors': errors})}\n\n"
+
+    return StreamingResponse(stream_initialize(), media_type="text/event-stream")
+
+
+# ---- POST /corpus/rebuild — Reconstruire le RAG (défaut + custom) ----------
+
+@router.post("/corpus/rebuild", response_model=CorpusActionResponse)
+async def rebuild_corpus(
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Reconstruit le RAG avec les documents par défaut + personnalisés."""
+    config = await _get_config(db)
+    service = CorpusService(config.domaine)
+
+    result = await service.rebuild()
+
+    return CorpusActionResponse(
+        message=f"Corpus reconstruit — {result['indexed']} documents indexés",
+        indexed=result["indexed"],
+        errors=result["errors"],
+    )
+
+
+# ---- POST /corpus/reset — Reset to original (supprimer custom + ré-indexer) -
+
+@router.post("/corpus/reset")
+async def reset_corpus(
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Réinitialise le corpus — redirige vers initialize (même logique)."""
+    return await initialize_corpus(_user, db)
+
+
+# ---- POST /corpus/add — Ajouter un document personnalisé -------------------
+
+@router.post("/corpus/add", response_model=UploadResponse)
+async def add_corpus_document(
+    file: UploadFile = File(...),
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Ajoute un document personnalisé au corpus et l'indexe dans le RAG."""
+    config = await _get_config(db)
+
+    filename = file.filename or "document_custom"
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in (".pdf", ".md", ".txt", ".docx"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Formats acceptés : .pdf, .md, .txt, .docx",
+        )
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le fichier est vide",
+        )
+
+    service = CorpusService(config.domaine)
+    result = await service.add_document(filename, content)
+
+    return UploadResponse(
+        message=f"Document '{filename}' ajouté au corpus",
+        filename=result["filename"],
+        doc_id=result["doc_id"],
+    )
+
+
+# ---- DELETE /corpus/{filename} — Supprimer un document personnalisé ---------
+
+@router.delete("/corpus/{filename}")
+async def remove_corpus_document(
+    filename: str,
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Supprime un document personnalisé du corpus."""
+    config = await _get_config(db)
+    service = CorpusService(config.domaine)
+
+    deleted = await service.remove_document(filename)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document non trouvé dans le corpus personnalisé",
+        )
+
+    return {"message": f"Document '{filename}' supprimé du corpus"}
+
+
+# ---- GET /corpus/list — Lister tous les documents du corpus -----------------
+
+@router.get("/corpus/list", response_model=CorpusListResponse)
+async def list_corpus_documents(
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Liste tous les documents du corpus (par défaut + personnalisés)."""
+    config = await _get_config(db)
+    service = CorpusService(config.domaine)
+
+    docs = service.list_all_documents()
+    rag_initialized = config.rag_version is not None
+
+    return CorpusListResponse(
+        documents=[CorpusDocumentItem(**d) for d in docs],
+        rag_initialized=rag_initialized,
+    )
+
+
+# ---- GET /defaults/tpe — Télécharger le TPE par défaut depuis le Site Central
+
+@router.get("/defaults/tpe")
+async def get_default_tpe(
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Télécharge le TPE par défaut depuis le Site Central et le retourne."""
+    from fastapi.responses import Response
+
+    config = await _get_config(db)
+    domaine = config.domaine
+
+    client = SiteCentralClient()
+    try:
+        resp = await client.get(f"/api/corpus/{domaine}/fichier/TPE_{domaine}.tpl")
+    except SiteCentralError as exc:
+        raise HTTPException(status_code=503, detail=exc.message)
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=404, detail="TPE par défaut non trouvé sur le Site Central")
+
+    return Response(
+        content=resp.content,
+        media_type="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="TPE_{domaine}.md"'},
+    )
+
+
+# ---- GET /defaults/template — Télécharger le Template par défaut depuis le Site Central
+
+@router.get("/defaults/template")
+async def get_default_template(
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Télécharge le Template Rapport par défaut depuis le Site Central et le retourne."""
+    from fastapi.responses import Response
+
+    config = await _get_config(db)
+    domaine = config.domaine
+
+    client = SiteCentralClient()
+    try:
+        resp = await client.get(f"/api/corpus/{domaine}/fichier/template_rapport_{domaine}.docx")
+    except SiteCentralError as exc:
+        raise HTTPException(status_code=503, detail=exc.message)
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=404, detail="Template par défaut non trouvé sur le Site Central")
+
+    return Response(
+        content=resp.content,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="template_rapport_{domaine}.docx"'},
+    )

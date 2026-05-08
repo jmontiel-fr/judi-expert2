@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import Float, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -24,6 +24,7 @@ class Step(Base):
     statut: Mapped[str] = mapped_column(String(20), default="initial")
     executed_at: Mapped[Optional[datetime]] = mapped_column()
     validated_at: Mapped[Optional[datetime]] = mapped_column()
+    execution_duration_seconds: Mapped[Optional[float]] = mapped_column(Float, default=None)
 
     dossier: Mapped["Dossier"] = relationship(back_populates="steps")
     files: Mapped[list["StepFile"]] = relationship(back_populates="step")

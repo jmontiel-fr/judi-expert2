@@ -211,6 +211,46 @@ class RAGService:
         logger.info("Collection '%s' supprimée.", collection)
         return True
 
+    async def delete_by_metadata(
+        self, collection: str, key: str, value: str
+    ) -> int:
+        """Supprime les points d'une collection dont le metadata[key] == value.
+
+        Returns
+        -------
+        int
+            Nombre de points supprimés.
+        """
+        from qdrant_client.models import Filter, FieldCondition, MatchValue
+
+        client = await self._get_client()
+        collections = await client.get_collections()
+        existing = {c.name for c in collections.collections}
+        if collection not in existing:
+            return 0
+
+        # Scroll pour trouver les IDs à supprimer
+        points, _ = await client.scroll(
+            collection_name=collection,
+            scroll_filter=Filter(
+                must=[FieldCondition(key=key, match=MatchValue(value=value))]
+            ),
+            limit=1000,
+        )
+        if not points:
+            return 0
+
+        ids = [p.id for p in points]
+        await client.delete(
+            collection_name=collection,
+            points_selector=ids,
+        )
+        logger.info(
+            "Supprimé %d points de '%s' où %s='%s'",
+            len(ids), collection, key, value,
+        )
+        return len(ids)
+
     # ------------------------------------------------------------------
     # Embedding
     # ------------------------------------------------------------------
@@ -236,23 +276,25 @@ class RAGService:
 
     async def index_document(
         self,
-        file_path: str,
+        file_path: Optional[str],
         collection: str,
         metadata: Optional[dict] = None,
+        text_content: Optional[str] = None,
     ) -> str:
-        """Indexe un document (texte brut lu depuis un fichier) dans Qdrant.
+        """Indexe un document dans Qdrant.
 
-        Le fichier est lu, découpé en chunks, et chaque chunk est indexé
-        comme un point dans la collection spécifiée.
+        Accepte soit un chemin fichier (file_path), soit du texte direct (text_content).
 
         Parameters
         ----------
         file_path:
-            Chemin vers le fichier texte à indexer.
+            Chemin vers le fichier texte à indexer (optionnel si text_content fourni).
         collection:
             Nom de la collection Qdrant cible.
         metadata:
             Métadonnées supplémentaires à associer à chaque chunk.
+        text_content:
+            Contenu textuel à indexer directement (prioritaire sur file_path).
 
         Returns
         -------
@@ -262,23 +304,35 @@ class RAGService:
         Raises
         ------
         RAGIndexError
-            Si le fichier est introuvable ou vide.
+            Si aucun contenu n'est disponible.
         """
-        if not os.path.isfile(file_path):
-            raise RAGIndexError(f"Fichier introuvable : {file_path}")
+        content = ""
+        source = "direct"
+        filename = "document"
 
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
+        if text_content:
+            content = text_content
+            source = metadata.get("filename", "direct") if metadata else "direct"
+            filename = metadata.get("filename", "document") if metadata else "document"
+        elif file_path:
+            if not os.path.isfile(file_path):
+                raise RAGIndexError(f"Fichier introuvable : {file_path}")
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            source = file_path
+            filename = os.path.basename(file_path)
+        else:
+            raise RAGIndexError("Aucun contenu à indexer (ni file_path ni text_content)")
 
         if not content.strip():
-            raise RAGIndexError(f"Fichier vide : {file_path}")
+            raise RAGIndexError(f"Contenu vide pour : {source}")
 
         return await self._index_text(
             text=content,
-            source=file_path,
+            source=source,
             collection=collection,
-            doc_type="document",
-            filename=os.path.basename(file_path),
+            doc_type=metadata.get("type", "document") if metadata else "document",
+            filename=filename,
             metadata=metadata,
         )
 

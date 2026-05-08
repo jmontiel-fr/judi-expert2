@@ -20,6 +20,6 @@ echo -e "${YELLOW}[1/2] Docker...${NC}"
 ensure_docker
 echo ""
 echo -e "${YELLOW}[2/2] Arrêt des services...${NC}"
-docker compose -f "$COMPOSE" down --remove-orphans || true
+docker compose -f "$COMPOSE" --env-file "$ROOT_DIR/central-site/.env.dev" down --remove-orphans || true
 free_ports "${PORTS[@]}"
 echo -e "${GREEN}  ✔ Site Central arrêté${NC}"

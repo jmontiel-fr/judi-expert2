@@ -10,7 +10,7 @@ from models.base import Base
 DATABASE_DIR = os.environ.get("DATABASE_DIR", "data")
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
-    f"sqlite+aiosqlite:///{DATABASE_DIR}/judi_expert.db",
+    f"sqlite+aiosqlite:///{DATABASE_DIR}/judi-expert.db",
 )
 
 engine = create_async_engine(DATABASE_URL, echo=False)

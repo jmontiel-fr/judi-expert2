@@ -1,5 +1,15 @@
 # Judi-Expert — Tech Stack & Commands
 
+## Règles d'exécution des commandes
+
+- **Ne JAMAIS lancer les commandes en arrière-plan** (pas de `control_pwsh_process` / background process)
+- Toujours exécuter les commandes en **foreground** avec `execute_pwsh` et un `timeout` suffisant
+- Les **traces d'exécution doivent être visibles** dans la sortie (pas de `skipPruning: true` sauf si nécessaire pour debug)
+- Pour les builds Docker longs, utiliser `timeout: 300000` (5 min) ou plus
+- **Pour le déploiement, utiliser UNIQUEMENT les scripts `scripts-dev/`** — jamais de commandes Docker directes (`docker compose build`, `docker compose up`, etc.)
+- Si un script ne couvre pas un besoin (ex: rebuild d'un seul service), **ajouter une option au script existant** plutôt que de lancer une commande directe
+- Scripts disponibles : `dev-local-start.sh [--build] [--no-cache] [--pull-llm]`, `dev-local-stop.sh`, `dev-local-restart.sh`, `dev-local-status.sh`
+
 ## Backend (Python)
 
 - **Framework**: FastAPI 0.115.x + Uvicorn
@@ -47,6 +57,15 @@
 - Commit format: `type(scope): description`
 - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 - Messages in French or English
+
+## Database Migrations
+
+- **Ne JAMAIS modifier le schéma DB manuellement** (pas de `CREATE TABLE`, `ALTER TABLE` direct, ni via SQLAlchemy `create_all`)
+- Toute modification de schéma (ajout/suppression de colonne, nouvelle table, changement de type) **doit passer par une migration Alembic**
+- Quand un modèle SQLAlchemy est modifié, créer immédiatement la migration correspondante : `alembic revision --autogenerate -m "description"` ou manuellement dans `alembic/versions/`
+- Convention de nommage des fichiers : `NNN_description.py` (ex: `004_add_expert_profile_columns.py`)
+- Les migrations doivent être réversibles (implémenter `upgrade()` ET `downgrade()`)
+- Tester la migration en local avant de déployer
 
 ## Testing
 

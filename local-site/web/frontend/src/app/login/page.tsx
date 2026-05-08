@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, FormEvent, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import styles from "./login.module.css";
 import { authApi, getErrorMessage } from "@/lib/api";
+import LlmStatusBanner from "@/components/LlmStatusBanner";
 
 const SITE_CENTRAL_URL = process.env.NEXT_PUBLIC_SITE_CENTRAL_URL || "http://localhost:3001";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const updatedVersion = searchParams.get("updated");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,6 +53,14 @@ export default function LoginPage() {
     <div className={styles.container}>
       <div className={styles.card}>
         <h1 className={styles.title}>Connexion</h1>
+
+        {updatedVersion && (
+          <div className={styles.notice} role="status">
+            ✅ Application mise à jour en version {updatedVersion}
+          </div>
+        )}
+
+        <LlmStatusBanner />
 
         <div className={styles.notice}>
           Utilisez les identifiants de votre compte sur le{" "}
@@ -120,5 +131,13 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div style={{ textAlign: "center", padding: 40 }}>Chargement…</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

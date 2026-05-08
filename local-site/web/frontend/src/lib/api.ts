@@ -20,6 +20,7 @@ export interface DossierStep {
   statut: string;
   executed_at: string | null;
   validated_at: string | null;
+  execution_duration_seconds: number | null;
   files: StepFileItem[];
 }
 
@@ -62,6 +63,7 @@ export interface StepDetail {
   statut: string;
   executed_at: string | null;
   validated_at: string | null;
+  execution_duration_seconds: number | null;
   files: StepFileItem[];
 }
 
@@ -349,7 +351,7 @@ export const dossiersApi = {
 
   async validateStep(dossierId: string | number, stepNumber: number) {
     const res = await apiClient.post<{ message: string }>(
-      `/api/dossiers/${dossierId}/step${stepNumber}/validate`,
+      `/api/dossiers/${dossierId}/step${stepNumber === 0 ? 1 : stepNumber}/validate`,
       {},
     );
     return res.data;
@@ -373,26 +375,52 @@ export const dossiersApi = {
 };
 
 // ---------------------------------------------------------------------------
-// Step0 API (Extraction)
+// Step 1 API — Création dossier (extraction OCR + structuration)
 // ---------------------------------------------------------------------------
 
-export const step0Api = {
+export const step1Api = {
+  /** Upload ordonnance PDF dans step1/in/ (sans lancer de traitement) */
+  async upload(dossierId: string | number, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await apiClient.post<{ message: string; filename: string; file_size: number }>(
+      `/api/dossiers/${dossierId}/step1/upload`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" }, timeout: 60_000 },
+    );
+    return res.data;
+  },
+
+  /** Lance l'extraction OCR + structuration LLM sur les fichiers uploadés */
+  async execute(dossierId: string | number) {
+    const res = await apiClient.post<{ markdown: string; pdf_path: string; md_path: string }>(
+      `/api/dossiers/${dossierId}/step1/execute`,
+      {},
+      { timeout: 1_800_000 },
+    );
+    return res.data;
+  },
+
+  /** [LEGACY] Upload + extraction en un seul appel */
   async extract(dossierId: string | number, file: File) {
     const formData = new FormData();
     formData.append("file", file);
     const res = await apiClient.post<{ markdown: string; pdf_path: string; md_path: string }>(
-      `/api/dossiers/${dossierId}/step0/extract`,
+      `/api/dossiers/${dossierId}/step1/extract`,
       formData,
       { headers: { "Content-Type": "multipart/form-data" }, timeout: 1_800_000 },
     );
     return res.data;
   },
 
-  async uploadComplementary(dossierId: string | number, file: File, label: string, extractOcr: boolean) {
+  /** Upload pièce complémentaire (rapport, plainte, autre) */
+  async uploadComplementary(dossierId: string | number, file: File, label: string, extractOcr: boolean, docType: string = "autre", docFormat: string = "pdf") {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("label", label);
     formData.append("extract_ocr", String(extractOcr));
+    formData.append("doc_type", docType);
+    formData.append("doc_format", docFormat);
     const res = await apiClient.post<{ message: string }>(
       `/api/dossiers/${dossierId}/step1/complementary`,
       formData,
@@ -401,54 +429,36 @@ export const step0Api = {
     return res.data;
   },
 
+  /** Récupérer le Markdown de l'ordonnance */
   async getMarkdown(dossierId: string | number) {
     const res = await apiClient.get<{ markdown: string }>(
-      `/api/dossiers/${dossierId}/step0/markdown`,
+      `/api/dossiers/${dossierId}/step1/markdown`,
     );
     return res.data;
   },
 
+  /** Mettre à jour le Markdown (édition manuelle) */
   async updateMarkdown(dossierId: string | number, content: string) {
     const res = await apiClient.put<{ message: string }>(
-      `/api/dossiers/${dossierId}/step0/markdown`,
+      `/api/dossiers/${dossierId}/step1/markdown`,
       { content },
     );
     return res.data;
   },
 
+  /** Importer un .docx modifié par l'expert */
   async importDocx(dossierId: string | number, file: File) {
     const formData = new FormData();
     formData.append("file", file);
     const res = await apiClient.post<{ message: string }>(
-      `/api/dossiers/${dossierId}/step0/import-docx`,
+      `/api/dossiers/${dossierId}/step1/import-docx`,
       formData,
       { headers: { "Content-Type": "multipart/form-data" } },
     );
     return res.data;
   },
-};
 
-// ---------------------------------------------------------------------------
-// Step1 API (PEMEC)
-// ---------------------------------------------------------------------------
-
-export const step1Api = {
-  async execute(dossierId: string | number) {
-    const res = await apiClient.post<{ qmec: string }>(
-      `/api/dossiers/${dossierId}/step1/execute`,
-      {},
-      { timeout: 1_800_000 },
-    );
-    return res.data;
-  },
-
-  getDownloadUrl(dossierId: string | number): string {
-    const token = getToken();
-    const base = API_BASE_URL || "";
-    const url = `${base}/api/dossiers/${dossierId}/step1/download`;
-    return token ? `${url}?token=${encodeURIComponent(token)}` : url;
-  },
-
+  /** Valider le Step 1 (verrouillage) */
   async validate(dossierId: string | number) {
     const res = await apiClient.post<{ message: string }>(
       `/api/dossiers/${dossierId}/step1/validate`,
@@ -459,21 +469,29 @@ export const step1Api = {
 };
 
 // ---------------------------------------------------------------------------
-// Step2 API (Upload)
+// Step 2 API — Préparation investigations (génération PE/PA)
 // ---------------------------------------------------------------------------
 
 export const step2Api = {
-  async upload(dossierId: string | number, neaFile: File) {
-    const formData = new FormData();
-    formData.append("file", neaFile);
-    const res = await apiClient.post<{ message: string; filenames: string[] }>(
-      `/api/dossiers/${dossierId}/step2/upload`,
-      formData,
-      { headers: { "Content-Type": "multipart/form-data" }, timeout: 1_800_000 },
+  /** Générer le Plan d'Entretien (PE) ou Plan d'Analyse (PA) */
+  async execute(dossierId: string | number, mode: "entretien" | "analyse" = "entretien") {
+    const res = await apiClient.post<{ plan: string }>(
+      `/api/dossiers/${dossierId}/step2/execute`,
+      { mode },
+      { timeout: 1_800_000 },
     );
     return res.data;
   },
 
+  /** Télécharger le PE/PA généré */
+  getDownloadUrl(dossierId: string | number): string {
+    const token = getToken();
+    const base = API_BASE_URL || "";
+    const url = `${base}/api/dossiers/${dossierId}/step2/download`;
+    return token ? `${url}?token=${encodeURIComponent(token)}` : url;
+  },
+
+  /** Valider le Step 2 (verrouillage) */
   async validate(dossierId: string | number) {
     const res = await apiClient.post<{ message: string }>(
       `/api/dossiers/${dossierId}/step2/validate`,
@@ -484,31 +502,106 @@ export const step2Api = {
 };
 
 // ---------------------------------------------------------------------------
-// Step3 API (REF + RAUX)
+// Step 3 API — Consolidation documentaire (import pièces diligence + OCR)
 // ---------------------------------------------------------------------------
 
 export const step3Api = {
-  async execute(dossierId: string | number, file?: File) {
+  /** Upload pièces de diligence (PDF/scan) → OCR → .md */
+  async upload(dossierId: string | number, file: File) {
     const formData = new FormData();
-    if (file) formData.append("file", file);
-    const res = await apiClient.post<{ message: string; filenames: string[] }>(
-      `/api/dossiers/${dossierId}/step3/execute`,
+    formData.append("file", file);
+    const res = await apiClient.post<{ message: string; filename: string }>(
+      `/api/dossiers/${dossierId}/step3/upload`,
       formData,
       { headers: { "Content-Type": "multipart/form-data" }, timeout: 1_800_000 },
     );
     return res.data;
   },
 
-  getDownloadUrl(dossierId: string | number, docType: "ref" | "raux"): string {
-    const token = getToken();
-    const base = API_BASE_URL || "";
-    const url = `${base}/api/dossiers/${dossierId}/step3/download/${docType}`;
-    return token ? `${url}?token=${encodeURIComponent(token)}` : url;
+  /** Lancer l'extraction OCR sur les pièces uploadées */
+  async execute(dossierId: string | number) {
+    const res = await apiClient.post<{ message: string; filenames: string[] }>(
+      `/api/dossiers/${dossierId}/step3/execute`,
+      {},
+      { timeout: 1_800_000 },
+    );
+    return res.data;
   },
 
+  /** Valider le Step 3 (verrouillage) */
   async validate(dossierId: string | number) {
     const res = await apiClient.post<{ message: string }>(
       `/api/dossiers/${dossierId}/step3/validate`,
+      {},
+    );
+    return res.data;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Step 4 API — Production pré-rapport (PEA/PAA → PRE + DAC)
+// ---------------------------------------------------------------------------
+
+export const step4Api = {
+  /** Upload du PEA/PAA annoté et génération du pré-rapport + DAC */
+  async execute(dossierId: string | number, peaFile: File) {
+    const formData = new FormData();
+    formData.append("file", peaFile);
+    const res = await apiClient.post<{ message: string; filenames: string[] }>(
+      `/api/dossiers/${dossierId}/step4/execute`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" }, timeout: 1_800_000 },
+    );
+    return res.data;
+  },
+
+  /** Télécharger le PRE ou le DAC */
+  getDownloadUrl(dossierId: string | number, docType: "pre" | "dac"): string {
+    const token = getToken();
+    const base = API_BASE_URL || "";
+    const url = `${base}/api/dossiers/${dossierId}/step4/download/${docType}`;
+    return token ? `${url}?token=${encodeURIComponent(token)}` : url;
+  },
+
+  /** Valider le Step 4 (verrouillage) */
+  async validate(dossierId: string | number) {
+    const res = await apiClient.post<{ message: string }>(
+      `/api/dossiers/${dossierId}/step4/validate`,
+      {},
+    );
+    return res.data;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Step 5 API — Finalisation et archivage (REF → ZIP + timbre)
+// ---------------------------------------------------------------------------
+
+export const step5Api = {
+  /** Upload du rapport final (REF) et génération de l'archive + timbre */
+  async execute(dossierId: string | number, refFile?: File) {
+    const formData = new FormData();
+    if (refFile) formData.append("file", refFile);
+    const res = await apiClient.post<{ message: string; filenames: string[] }>(
+      `/api/dossiers/${dossierId}/step5/execute`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" }, timeout: 1_800_000 },
+    );
+    return res.data;
+  },
+
+  /** Télécharger l'archive ZIP */
+  getDownloadUrl(dossierId: string | number): string {
+    const token = getToken();
+    const base = API_BASE_URL || "";
+    const url = `${base}/api/dossiers/${dossierId}/step5/download`;
+    return token ? `${url}?token=${encodeURIComponent(token)}` : url;
+  },
+
+  /** Valider le Step 5 (verrouillage + fermeture dossier) */
+  async validate(dossierId: string | number) {
+    const res = await apiClient.post<{ message: string }>(
+      `/api/dossiers/${dossierId}/step5/validate`,
       {},
     );
     return res.data;

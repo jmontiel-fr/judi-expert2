@@ -13,6 +13,8 @@ import {
   apiGetCorpusUrls,
   apiAdminUploadDocument,
   apiAdminAddUrl,
+  apiAdminChatbotStatus,
+  apiAdminChatbotRefresh,
   ApiError,
   type ExpertItem,
   type TicketStats,
@@ -21,12 +23,13 @@ import {
   type CorpusDomain,
   type ContenuItem,
   type UrlItem,
+  type ChatbotStatus,
 } from "@/lib/api";
 import styles from "./admin.module.css";
 
 const DOMAINES = ["Tous", "psychologie", "psychiatrie", "medecine_legale", "batiment", "comptabilite"];
 
-type Tab = "stats" | "tickets" | "experts" | "news" | "corpus";
+type Tab = "stats" | "tickets" | "experts" | "news" | "corpus" | "chatbot";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("fr-FR");
@@ -604,6 +607,112 @@ function CorpusTab({ accessToken }: { accessToken: string | null }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  ChatbotTab                                                         */
+/* ------------------------------------------------------------------ */
+
+function ChatbotTab({ accessToken }: { accessToken: string | null }) {
+  const [status, setStatus] = useState<ChatbotStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const loadStatus = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const data = await apiAdminChatbotStatus(accessToken);
+      setStatus(data);
+    } catch {
+      setError("Impossible de charger le statut du chatbot.");
+    } finally {
+      setLoading(false);
+    }
+  }, [accessToken]);
+
+  useEffect(() => { loadStatus(); }, [loadStatus]);
+
+  const handleRefresh = async () => {
+    if (!accessToken) return;
+    setRefreshing(true);
+    setMessage("");
+    setError("");
+    try {
+      const result = await apiAdminChatbotRefresh(accessToken);
+      setMessage(`${result.message} (${result.total_chunks} chunks)`);
+      await loadStatus();
+    } catch {
+      setError("Erreur lors du rafraîchissement du chatbot.");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  if (loading) return <p>Chargement…</p>;
+
+  return (
+    <>
+      <h2 className={styles.sectionTitle}>Chatbot RAG</h2>
+      <p style={{ marginBottom: 16, color: "var(--color-text-muted)" }}>
+        Le chatbot utilise un index RAG basé sur les documents du site (FAQ, CGU, mentions légales, méthodologie, confidentialité).
+        Rafraîchissez l&apos;index après toute modification de ces documents.
+      </p>
+
+      {error && <p style={{ color: "var(--color-error, #dc2626)", marginBottom: 12 }}>{error}</p>}
+      {message && <p style={{ color: "var(--color-success, #16a34a)", marginBottom: 12 }}>{message}</p>}
+
+      <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 12, padding: 24, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+          <div>
+            <p style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", marginBottom: 4 }}>Dernier rafraîchissement</p>
+            <p style={{ fontWeight: 600 }}>
+              {status?.last_refresh
+                ? new Date(status.last_refresh).toLocaleString("fr-FR")
+                : "Jamais"}
+            </p>
+          </div>
+          <div>
+            <p style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", marginBottom: 4 }}>Chunks indexés</p>
+            <p style={{ fontWeight: 600 }}>{status?.points_count ?? 0}</p>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <p style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", marginBottom: 8 }}>Documents disponibles</p>
+          <ul style={{ listStyle: "none", display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {status?.available_docs?.map((doc) => (
+              <li key={doc} style={{ background: "#ebf8ff", padding: "4px 10px", borderRadius: 6, fontSize: "0.82rem" }}>
+                {doc}
+              </li>
+            ))}
+            {(!status?.available_docs || status.available_docs.length === 0) && (
+              <li style={{ color: "var(--color-text-muted)", fontSize: "0.85rem" }}>Aucun document trouvé</li>
+            )}
+          </ul>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          style={{
+            padding: "10px 24px",
+            background: "var(--color-primary)",
+            color: "#fff",
+            border: "none",
+            borderRadius: 8,
+            fontWeight: 600,
+            cursor: refreshing ? "not-allowed" : "pointer",
+            opacity: refreshing ? 0.6 : 1,
+          }}
+        >
+          {refreshing ? "Rafraîchissement en cours…" : "🔄 Rafraîchir l'index"}
+        </button>
+      </div>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  AdminPage (default export)                                         */
 /* ------------------------------------------------------------------ */
 
@@ -653,6 +762,7 @@ export default function AdminPage() {
     { key: "experts", label: "Experts" },
     { key: "news", label: "News" },
     { key: "corpus", label: "Corpus" },
+    { key: "chatbot", label: "Chatbot" },
   ];
 
   const handleTabClick = (t: Tab) => {
@@ -689,6 +799,7 @@ export default function AdminPage() {
           {tab === "tickets" && <TicketsConfigTab accessToken={accessToken} />}
           {tab === "experts" && <ExpertsTab experts={experts} />}
           {tab === "corpus" && <CorpusTab accessToken={accessToken} />}
+          {tab === "chatbot" && <ChatbotTab accessToken={accessToken} />}
         </>
       )}
     </div>

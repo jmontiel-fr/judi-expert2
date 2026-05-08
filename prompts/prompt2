@@ -1,0 +1,21 @@
+Peux-tu à parir du fichier exemple travail/Pre-Rapport-Test.docx
+1. Extraire un TPE.docx (squellete déduit du document source) 
+avec les sections et champs suivants
+- cadre de l'entretien : 
+champs à renseigner = contexte, 
+personne expertisée, lieu d'entretien, date de but, date entretien,
+heure début, heure fin, 
+accompagnant/e (oui/non), et si accompagant nom et qualité
+
+- biograhie etc ....
+pour chaque section  prévoir les champs @dires ....\à et @Analyse .... \@
+
+- une section finale "Conclusion" :
+reprenant les questions sous forme @question n\n et injecte les @refrence ..\@
+pour reprednre les sections dires et @alayses relatives
+
+Elimine toutes les informations autres de formattage.
+
+2. Crée un TPE.docx (template de rapport d'expertise 
+
+3. Mets ces ficheirs TPE et TRE dans travail/

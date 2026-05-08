@@ -23,6 +23,8 @@ class StepFile(Base):
     file_path: Mapped[str] = mapped_column(String(500))
     file_type: Mapped[str] = mapped_column(String(50))
     file_size: Mapped[int] = mapped_column()
+    doc_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    doc_format: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=func.now())
 
     # Versioning fields

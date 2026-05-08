@@ -23,7 +23,7 @@ echo -e "${YELLOW}[2/3] Libération des ports...${NC}"
 free_ports "${PORTS[@]}"
 echo -e "${GREEN}  ✔ Ports libres${NC}"
 echo ""
-echo -e "${YELLOW}[3/3] Démarrage${BUILD_FLAG:+ + build}...${NC}"
+echo -e "${YELLOW}[3/3] Démarrage${BUILD_FLAG:+ + build}${NO_CACHE:+ (no-cache)}...${NC}"
 GPU_COMPOSE=""
 if command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
   echo -e "${GREEN}  ✔ GPU NVIDIA détecté — accélération GPU activée${NC}"
@@ -31,12 +31,19 @@ if command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
 else
   echo -e "${YELLOW}  ℹ Pas de GPU NVIDIA détecté — mode CPU${NC}"
 fi
+if [ "$NO_CACHE" = "yes" ]; then
+  docker compose -f "$COMPOSE" $GPU_COMPOSE build --no-cache
+fi
 docker compose -f "$COMPOSE" $GPU_COMPOSE up -d $BUILD_FLAG
 echo ""
 
 if [ "$PULL_LLM" = "yes" ]; then
-  echo -e "${YELLOW}Vérification du modèle LLM...${NC}"
-  ensure_llm_model
+  echo -e "${YELLOW}[LLM] Vérification et mise à jour du modèle LLM...${NC}"
+  if ! ensure_llm_model; then
+    echo -e "${RED}  ✘ Échec de la vérification/téléchargement du modèle LLM.${NC}"
+    echo -e "${RED}    Démarrage interrompu.${NC}"
+    exit 1
+  fi
   echo ""
 fi
 

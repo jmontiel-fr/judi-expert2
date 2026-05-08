@@ -8,13 +8,40 @@ import styles from "./Header.module.css";
 
 const SITE_CENTRAL_URL = process.env.NEXT_PUBLIC_SITE_CENTRAL_URL || "http://localhost:3001";
 
+/**
+ * Decode a JWT payload (without verification) to extract claims.
+ */
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1]));
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const [loggedIn, setLoggedIn] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoggedIn(!!getToken());
+    const token = getToken();
+    if (token) {
+      setLoggedIn(true);
+      const payload = decodeJwtPayload(token);
+      if (payload && typeof payload.email === "string") {
+        setUserEmail(payload.email);
+      } else {
+        setUserEmail(null);
+      }
+    } else {
+      setLoggedIn(false);
+      setUserEmail(null);
+    }
   }, [pathname]);
 
   const handleLogout = useCallback(() => {
@@ -84,7 +111,7 @@ export default function Header() {
                 onClick={handleLogout}
                 style={{ background: "none", border: "none", cursor: "pointer", font: "inherit" }}
               >
-                Déconnexion
+                Déconnexion{userEmail ? ` (${userEmail})` : ""}
               </button>
             ) : (
               <Link

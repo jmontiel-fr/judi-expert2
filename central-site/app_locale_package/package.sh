@@ -19,7 +19,6 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LOCAL_DIR="$PROJECT_ROOT/local-site"
 OUTPUT_DIR="$SCRIPT_DIR/output"
 STAGING_DIR="$SCRIPT_DIR/.staging"
-VERSION="${JUDI_VERSION:-1.0.0}"
 
 # ── Couleurs ──────────────────────────────────────────────
 GREEN='\033[0;32m'
@@ -34,6 +33,16 @@ info()    { echo -e "${BLUE}ℹ ${NC} $1"; }
 success() { echo -e "${GREEN}✔ ${NC} $1"; }
 warn()    { echo -e "${YELLOW}⚠ ${NC} $1"; }
 error()   { echo -e "${RED}✖ ${NC} $1"; exit 1; }
+
+# Read version from local-site/VERSION file (first line = semver)
+VERSION_FILE="$PROJECT_ROOT/local-site/VERSION"
+if [ ! -f "$VERSION_FILE" ]; then
+    error "Fichier VERSION introuvable : $VERSION_FILE"
+fi
+VERSION=$(head -n 1 "$VERSION_FILE" | tr -d '[:space:]')
+if [ -z "$VERSION" ]; then
+    error "Version vide dans $VERSION_FILE"
+fi
 
 print_banner() {
     echo ""
@@ -54,7 +63,7 @@ usage() {
     echo "  all        Génère les installateurs pour tous les OS (défaut)"
     echo ""
     echo "Options :"
-    echo "  --version VER   Version du package (défaut: 1.0.0)"
+    echo "  --version VER   Version du package (défaut: lu depuis local-site/VERSION)"
     echo "  --skip-build    Ne pas reconstruire les images Docker"
     echo "  --skip-export   Ne pas ré-exporter les images Docker (utiliser le cache)"
     echo "  --help           Afficher cette aide"

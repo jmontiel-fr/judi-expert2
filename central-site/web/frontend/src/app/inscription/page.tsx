@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { ApiError } from "@/lib/api";
@@ -47,6 +48,7 @@ interface FormErrors {
 }
 
 export default function InscriptionPage() {
+  const router = useRouter();
   const { register } = useAuth();
 
   const [formData, setFormData] = useState<FormData>({
@@ -166,6 +168,9 @@ export default function InscriptionPage() {
         domaine: "", email: "", password: "",
         acceptMentions: false, acceptCGU: false, acceptProtection: false, acceptNewsletter: false,
       });
+      // Rediriger vers la page de confirmation après 2 secondes
+      const registeredEmail = formData.email.trim();
+      setTimeout(() => router.push(`/confirmation?email=${encodeURIComponent(registeredEmail)}`), 2000);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setSubmitError("Un compte avec cet email existe déjà.");

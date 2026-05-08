@@ -171,3 +171,23 @@ Cette fonctionnalité met en place un système complet de gestion des versions p
 1. WHEN les scripts de déploiement du Site Central (build.sh, push-ecr.sh, deploy.sh) sont exécutés, THE scripts SHALL lire la Version_Site_Central depuis le fichier `central-site/VERSION`
 2. THE scripts de déploiement SHALL taguer les images Docker du Site Central avec la Version_Site_Central (ex : `judi-central-backend:1.2.0`)
 3. WHEN le script docker-compose.dev.yml est utilisé en développement, THE Site_Central SHALL lire la Version_Site_Central depuis le fichier `VERSION` de la même manière qu'en production
+
+### Exigence 14 : Fichier VERSION dans le package installateur (app_locale_package)
+
+**User Story :** En tant que développeur, je veux que le package installateur contienne un fichier VERSION identique à celui de local-site, afin que l'installateur connaisse la version qu'il installe.
+
+#### Critères d'acceptation
+
+1. THE app_locale_package SHALL contenir un fichier `VERSION` au format identique à `local-site/VERSION` (semver sur la première ligne, date ISO sur la deuxième ligne)
+2. WHEN le script package.sh génère l'installateur, THE script SHALL copier le fichier `local-site/VERSION` dans le package
+3. THE fichier `central-site/app_locale_package/VERSION` SHALL être synchronisé avec `local-site/VERSION` à chaque release
+
+### Exigence 15 : Documentation de la gestion des versions
+
+**User Story :** En tant que développeur, je veux une documentation centralisée décrivant le système de gestion des versions, afin de comprendre rapidement le fonctionnement et les conventions.
+
+#### Critères d'acceptation
+
+1. THE projet SHALL contenir un fichier `docs/version-management.md` décrivant le système complet de gestion des versions
+2. THE documentation SHALL décrire le format du fichier VERSION, les conventions semver, le processus de mise à jour forcée, la mise à jour du modèle LLM, et l'affichage de la version dans l'interface
+3. THE documentation SHALL inclure des exemples concrets de fichiers VERSION et de commandes de publication de version

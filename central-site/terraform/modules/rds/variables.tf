@@ -24,3 +24,13 @@ variable "db_password" {
   type      = string
   sensitive = true
 }
+
+variable "vpc_id" {
+  description = "VPC ID where RDS security group will be created"
+  type        = string
+}
+
+variable "subnet_ids" {
+  description = "Subnet IDs for the DB subnet group (must be in the same VPC)"
+  type        = list(string)
+}

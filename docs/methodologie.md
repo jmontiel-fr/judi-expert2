@@ -56,7 +56,7 @@ Judi-Expert est un système d'assistance aux experts judiciaires qui automatise 
 
 Le système se compose de deux parties :
 
-- **Application Locale** : installée sur le PC de l'expert, elle gère le workflow d'expertise en 4 étapes (extraction OCR, plan d'entretien, collecte de données, génération de rapport). Toutes les données d'expertise restent exclusivement sur le PC de l'expert.
+- **Application Locale** : installée sur le PC de l'expert, elle gère le workflow d'expertise en 5 étapes (extraction OCR, préparation investigations, consolidation documentaire, production pré-rapport, finalisation et archivage). Toutes les données d'expertise restent exclusivement sur le PC de l'expert. L'authentification utilise les identifiants du Site Central (connexion Internet requise).
 
 - **Site Central** : plateforme web de gestion des inscriptions, des tickets d'expertise et de la distribution des modules de connaissances par domaine.
 
@@ -64,10 +64,12 @@ Le système se compose de deux parties :
 
 | Étape | Nom | Rôle de l'IA | Rôle de l'expert |
 |-------|-----|-------------|------------------|
-| Step0 | Extraction | Conversion OCR du PDF-scan + structuration en Markdown | Vérification et correction du texte extrait |
-| Step1 | PEMEC | Génération d'un plan d'entretien à partir de la réquisition | Validation, adaptation et utilisation du plan |
-| Step2 | Upload | Aucun | Rédaction des notes d'entretien et du rapport brut |
-| Step3 | REF + RAUX | Génération du rapport final et analyse des contestations | Relecture, validation et dépôt du rapport |
+| Step 1 | Création dossier | Extraction OCR + structuration Markdown + extraction placeholders | Vérification du texte extrait, validation des placeholders |
+| Step 2 | Préparation investigations | Génération du plan d'entretien (PE) ou d'analyse (PA) | Validation, adaptation du plan |
+| Step E/A | Entretien ou Analyse | Aucun | Mener les entretiens/analyses, annoter le PE/PA → produire PEA/PAA |
+| Step 3 | Consolidation documentaire | Extraction OCR des pièces de diligence | Vérification des extractions |
+| Step 4 | Production pré-rapport | Interprétation des annotations, génération PRE et DAC, substitution placeholders | Relecture, ajustement des conclusions |
+| Step 5 | Finalisation et archivage | Création archive ZIP + timbre (hash SHA-256, stockage S3) | Import du rapport final ajusté, validation pour archivage |
 
 À chaque étape, l'expert conserve la possibilité de modifier, corriger et valider les productions de l'IA avant de passer à l'étape suivante.
 
@@ -83,15 +85,38 @@ L'intelligence artificielle intégrée à Judi-Expert est utilisée exclusivemen
 
 L'IA intervient dans les tâches suivantes :
 
-1. **Extraction et structuration de texte** (Step0) : conversion des documents scannés en texte exploitable via OCR et structuration automatique en Markdown. L'expert vérifie et corrige le résultat.
+1. **Extraction et structuration de texte** (Step 1) : conversion des documents scannés en texte exploitable via OCR, structuration automatique en Markdown, extraction des questions du tribunal (Q1…Qn) et des valeurs de placeholders pour le template de rapport. L'expert vérifie et corrige le résultat.
 
-2. **Génération de plan d'entretien** (Step1) : proposition d'un plan d'entretien structuré à partir des questions du tribunal et de la trame d'entretien de l'expert. L'expert adapte le plan à son contexte.
+2. **Génération de plan d'entretien ou d'analyse** (Step 2) : proposition d'un plan structuré (PE en Mode Entretien, PA en Mode Analyse) à partir des questions du tribunal et de la trame de l'expert (TPE ou TPA). En Mode Analyse, génération de courriers de diligence. L'expert adapte le plan à son contexte.
 
-3. **Génération de rapport** (Step3) : production d'un rapport final à partir des éléments fournis par l'expert (notes d'entretien, rapport brut, questions du tribunal). L'expert valide le rapport avant dépôt.
+3. **Extraction OCR des pièces de diligence** (Step 3) : conversion des documents reçus en réponse aux diligences en format Markdown. L'expert vérifie les extractions.
 
-4. **Analyse de contestations** (Step3 — RAUX) : identification des points de contestation possibles et proposition d'une version révisée. L'expert décide des modifications à retenir.
+4. **Génération du pré-rapport** (Step 4) : interprétation des annotations balisées du PEA ou PAA (@dires, @analyse, @verbatim, @question, @reference), substitution des placeholders dans le template de rapport (`tre.docx`), et production du pré-rapport (`pre.docx`). L'expert valide le rapport.
 
-5. **Assistant conversationnel** (ChatBot) : réponses aux questions de l'expert sur le domaine d'expertise et l'utilisation du système.
+5. **Analyse contradictoire** (Step 4 — DAC) : génération d'un Document d'Analyse Contradictoire (`dac.docx`) identifiant les points de contestation possibles et proposant des pistes de renforcement. L'expert décide des modifications à retenir.
+
+6. **Archivage sécurisé** (Step 5) : création d'une archive ZIP immuable avec timbre d'horodatage (hash SHA-256 stocké sur S3). L'expert peut compléter par un horodatage juridiquement certifié.
+
+7. **Assistant conversationnel** (ChatBot) : réponses aux questions de l'expert sur le domaine d'expertise et l'utilisation du système.
+
+### Documents annotés par l'expert (PEA / PAA)
+
+Après la génération du plan d'entretien (PE) ou du plan d'analyse (PA) au Step 2, l'expert annote le document en style télégraphique pour produire :
+
+- **PEA** (`pea.docx`) : Plan d'Entretien Annoté — en Mode Entretien
+- **PAA** (`paa.docx`) : Plan d'Analyse Annoté — en Mode Analyse
+
+L'expert utilise des balises d'annotation standardisées :
+
+| Balise | Usage |
+|--------|-------|
+| `@dires ..... \@` | Propos rapportés par l'interviewé |
+| `@analyse ..... \@` | Observations et interprétations de l'expert |
+| `@verbatim ..... \@` | Citation textuelle mot pour mot |
+| `@question n\@` | Référence à la question réquisition N° n |
+| `@reference section xxx \@` | Substitution des sections dires/analyses relatives à la section xxx |
+
+Ces documents annotés constituent l'entrée principale du Step 4 pour la génération du pré-rapport. Le système interprète les balises pour structurer le rapport final.
 
 ### Garanties méthodologiques
 
@@ -117,7 +142,8 @@ Le système utilise une base de connaissances vectorielle (RAG — Retrieval-Aug
 
 - Des documents de référence publics (guides méthodologiques, textes réglementaires, référentiels de bonnes pratiques)
 - Des URLs de ressources institutionnelles et académiques
-- Le TPE (trame d'entretien) et le template de rapport de l'expert
+- Le TPE ou TPA (trame d'entretien ou d'analyse) de l'expert
+- Le template de rapport (`tre.docx`) avec ses placeholders `<<...>>`
 
 La base RAG enrichit les réponses de l'IA avec des informations factuelles et à jour, réduisant les risques d'hallucination.
 
@@ -156,7 +182,7 @@ Judi-Expert est un système d'IA utilisé comme outil d'assistance à la décisi
 | **Documentation technique** | Le présent document et la documentation technique du projet sont disponibles. |
 | **Gestion des risques** | Le workflow séquentiel avec validation à chaque étape limite les risques d'erreur. |
 | **Qualité des données** | Le corpus RAG est constitué de documents publics de référence, vérifiés et à jour. |
-| **Traçabilité** | Tous les fichiers intermédiaires sont conservés et archivés dans un ZIP immuable. |
+| **Traçabilité** | Tous les fichiers intermédiaires sont conservés et archivés dans un ZIP immuable avec timbre d'horodatage (hash SHA-256). |
 
 ### Protection des données d'expertise
 
@@ -166,7 +192,7 @@ L'architecture de Judi-Expert garantit la protection des données d'expertise pa
 2. **Base RAG locale** : la base de connaissances vectorielle est stockée localement
 3. **Aucune transmission de données** : les documents d'expertise ne quittent jamais le PC de l'expert
 4. **Chiffrement obligatoire** : le chiffrement du disque est vérifié à l'installation
-5. **Archivage immuable** : les dossiers finalisés sont archivés en ZIP et ne peuvent plus être modifiés
+5. **Archivage immuable** : les dossiers finalisés sont archivés en ZIP avec un timbre d'horodatage (hash SHA-256 stocké sur S3) et ne peuvent plus être modifiés. L'expert peut compléter par un horodatage juridiquement certifié.
 
 ---
 

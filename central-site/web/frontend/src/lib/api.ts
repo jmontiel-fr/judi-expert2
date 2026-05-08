@@ -76,11 +76,40 @@ export async function apiRegister(payload: RegisterPayload): Promise<{ message: 
   return handleResponse(res);
 }
 
+export class NewPasswordRequiredError extends Error {
+  session: string;
+  email: string;
+  constructor(session: string, email: string) {
+    super("NEW_PASSWORD_REQUIRED");
+    this.session = session;
+    this.email = email;
+  }
+}
+
 export async function apiLogin(email: string, password: string, captchaToken: string): Promise<AuthTokens> {
   const res = await fetch(`${API_BASE}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password, captcha_token: captchaToken }),
+  });
+  if (res.status === 403) {
+    const data = await res.json();
+    if (data.detail === "NEW_PASSWORD_REQUIRED") {
+      const session = res.headers.get("X-Cognito-Session") || "";
+      throw new NewPasswordRequiredError(session, email);
+    }
+    if (data.detail === "USER_NOT_CONFIRMED") {
+      throw new Error("USER_NOT_CONFIRMED");
+    }
+  }
+  return handleResponse(res);
+}
+
+export async function apiSetNewPassword(email: string, newPassword: string, session: string): Promise<AuthTokens> {
+  const res = await fetch(`${API_BASE}/api/auth/new-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, new_password: newPassword, session }),
   });
   return handleResponse(res);
 }
@@ -494,4 +523,84 @@ export async function apiAdminAddUrl(token: string, domaine: string, data: AddUr
     body: JSON.stringify(data),
   });
   return handleResponse(res);
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  Chatbot                                                            */
+/* ------------------------------------------------------------------ */
+
+export interface ChatbotMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export async function apiChatbotMessage(
+  message: string,
+  history: ChatbotMessage[],
+  token: string
+): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/chatbot/message`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ message, history }),
+  });
+  const data = await handleResponse<{ response: string }>(res);
+  return data.response;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Admin Chatbot                                                      */
+/* ------------------------------------------------------------------ */
+
+export interface ChatbotStatus {
+  last_refresh: string | null;
+  docs_indexed: number;
+  points_count: number;
+  available_docs: string[];
+}
+
+export interface ChatbotRefreshResult {
+  message: string;
+  docs_indexed: number;
+  total_chunks: number;
+  last_refresh: string;
+}
+
+export async function apiAdminChatbotStatus(token: string): Promise<ChatbotStatus> {
+  const res = await fetch(`${API_BASE}/api/admin/chatbot/status`, {
+    headers: authHeaders(token),
+  });
+  return handleResponse(res);
+}
+
+export async function apiAdminChatbotRefresh(token: string): Promise<ChatbotRefreshResult> {
+  const res = await fetch(`${API_BASE}/api/admin/chatbot/refresh`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+  return handleResponse(res);
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  Auth — Confirmation                                                */
+/* ------------------------------------------------------------------ */
+
+export async function apiConfirmSignUp(email: string, code: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/auth/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code }),
+  });
+  await handleResponse<unknown>(res);
+}
+
+export async function apiResendCode(email: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/auth/resend-code`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  await handleResponse<unknown>(res);
 }

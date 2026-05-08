@@ -76,7 +76,7 @@ export default function HomePage() {
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Comment ça marche ?</h2>
         <p className={styles.sectionSubtitle}>
-          Un processus simple en 4 étapes pour démarrer avec Judi-expert.
+          Un processus simple en 5 étapes pour démarrer avec Judi-expert.
         </p>
         <div className={styles.stepsRow}>
           <div className={styles.stepItem}>
@@ -135,6 +135,7 @@ export default function HomePage() {
           assistées par l&apos;IA, quel que soit le domaine d&apos;expertise.
         </p>
         <div className={styles.workflowContainer}>
+          {/* Row 1: Steps 1 → 2 → 3 */}
           <div className={styles.workflowTimeline}>
             {/* Step 1 */}
             <div className={styles.workflowCard}>
@@ -174,7 +175,7 @@ export default function HomePage() {
                 <div className={styles.workflowOutput}>
                   <span className={styles.workflowIOLabel}>Sortie</span>
                   <p>
-                    Génération des trames d&apos;entretien / auditions, demandes
+                    Génération des trames d&apos;entretien, demandes
                     d&apos;investigation diligentées par l&apos;expert
                   </p>
                 </div>
@@ -202,9 +203,61 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
+          </div>
 
-            <span className={styles.workflowArrow}>→</span>
+          {/* Row 2: Step E / Step A (expert action) */}
+          <div className={styles.workflowTimeline}>
+            {/* Step E — Entretien */}
+            <div className={styles.workflowCard}>
+              <div className={styles.workflowCardHeader}>
+                <div className={styles.workflowBadge}>E</div>
+                <h3 className={styles.workflowCardTitle}>
+                  Entretien
+                </h3>
+              </div>
+              <div className={styles.workflowIO}>
+                <div className={styles.workflowInput}>
+                  <span className={styles.workflowIOLabel}>Entrée</span>
+                  <p>Trame d&apos;entretien complète</p>
+                </div>
+                <div className={styles.workflowOutput}>
+                  <span className={styles.workflowIOLabel}>Sortie</span>
+                  <p>
+                    Trame d&apos;entretien complétée par notes d&apos;entretien,
+                    analyses et conclusions expert
+                  </p>
+                </div>
+              </div>
+            </div>
 
+            <span className={styles.workflowOr}>ou</span>
+
+            {/* Step A — Analyse sur pièces */}
+            <div className={styles.workflowCard}>
+              <div className={styles.workflowCardHeader}>
+                <div className={styles.workflowBadge}>A</div>
+                <h3 className={styles.workflowCardTitle}>
+                  Analyse sur pièces
+                </h3>
+              </div>
+              <div className={styles.workflowIO}>
+                <div className={styles.workflowInput}>
+                  <span className={styles.workflowIOLabel}>Entrée</span>
+                  <p>Ensemble des pièces et retours de diligences</p>
+                </div>
+                <div className={styles.workflowOutput}>
+                  <span className={styles.workflowIOLabel}>Sortie</span>
+                  <p>
+                    Trame pièces et diligences complémentaires complétées par
+                    notes d&apos;analyse et conclusions expert
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 3: Steps 4 → 5 */}
+          <div className={styles.workflowTimeline}>
             {/* Step 4 */}
             <div className={styles.workflowCard}>
               <div className={styles.workflowCardHeader}>
@@ -217,7 +270,7 @@ export default function HomePage() {
                 <div className={styles.workflowInput}>
                   <span className={styles.workflowIOLabel}>Entrée</span>
                   <p>
-                    Notes télégraphiques expert (entretiens / auditions, analyse,
+                    Notes télégraphiques expert (entretien, analyse,
                     conclusions), modèle de rapport final
                   </p>
                 </div>

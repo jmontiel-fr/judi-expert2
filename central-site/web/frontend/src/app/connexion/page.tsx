@@ -4,12 +4,15 @@ import { useState, useCallback, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { NewPasswordRequiredError, apiSetNewPassword } from "@/lib/api";
 import ReCaptchaWidget from "@/components/ReCaptchaWidget";
 import styles from "./connexion.module.css";
 
 interface FormErrors {
   email?: string;
   password?: string;
+  newPassword?: string;
+  confirmPassword?: string;
 }
 
 export default function ConnexionPage() {
@@ -22,6 +25,12 @@ export default function ConnexionPage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // New password challenge state
+  const [needsNewPassword, setNeedsNewPassword] = useState(false);
+  const [cognitoSession, setCognitoSession] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const handleCaptchaVerify = useCallback((token: string) => {
     setCaptchaToken(token);
@@ -44,6 +53,19 @@ export default function ConnexionPage() {
     return errs;
   }
 
+  function validateNewPassword(): FormErrors {
+    const errs: FormErrors = {};
+    if (!newPassword) {
+      errs.newPassword = "Le nouveau mot de passe est requis";
+    } else if (newPassword.length < 8) {
+      errs.newPassword = "Minimum 8 caractères";
+    }
+    if (newPassword !== confirmPassword) {
+      errs.confirmPassword = "Les mots de passe ne correspondent pas";
+    }
+    return errs;
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSubmitError("");
@@ -61,12 +83,85 @@ export default function ConnexionPage() {
     try {
       await login(email.trim(), password, captchaToken);
       router.push("/");
-    } catch {
-      // Uniform error message — never reveal if email or password is wrong (Exigence 14.3)
-      setSubmitError("Identifiants invalides");
+    } catch (err) {
+      if (err instanceof NewPasswordRequiredError) {
+        setCognitoSession(err.session);
+        setNeedsNewPassword(true);
+        setSubmitError("");
+      } else if (err instanceof Error && err.message === "USER_NOT_CONFIRMED") {
+        router.push(`/confirmation?email=${encodeURIComponent(email.trim())}`);
+      } else {
+        setSubmitError("Identifiants invalides");
+      }
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  async function handleNewPasswordSubmit(e: FormEvent) {
+    e.preventDefault();
+    setSubmitError("");
+
+    const validationErrors = validateNewPassword();
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
+
+    setIsSubmitting(true);
+    try {
+      await apiSetNewPassword(email.trim(), newPassword, cognitoSession);
+      // Re-login with new password
+      await login(email.trim(), newPassword, captchaToken || "");
+      router.push("/");
+    } catch {
+      setSubmitError("Impossible de changer le mot de passe. Veuillez réessayer.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  if (needsNewPassword) {
+    return (
+      <div className={styles.container}>
+        <h1 className={styles.title}>Changement de mot de passe</h1>
+        <p className={styles.subtitle}>Vous devez définir un nouveau mot de passe pour continuer.</p>
+
+        <form className={styles.form} onSubmit={handleNewPasswordSubmit} noValidate>
+          {submitError && (
+            <div className={styles.errorMessage} role="alert">{submitError}</div>
+          )}
+
+          <div className={styles.fieldGroup}>
+            <label htmlFor="newPassword" className={styles.label}>
+              Nouveau mot de passe<span className={styles.required}>*</span>
+            </label>
+            <input id="newPassword" type="password"
+              className={`${styles.input} ${errors.newPassword ? styles.inputError : ""}`}
+              value={newPassword}
+              onChange={(e) => { setNewPassword(e.target.value); setErrors((p) => ({ ...p, newPassword: undefined })); }}
+              required autoComplete="new-password" aria-invalid={!!errors.newPassword}
+              aria-describedby={errors.newPassword ? "new-password-error" : undefined} />
+            {errors.newPassword && <p id="new-password-error" className={styles.fieldError}>{errors.newPassword}</p>}
+          </div>
+
+          <div className={styles.fieldGroup}>
+            <label htmlFor="confirmPassword" className={styles.label}>
+              Confirmer le mot de passe<span className={styles.required}>*</span>
+            </label>
+            <input id="confirmPassword" type="password"
+              className={`${styles.input} ${errors.confirmPassword ? styles.inputError : ""}`}
+              value={confirmPassword}
+              onChange={(e) => { setConfirmPassword(e.target.value); setErrors((p) => ({ ...p, confirmPassword: undefined })); }}
+              required autoComplete="new-password" aria-invalid={!!errors.confirmPassword}
+              aria-describedby={errors.confirmPassword ? "confirm-password-error" : undefined} />
+            {errors.confirmPassword && <p id="confirm-password-error" className={styles.fieldError}>{errors.confirmPassword}</p>}
+          </div>
+
+          <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
+            {isSubmitting ? "Enregistrement…" : "Définir le nouveau mot de passe"}
+          </button>
+        </form>
+      </div>
+    );
   }
 
   return (

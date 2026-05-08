@@ -22,7 +22,9 @@ export default function Header() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.svg" alt="" className={styles.logoIcon} />
           Judi-Expert
-          <span className={styles.devBadge}>dev</span>
+          {process.env.NEXT_PUBLIC_APP_ENV !== "production" && (
+            <span className={styles.devBadge}>dev</span>
+          )}
         </Link>
         <ul className={styles.links}>
           <li>

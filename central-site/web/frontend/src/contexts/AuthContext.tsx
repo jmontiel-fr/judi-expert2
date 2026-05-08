@@ -8,29 +8,9 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import { Amplify } from "aws-amplify";
-import { signIn, signOut, fetchAuthSession } from "aws-amplify/auth";
 import { apiLogin, apiLogout, apiGetProfile, type Profile } from "@/lib/api";
 
 /* ------------------------------------------------------------------ */
-/*  Amplify configuration                                              */
-/* ------------------------------------------------------------------ */
-
-const COGNITO_USER_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || "";
-const COGNITO_APP_CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_APP_CLIENT_ID || "";
-const AWS_REGION = process.env.NEXT_PUBLIC_AWS_REGION || "eu-west-3";
-
-if (COGNITO_USER_POOL_ID && COGNITO_APP_CLIENT_ID) {
-  Amplify.configure({
-    Auth: {
-      Cognito: {
-        userPoolId: COGNITO_USER_POOL_ID,
-        userPoolClientId: COGNITO_APP_CLIENT_ID,
-      },
-    },
-  });
-}
-
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
@@ -74,7 +54,7 @@ export interface RegisterParams {
 }
 
 const ADMIN_EMAIL = "admin@judi-expert.fr";
-const DEV_TOKEN_KEY = "judi_dev_token";
+const TOKEN_KEY = "judi_access_token";
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
@@ -94,30 +74,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function restoreSession() {
+    // Try token from localStorage
     try {
-      // 1. Try Amplify session (production with Cognito)
-      const session = await fetchAuthSession();
-      const token = session.tokens?.accessToken?.toString();
-      if (token) {
-        setAccessToken(token);
-        const profile = await apiGetProfile(token);
-        applyProfile(profile, token);
+      const savedToken = localStorage.getItem(TOKEN_KEY);
+      if (savedToken) {
+        const profile = await apiGetProfile(savedToken);
+        applyProfile(profile, savedToken);
         return;
       }
     } catch {
-      // No Amplify session
-    }
-
-    // 2. Try dev token from localStorage (dev mode)
-    try {
-      const devToken = localStorage.getItem(DEV_TOKEN_KEY);
-      if (devToken) {
-        const profile = await apiGetProfile(devToken);
-        applyProfile(profile, devToken);
-        return;
-      }
-    } catch {
-      localStorage.removeItem(DEV_TOKEN_KEY);
+      localStorage.removeItem(TOKEN_KEY);
     }
 
     setLoading(false);
@@ -138,10 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u);
     setAccessToken(token);
     setIsAdmin(profile.email === ADMIN_EMAIL);
-    // Persist dev tokens for page reload survival
-    if (token.startsWith("dev-token-")) {
-      localStorage.setItem(DEV_TOKEN_KEY, token);
-    }
+    localStorage.setItem(TOKEN_KEY, token);
     setLoading(false);
   }
 
@@ -150,13 +113,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Call the backend which validates captcha + authenticates via Cognito
     const tokens = await apiLogin(email, password, captchaToken);
     setAccessToken(tokens.access_token);
-
-    // Also sign in via Amplify so the session is persisted client-side
-    try {
-      await signIn({ username: email, password });
-    } catch {
-      // Amplify sign-in may fail if already signed in; tokens from backend are authoritative
-    }
 
     // Fetch profile from backend
     const profile = await apiGetProfile(tokens.access_token);
@@ -192,15 +148,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Best-effort backend logout
     }
-    try {
-      await signOut();
-    } catch {
-      // Best-effort Amplify sign-out
-    }
     setUser(null);
     setIsAdmin(false);
     setAccessToken(null);
-    localStorage.removeItem(DEV_TOKEN_KEY);
+    localStorage.removeItem(TOKEN_KEY);
   }, [accessToken]);
 
   return (

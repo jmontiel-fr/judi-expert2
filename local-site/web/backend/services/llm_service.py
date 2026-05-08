@@ -114,6 +114,62 @@ PROMPT_STRUCTURATION_MD: str = (
     "Réponds uniquement avec le document Markdown structuré, sans commentaire ni explication."
 )
 
+PROMPT_EXTRACTION_QUESTIONS: str = (
+    "Tu es un assistant juridique spécialisé dans l'analyse d'ordonnances judiciaires françaises.\n\n"
+    "Tu reçois le texte structuré d'une ordonnance de commission d'expert. "
+    "Ta tâche est d'extraire UNIQUEMENT les questions posées par le tribunal à l'expert "
+    "(les missions d'expertise).\n\n"
+    "Règles :\n"
+    "1. Extrais chaque question/mission distincte posée à l'expert.\n"
+    "2. Numérote-les Q1, Q2, Q3, etc.\n"
+    "3. Conserve le texte exact de chaque question tel qu'il apparaît dans l'ordonnance.\n"
+    "4. Si une question contient des sous-questions, liste-les sous la question principale.\n"
+    "5. N'invente aucune question qui ne figure pas dans le texte.\n\n"
+    "Format de sortie (Markdown) :\n"
+    "```\n"
+    "# Questions du Tribunal\n\n"
+    "## Q1\n"
+    "Texte de la première question/mission\n\n"
+    "## Q2\n"
+    "Texte de la deuxième question/mission\n"
+    "```\n\n"
+    "Réponds uniquement avec la liste des questions en Markdown, sans commentaire."
+)
+
+PROMPT_EXTRACTION_PLACEHOLDERS: str = (
+    "Tu es un assistant juridique spécialisé dans l'analyse d'ordonnances judiciaires françaises.\n\n"
+    "Tu reçois le texte structuré d'une ordonnance de commission d'expert. "
+    "Ta tâche est d'extraire les informations factuelles pour remplir les champs d'un rapport d'expertise.\n\n"
+    "Extrais les informations suivantes si elles sont présentes dans le texte. "
+    "Si une information n'est pas trouvée, laisse la valeur vide.\n\n"
+    "Format de sortie STRICT (CSV avec séparateur point-virgule, une ligne par champ) :\n"
+    "```\n"
+    "nom_placeholder;valeur\n"
+    "nom_expert;...\n"
+    "prenom_expert;...\n"
+    "titre_expert;...\n"
+    "date_mission;...\n"
+    "tribunal;...\n"
+    "reference_dossier;...\n"
+    "nom_expertise;...\n"
+    "nom_demandeur;...\n"
+    "prenom_demandeur;...\n"
+    "nom_defendeur;...\n"
+    "prenom_defendeur;...\n"
+    "objet_mission;...\n"
+    "date_ordonnance;...\n"
+    "juridiction;...\n"
+    "ville_juridiction;...\n"
+    "magistrat;...\n"
+    "```\n\n"
+    "Règles :\n"
+    "1. Utilise EXACTEMENT les noms de champs ci-dessus (pas de modification).\n"
+    "2. Les dates doivent être au format JJ/MM/AAAA.\n"
+    "3. N'invente aucune information absente du texte — laisse le champ vide.\n"
+    "4. La première ligne doit être l'en-tête : nom_placeholder;valeur\n\n"
+    "Réponds UNIQUEMENT avec le CSV, sans commentaire ni bloc de code."
+)
+
 PROMPT_GENERATION_QMEC: str = (
     "Tu es un expert psychologue judiciaire expérimenté. Tu dois générer un plan "
     "d'entretien structuré (QMEC — Questionnaire pour le Mis En Cause) à partir des "
@@ -456,10 +512,26 @@ class LLMService:
         messages = [{"role": "user", "content": texte_brut}]
         return await self.chat(messages, system_prompt=PROMPT_STRUCTURATION_MD)
 
+    async def extraire_questions(self, ordonnance_md: str) -> str:
+        """Step 1 — Extrait les questions du tribunal depuis l'ordonnance structurée.
+
+        Retourne un Markdown avec les questions numérotées Q1, Q2, etc.
+        """
+        messages = [{"role": "user", "content": ordonnance_md}]
+        return await self.chat(messages, system_prompt=PROMPT_EXTRACTION_QUESTIONS)
+
+    async def extraire_placeholders(self, ordonnance_md: str) -> str:
+        """Step 1 — Extrait les valeurs des placeholders depuis l'ordonnance structurée.
+
+        Retourne un CSV (séparateur ;) avec les champs nom_placeholder;valeur.
+        """
+        messages = [{"role": "user", "content": ordonnance_md}]
+        return await self.chat(messages, system_prompt=PROMPT_EXTRACTION_PLACEHOLDERS)
+
     async def generer_qmec(
         self, qt: str, tpe: str, contexte_rag: str
     ) -> str:
-        """Step1 — Génère le plan d'entretien (QMEC).
+        """Step 2 — Génère le plan d'entretien (PE) à partir de QT + TPE + contexte RAG.
 
         Valide : Exigence 7.2
         """
@@ -473,6 +545,9 @@ class LLMService:
         )
         messages = [{"role": "user", "content": contenu}]
         return await self.chat(messages, system_prompt=PROMPT_GENERATION_QMEC)
+
+    # Alias pour la nouvelle terminologie
+    generer_pe = generer_qmec
 
     async def generer_ref(
         self, reb: str, qt: str, ne: str, template: str
@@ -575,6 +650,44 @@ class LLMService:
         )
         messages = [{"role": "user", "content": contenu}]
         return await self.chat(messages, system_prompt=PROMPT_GENERATION_REF_PROJET)
+
+    async def generer_pre_rapport(
+        self, pea_content: str, requisition_md: str, template: str
+    ) -> str:
+        """Step 4 — Génère le Pré-Rapport d'Expertise (PRE) à partir du PEA annoté.
+
+        Interprète les annotations balisées (@dires, @analyse, @verbatim,
+        @question, @reference) et produit le rapport structuré.
+        """
+        contenu = (
+            "## PEA (Plan d'Entretien Annoté)\n\n"
+            f"{pea_content}\n\n"
+            "## Réquisition (Markdown structuré)\n\n"
+            f"{requisition_md}\n\n"
+            "## Template de Rapport\n\n"
+            f"{template}"
+        )
+        messages = [{"role": "user", "content": contenu}]
+        return await self.chat(messages, system_prompt=PROMPT_GENERATION_RE_PROJET)
+
+    async def generer_dac(
+        self, pea_content: str, pre_rapport: str
+    ) -> str:
+        """Step 4 — Génère le Document d'Analyse Contradictoire (DAC).
+
+        Analyse le PRE pour identifier les points faibles et proposer
+        des améliorations.
+        """
+        contenu = (
+            "## PEA (Plan d'Entretien Annoté)\n\n"
+            f"{pea_content}\n\n"
+            "## Pré-Rapport d'Expertise (PRE)\n\n"
+            f"{pre_rapport}"
+        )
+        messages = [{"role": "user", "content": contenu}]
+        return await self.chat(
+            messages, system_prompt=PROMPT_GENERATION_RE_PROJET_AUXILIAIRE,
+        )
 
     async def chat_stream(
         self,

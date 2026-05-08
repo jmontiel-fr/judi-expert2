@@ -346,8 +346,8 @@ Ce fichier est écrit par `ollama-entrypoint.sh` et lu par le backend via un vol
 ### Fichier VERSION (format commun)
 
 ```
-1.2.0
-2026-04-17
+1.0.1
+2026-05-08
 ```
 
 - Ligne 1 : version semver `MAJOR.MINOR.PATCH`
@@ -356,6 +356,25 @@ Ce fichier est écrit par `ollama-entrypoint.sh` et lu par le backend via un vol
 Présent dans :
 - `local-site/VERSION`
 - `central-site/VERSION`
+- `central-site/app_locale_package/VERSION` (copie de `local-site/VERSION`)
+
+### Affichage de la version dans le footer
+
+Format normalisé : `V{MAJOR}.{MINOR}.{PATCH} - {jour} {mois} {année}`
+
+Exemples :
+- `App Locale V1.0.1 - 08 mai 2026`
+- `Site Central V1.0.1 - 08 mai 2026`
+
+### Documentation
+
+Un fichier `docs/version-management.md` centralise la documentation du système de gestion des versions :
+- Format du fichier VERSION
+- Conventions semver (quand incrémenter MAJOR, MINOR, PATCH)
+- Processus de publication d'une nouvelle version
+- Processus de mise à jour forcée
+- Mise à jour du modèle LLM
+- Affichage de la version dans l'interface
 
 
 ## Propriétés de Correction

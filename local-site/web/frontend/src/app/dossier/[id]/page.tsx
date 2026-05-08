@@ -10,19 +10,8 @@ import {
   isStepAccessible,
   type DossierDetail,
 } from "@/lib/api";
+import { STEP_CONFIG } from "@/lib/stepConfig";
 import FileList from "@/components/FileList";
-
-/* ------------------------------------------------------------------ */
-/* Constants                                                           */
-/* ------------------------------------------------------------------ */
-
-const STEP_NAMES: Record<number, string> = {
-  1: "Création dossier",
-  2: "Préparation investigations",
-  3: "Consolidation documentaire",
-  4: "Production pré-rapport",
-  5: "Finalisation et archivage",
-};
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -285,7 +274,7 @@ export default function DossierDetailPage() {
               .sort((a, b) => a.step_number - b.step_number)
               .map((step) => {
                 const accessible = isStepAccessible(step.step_number, dossier.steps);
-                const stepLabel = `Étape ${step.step_number} — ${STEP_NAMES[step.step_number] ?? `Step${step.step_number}`}`;
+                const stepLabel = `Étape ${step.step_number} — ${STEP_CONFIG[step.step_number]?.name ?? `Step${step.step_number}`}`;
 
                 const statusClass =
                   step.statut === "valide"
@@ -320,7 +309,7 @@ export default function DossierDetailPage() {
                       <div className={styles.stepHeader}>
                         <span className={styles.stepNumber}>{step.step_number}</span>
                         <span className={styles.stepName}>
-                          {STEP_NAMES[step.step_number] ?? `Step${step.step_number}`}
+                          {STEP_CONFIG[step.step_number]?.name ?? `Step${step.step_number}`}
                         </span>
                       </div>
                       <div className={styles.stepDates}>

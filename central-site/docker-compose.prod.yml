@@ -33,11 +33,18 @@ services:
       SMTP_FROM_NAME: "${SMTP_FROM_NAME}"
       DOMAINES_YAML_PATH: "/data/domaines/domaines.yaml"
       CORPUS_BASE_PATH: "/data/corpus"
+      DOCS_PATH: "/data/docs"
       AWS_REGION: "${AWS_REGION}"
+      MISTRAL_API_KEY: "${MISTRAL_API_KEY}"
+      MISTRAL_MODEL: "${MISTRAL_MODEL}"
+      QDRANT_URL: "http://qdrant:6333"
     volumes:
       - app_data:/app/data
       - ./domaines:/data/domaines:ro
       - ./corpus:/data/corpus:ro
+      - ./docs:/data/docs:ro
+    depends_on:
+      - qdrant
     restart: unless-stopped
 
   frontend:
@@ -46,8 +53,16 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_URL: "https://www.judi-expert.fr/api"
+      NEXT_PUBLIC_API_URL: ""
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.9.7
+    container_name: judi-central-qdrant
+    volumes:
+      - qdrant_data:/qdrant/storage
     restart: unless-stopped
 
 volumes:
   app_data:
+  qdrant_data:

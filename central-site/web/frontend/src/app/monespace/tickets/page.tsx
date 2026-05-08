@@ -73,7 +73,7 @@ export default function TicketsPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Confirm dev ticket after Stripe Checkout return
+  // Confirm ticket after Stripe Checkout return
   const searchParams = useSearchParams();
   useEffect(() => {
     const success = searchParams.get("success");

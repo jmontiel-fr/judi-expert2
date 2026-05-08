@@ -74,8 +74,9 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - web_data:/app/data
-      - dossiers_data:/app/data/dossiers
+      - ${JUDI_DATA_DIR:-c:/judi-expert}:/app/data
+      - ./VERSION:/app/VERSION:ro
+      - ../corpus:/data/corpus:ro
     env_file:
       - .env
     depends_on:
@@ -126,10 +127,6 @@ networks:
 
 volumes:
   ollama_data:
-    driver: local
-  web_data:
-    driver: local
-  dossiers_data:
     driver: local
   qdrant_data:
     driver: local

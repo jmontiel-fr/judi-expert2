@@ -93,39 +93,43 @@ function DomainAccordion({
             </div>
           ) : (
             <div className={styles.contentGrid}>
-              {/* Documents column */}
+              {/* Column 1: Templates + URLs */}
               <div className={styles.contentCol}>
-                <p className={styles.colTitle}>📄 Documents</p>
-                {documents.length === 0 ? (
-                  <p className={styles.emptyList}>Aucun document</p>
-                ) : (
-                  documents.map((doc) => (
-                    <div key={doc.nom} className={styles.card}>
-                      <p className={styles.cardName}>{displayName(doc.nom)}</p>
-                      {doc.description && (
-                        <p className={styles.cardDesc}>{doc.description}</p>
-                      )}
-                      <button
-                        type="button"
-                        className={styles.typeBtn}
-                        onClick={() =>
-                          window.open(
-                            getCorpusFileUrl(domain.nom, doc.nom),
-                            "_blank",
-                            "noopener,noreferrer",
-                          )
-                        }
-                      >
-                        Télécharger ↓
-                      </button>
-                    </div>
-                  ))
+                {/* Templates (TPE, TRE) */}
+                {documents.filter((d) => d.type === "template").length > 0 && (
+                  <>
+                    <p className={styles.colTitle}>📋 Templates (TPE / TRE)</p>
+                    {documents
+                      .filter((d) => d.type === "template")
+                      .map((doc) => (
+                        <div key={doc.nom} className={styles.card}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span className={`${styles.badge} ${styles.badgeActive}`}>Template</span>
+                            <p className={styles.cardName} style={{ margin: 0 }}>{displayName(doc.nom)}</p>
+                          </div>
+                          {doc.description && (
+                            <p className={styles.cardDesc}>{doc.description}</p>
+                          )}
+                          <button
+                            type="button"
+                            className={styles.typeBtn}
+                            onClick={() =>
+                              window.open(
+                                getCorpusFileUrl(domain.nom, doc.nom),
+                                "_blank",
+                                "noopener,noreferrer",
+                              )
+                            }
+                          >
+                            Télécharger ↓
+                          </button>
+                        </div>
+                      ))}
+                  </>
                 )}
-              </div>
 
-              {/* URLs column */}
-              <div className={styles.contentCol}>
-                <p className={styles.colTitle}>🔗 URLs de référence</p>
+                {/* URLs de référence */}
+                <p className={styles.colTitle} style={{ marginTop: 24 }}>🔗 URLs de référence</p>
                 {urls.length === 0 ? (
                   <p className={styles.emptyList}>Aucune URL</p>
                 ) : (
@@ -150,6 +154,41 @@ function DomainAccordion({
                       </button>
                     </div>
                   ))
+                )}
+              </div>
+
+              {/* Column 2: Documents de référence */}
+              <div className={styles.contentCol}>
+                <p className={styles.colTitle}>📄 Documents de référence</p>
+                {documents.filter((d) => d.type !== "template").length === 0 ? (
+                  <p className={styles.emptyList}>Aucun document de référence</p>
+                ) : (
+                  documents
+                    .filter((d) => d.type !== "template")
+                    .map((doc) => (
+                      <div key={doc.nom} className={styles.card}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span className={styles.badge} style={{ backgroundColor: "#6366f1", color: "white" }}>Document</span>
+                          <p className={styles.cardName} style={{ margin: 0 }}>{displayName(doc.nom)}</p>
+                        </div>
+                        {doc.description && (
+                          <p className={styles.cardDesc}>{doc.description}</p>
+                        )}
+                        <button
+                          type="button"
+                          className={styles.typeBtn}
+                          onClick={() =>
+                            window.open(
+                              getCorpusFileUrl(domain.nom, doc.nom),
+                              "_blank",
+                              "noopener,noreferrer",
+                            )
+                          }
+                        >
+                          Télécharger ↓
+                        </button>
+                      </div>
+                    ))
                 )}
               </div>
             </div>

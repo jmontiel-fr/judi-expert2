@@ -52,7 +52,7 @@ services:
       # Stripe mode test — définir dans .env.dev
       STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY:-sk_test_CHANGEZ_MOI}"
       STRIPE_PUBLISHABLE_KEY: "${STRIPE_PUBLISHABLE_KEY:-pk_test_CHANGEZ_MOI}"
-      STRIPE_WEBHOOK_SECRET: "whsec_CHANGEZ_MOI"
+      STRIPE_WEBHOOK_SECRET: ""
       STRIPE_PRICE_TICKET: "price_CHANGEZ_MOI"
       # Cognito — en mode dev, le backend accepte un bypass auth
       COGNITO_USER_POOL_ID: "local-dev"
@@ -76,13 +76,19 @@ services:
       SMTP_USER: ""
       SMTP_PASSWORD: ""
       SMTP_FROM_NAME: "Judi-Expert"
+      QDRANT_URL: "http://qdrant:6333"
+      DOCS_PATH: "/data/docs"
+      MISTRAL_API_KEY: "${MISTRAL_API_KEY:-}"
+      MISTRAL_MODEL: "${MISTRAL_MODEL:-mistral-small-latest}"
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - ../domaines:/data/domaines:ro
       - ../corpus:/data/corpus:rw
+      - ../docs:/data/docs:ro
       - ./app_locale_package/output:/data/app_locale_package/output:ro
+      - ./VERSION:/app/VERSION:ro
     restart: unless-stopped
 
   frontend:
@@ -104,5 +110,15 @@ services:
       - backend
     restart: unless-stopped
 
+  qdrant:
+    image: qdrant/qdrant:v1.9.7
+    container_name: judi-central-qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - judi-central-qdrant-data:/qdrant/storage
+    restart: unless-stopped
+
 volumes:
   judi-central-pgdata:
+  judi-central-qdrant-data:

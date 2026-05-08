@@ -12,22 +12,53 @@ parse_args "dev-local-restart.sh" \
 
 PORTS=(3000 8000 8001 11434 6333)
 
+# Determine step count based on --pull-llm flag
+if [ "$PULL_LLM" = "yes" ]; then
+  TOTAL_STEPS=5
+else
+  TOTAL_STEPS=4
+fi
+
 echo -e "${BLUE}══════════════════════════════════════════════${NC}"
 echo -e "${BLUE}  Judi-Expert Local — Redémarrage${NC}"
 echo -e "${BLUE}══════════════════════════════════════════════${NC}"
 echo ""
-echo -e "${YELLOW}[1/4] Docker...${NC}"
+echo -e "${YELLOW}[1/${TOTAL_STEPS}] Docker...${NC}"
 ensure_docker
 echo ""
-echo -e "${YELLOW}[2/4] Arrêt...${NC}"
+
+STEP=2
+
+# ── LLM model check/download BEFORE stopping containers ──
+if [ "$PULL_LLM" = "yes" ]; then
+  echo -e "${YELLOW}[${STEP}/${TOTAL_STEPS}] Vérification et mise à jour du modèle LLM...${NC}"
+  if docker ps --format '{{.Names}}' | grep -q "^${LLM_CONTAINER}$"; then
+    # Container is running — pull model before rebuild
+    if ! ensure_llm_model; then
+      echo -e "${RED}  ✘ Échec de la vérification/téléchargement du modèle LLM.${NC}"
+      echo -e "${RED}    Redémarrage interrompu.${NC}"
+      exit 1
+    fi
+  else
+    echo -e "${YELLOW}  ℹ Conteneur $LLM_CONTAINER non démarré — le modèle sera vérifié après démarrage.${NC}"
+  fi
+  echo ""
+  STEP=$((STEP + 1))
+fi
+
+echo -e "${YELLOW}[${STEP}/${TOTAL_STEPS}] Arrêt...${NC}"
 docker compose -f "$COMPOSE" down --remove-orphans || true
 echo -e "${GREEN}  ✔ Arrêté${NC}"
 echo ""
-echo -e "${YELLOW}[3/4] Libération des ports...${NC}"
+STEP=$((STEP + 1))
+
+echo -e "${YELLOW}[${STEP}/${TOTAL_STEPS}] Libération des ports...${NC}"
 free_ports "${PORTS[@]}"
 echo -e "${GREEN}  ✔ Ports libres${NC}"
 echo ""
-echo -e "${YELLOW}[4/4] Démarrage${BUILD_FLAG:+ + build}...${NC}"
+STEP=$((STEP + 1))
+
+echo -e "${YELLOW}[${STEP}/${TOTAL_STEPS}] Démarrage${BUILD_FLAG:+ + build}${NO_CACHE:+ (no-cache)}...${NC}"
 GPU_COMPOSE=""
 if command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
   echo -e "${GREEN}  ✔ GPU NVIDIA détecté — accélération GPU activée${NC}"
@@ -35,13 +66,23 @@ if command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
 else
   echo -e "${YELLOW}  ℹ Pas de GPU NVIDIA détecté — mode CPU${NC}"
 fi
+if [ "$NO_CACHE" = "yes" ]; then
+  docker compose -f "$COMPOSE" $GPU_COMPOSE build --no-cache
+fi
 docker compose -f "$COMPOSE" $GPU_COMPOSE up -d $BUILD_FLAG
 echo ""
 
+# ── If LLM container was not running before, pull model after restart ──
 if [ "$PULL_LLM" = "yes" ]; then
-  echo -e "${YELLOW}Vérification du modèle LLM...${NC}"
-  ensure_llm_model
-  echo ""
+  if ! docker exec "$LLM_CONTAINER" ollama list 2>/dev/null | grep -q "mistral"; then
+    echo -e "${YELLOW}[LLM] Modèle non trouvé — téléchargement post-démarrage...${NC}"
+    if ! ensure_llm_model; then
+      echo -e "${RED}  ✘ Échec de la vérification/téléchargement du modèle LLM.${NC}"
+      echo -e "${RED}    Redémarrage interrompu.${NC}"
+      exit 1
+    fi
+    echo ""
+  fi
 fi
 
 echo -e "${GREEN}  ✔ Application Locale redémarrée${NC}"

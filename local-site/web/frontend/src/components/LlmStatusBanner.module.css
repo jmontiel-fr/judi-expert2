@@ -1,0 +1,33 @@
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fffaf0;
+  border: 1px solid #fbd38d;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 0.875rem;
+  color: var(--color-text, #334155);
+  margin-bottom: 16px;
+}
+
+.bannerReady {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+.text {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.progress {
+  font-weight: 600;
+  color: var(--color-text-muted, #64748b);
+  white-space: nowrap;
+}

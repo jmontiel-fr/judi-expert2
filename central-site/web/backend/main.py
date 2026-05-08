@@ -5,10 +5,31 @@ Point d'entrée principal de l'API backend du Site Central.
 Déployé sur AWS ECS Fargate, sert l'API REST sur le port 8000.
 """
 
+import os
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import init_db, seed_admin
+from services.version_reader import read_version_file
+
+# --- Lecture de la version au démarrage ---
+# En conteneur Docker, le fichier VERSION est monté à /app/VERSION.
+# En développement local, il est 2 niveaux au-dessus de ce fichier.
+_VERSION_FILE_PATH = Path(
+    os.environ.get("VERSION_FILE", "/app/VERSION")
+)
+
+try:
+    _version_info = read_version_file(_VERSION_FILE_PATH)
+    APP_VERSION = _version_info.version
+    APP_VERSION_DATE = _version_info.date
+except (FileNotFoundError, ValueError) as e:
+    raise SystemExit(
+        f"ERREUR FATALE : Impossible de lire le fichier de version "
+        f"({_VERSION_FILE_PATH}) — {e}"
+    ) from e
 
 app = FastAPI(
     title="Judi-Expert Site Central API",
@@ -46,7 +67,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:3001",
-        # Ajouter le domaine de production CloudFront ici
+        "https://judi-expert.fr",
+        "https://www.judi-expert.fr",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -78,8 +100,21 @@ app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
 app.include_router(admin_corpus_router, prefix="/api/admin/corpus", tags=["admin-corpus"])
 app.include_router(news_router, prefix="/api/news", tags=["news"])
 
+from routers.chatbot import router as chatbot_router
+from routers.admin_chatbot import router as admin_chatbot_router
+from routers.version import router as version_router
+
+app.include_router(chatbot_router, prefix="/api/chatbot", tags=["chatbot"])
+app.include_router(admin_chatbot_router, prefix="/api/admin/chatbot", tags=["admin-chatbot"])
+app.include_router(version_router, prefix="/api", tags=["version"])
+
 
 @app.get("/api/health", tags=["health"])
 async def health_check():
     """Endpoint de vérification de santé du backend."""
-    return {"status": "ok", "service": "judi-expert-site-central"}
+    return {
+        "status": "ok",
+        "service": "judi-expert-site-central",
+        "version": APP_VERSION,
+        "version_date": APP_VERSION_DATE,
+    }

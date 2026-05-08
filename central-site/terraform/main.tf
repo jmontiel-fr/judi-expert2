@@ -1,6 +1,7 @@
 # ==============================================
 # Judi-Expert — Infrastructure AWS (Site Central)
 # Architecture : CloudFront + Lightsail + RDS (~29 $/mois)
+# Network: Lightsail ←VPC Peering→ VPC (RDS private)
 # ==============================================
 
 # --- DNS Zone (created first for ACM validation) ---
@@ -12,7 +13,16 @@ module "dns" {
   domain_name  = var.domain_name
 }
 
-# --- RDS PostgreSQL ---
+# --- VPC + Lightsail VPC Peering ---
+module "vpc" {
+  source = "./modules/vpc"
+
+  project_name = var.project_name
+  environment  = var.environment
+  aws_region   = var.aws_region
+}
+
+# --- RDS PostgreSQL (private, accessible via VPC peering) ---
 module "rds" {
   source = "./modules/rds"
 
@@ -22,6 +32,10 @@ module "rds" {
   db_name           = var.db_name
   db_username       = var.db_username
   db_password       = var.db_password
+  vpc_id            = module.vpc.vpc_id
+  subnet_ids        = module.vpc.subnet_ids
+
+  depends_on = [module.vpc]
 }
 
 # --- Cognito ---

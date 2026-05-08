@@ -38,6 +38,11 @@ export default function DownloadsPage() {
       <div className={styles.card}>
         <div className={styles.cardIcon}>💻</div>
         <h2 className={styles.cardTitle}>Application Locale Judi-expert</h2>
+        {downloadInfo?.version && (
+          <p style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--color-primary)", marginBottom: 8 }}>
+            Version : {downloadInfo.version}
+          </p>
+        )}
         <p className={styles.cardDesc}>
           {downloadInfo
             ? downloadInfo.description

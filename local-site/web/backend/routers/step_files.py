@@ -21,18 +21,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
+from models.dossier import Dossier
+from models.step import Step
 from models.step_file import StepFile
 from routers.auth import get_current_user
+from services.file_paths import step_in_dir, step_out_dir
 from services.file_service import FileService
 from services.workflow_engine import workflow_engine
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
-DATA_DIR: str = os.environ.get("DATA_DIR", "data")
 
 # ---------------------------------------------------------------------------
 # Pydantic schemas
@@ -62,9 +59,13 @@ class StepFileReplaceResponse(BaseModel):
 file_service = FileService()
 
 
-def _step_dir(dossier_id: int, step_number: int) -> str:
-    """Retourne le chemin du répertoire d'une étape sur le disque."""
-    return os.path.join(DATA_DIR, "dossiers", str(dossier_id), f"step{step_number}")
+async def _get_dossier_name(dossier_id: int, db: AsyncSession) -> str:
+    """Récupère le nom du dossier par son ID."""
+    result = await db.execute(select(Dossier).where(Dossier.id == dossier_id))
+    dossier = result.scalar_one_or_none()
+    if dossier is None:
+        raise HTTPException(status_code=404, detail="Dossier non trouvé")
+    return dossier.nom
 
 
 async def _get_step_file(file_id: int, db: AsyncSession) -> StepFile:
@@ -190,9 +191,11 @@ async def replace_file(
         )
 
     # 5. Remplacer le fichier sur le disque et mettre à jour le StepFile
-    step_dir = _step_dir(dossier_id, step_number)
+    dossier_name = await _get_dossier_name(dossier_id, db)
+    # Le fichier remplacé est un fichier de sortie (modifié par l'expert)
+    out_dir = step_out_dir(dossier_name, step_number)
     try:
-        file_service.replace_file(step_file, content, step_dir)
+        file_service.replace_file(step_file, content, out_dir)
     except OSError:
         logger.exception("Erreur lors de l'écriture du fichier sur le disque")
         raise HTTPException(
