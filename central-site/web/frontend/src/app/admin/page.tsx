@@ -358,6 +358,10 @@ function CorpusTab({ accessToken }: { accessToken: string | null }) {
   const [urlError, setUrlError] = useState("");
   const [urlSuccess, setUrlSuccess] = useState("");
 
+  // Crawl state
+  const [crawling, setCrawling] = useState(false);
+  const [crawlResult, setCrawlResult] = useState<{ message: string; errors: string[] } | null>(null);
+
   useEffect(() => {
     async function load() {
       try {
@@ -443,6 +447,23 @@ function CorpusTab({ accessToken }: { accessToken: string | null }) {
     }
   };
 
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+
+  const handleCrawlUrls = async () => {
+    if (!selected) return;
+    setCrawling(true);
+    setCrawlResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/corpus/${selected.nom}/urls/crawl`, { method: "POST" });
+      const data = await res.json();
+      setCrawlResult({ message: data.message || "Terminé", errors: data.errors || [] });
+    } catch {
+      setCrawlResult({ message: "Erreur réseau", errors: [] });
+    } finally {
+      setCrawling(false);
+    }
+  };
+
   return (
     <>
       <div className={styles.corpusDomainList}>
@@ -474,7 +495,27 @@ function CorpusTab({ accessToken }: { accessToken: string | null }) {
                 <button type="button" className={styles.actionBtn} onClick={() => { setShowAddUrl(!showAddUrl); setShowUpload(false); }}>
                   Ajouter une URL
                 </button>
+                <button type="button" className={styles.actionBtn} onClick={handleCrawlUrls} disabled={crawling}>
+                  {crawling ? "Crawling…" : "🔄 Pré-crawling URLs"}
+                </button>
+                <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: "4px 0 0", gridColumn: "1 / -1" }}>
+                  Le pré-crawling télécharge le contenu textuel de chaque URL de référence pour l&apos;injecter dans le RAG des applications locales.
+                </p>
               </div>
+
+              {crawlResult && (
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: 12, marginBottom: 12, fontSize: "0.85rem" }}>
+                  <p style={{ fontWeight: 600, marginBottom: 4 }}>{crawlResult.message}</p>
+                  {crawlResult.errors.length > 0 && (
+                    <details>
+                      <summary style={{ cursor: "pointer", color: "#d97706" }}>{crawlResult.errors.length} erreur(s)</summary>
+                      <ul style={{ margin: "4px 0", paddingLeft: 16, fontSize: "0.8rem" }}>
+                        {crawlResult.errors.map((e: string, i: number) => <li key={i}>{e}</li>)}
+                      </ul>
+                    </details>
+                  )}
+                </div>
+              )}
 
               {uploadError && <p className={styles.formError}>{uploadError}</p>}
               {uploadSuccess && <p className={styles.formSuccess}>{uploadSuccess}</p>}

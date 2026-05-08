@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   apiListCorpus,
   apiGetCorpusContenu,
@@ -29,30 +29,6 @@ function DomainAccordion({
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
-  // Admin action popup
-  const [showPopup, setShowPopup] = useState(false);
-  const [popupTitle, setPopupTitle] = useState("");
-  const [popupLogs, setPopupLogs] = useState<string[]>([]);
-  const [popupDone, setPopupDone] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    if (showPopup && !popupDone) {
-      setElapsed(0);
-      intervalRef.current = setInterval(() => setElapsed((p) => p + 1), 1000);
-    } else {
-      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-    }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [showPopup, popupDone]);
-
-  function formatTime(s: number): string {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return m > 0 ? `${m}min ${sec.toString().padStart(2, "0")}s` : `${sec}s`;
-  }
-
   /** Remplace .tpl par .md dans les noms affichés. */
   const displayName = (nom: string) => nom.replace(/\.tpl$/i, ".md");
 
@@ -79,33 +55,6 @@ function DomainAccordion({
   }, [open, domain.actif, loaded, loadContent]);
 
   const toggle = () => setOpen((prev) => !prev);
-
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
-
-  async function handleAdminAction(endpoint: string, title: string) {
-    setShowPopup(true);
-    setPopupTitle(title);
-    setPopupLogs(["Démarrage…"]);
-    setPopupDone(false);
-    try {
-      setPopupLogs((prev) => [...prev, `Appel ${endpoint}…`]);
-      const res = await fetch(`${API_BASE}/api/corpus/${domain.nom}/${endpoint}`, { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        setPopupLogs((prev) => [
-          ...prev,
-          `✔ ${data.message || "Terminé"}`,
-          ...(data.errors?.length ? data.errors.map((e: string) => `⚠ ${e}`) : []),
-        ]);
-      } else {
-        setPopupLogs((prev) => [...prev, `✕ Erreur : ${data.detail || "Erreur"}`]);
-      }
-    } catch {
-      setPopupLogs((prev) => [...prev, "✕ Erreur réseau"]);
-    } finally {
-      setPopupDone(true);
-    }
-  }
 
   return (
     <div className={styles.accordion}>
@@ -144,42 +93,6 @@ function DomainAccordion({
             </div>
           ) : (
             <>
-              {/* Admin buttons */}
-              <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-                <button className={styles.typeBtn} onClick={() => handleAdminAction("urls/crawl", "Pré-crawling des URLs")}>
-                  🔄 Pré-crawling URLs
-                </button>
-              </div>
-
-              {/* Popup */}
-              {showPopup && (
-                <div style={{
-                  position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
-                  display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
-                }} onClick={() => popupDone && setShowPopup(false)}>
-                  <div style={{
-                    background: "white", borderRadius: 12, padding: 24, maxWidth: 520, width: "90%",
-                    boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
-                  }} onClick={(e) => e.stopPropagation()}>
-                    <h3 style={{ margin: "0 0 12px", fontSize: "1.1rem" }}>
-                      {!popupDone ? "⏳ " : "✔ "}{popupTitle}
-                    </h3>
-                    <p style={{ fontSize: "0.85rem", color: "#6b7280", marginBottom: 12 }}>
-                      {popupDone ? `Terminé en ${formatTime(elapsed)}` : `En cours… ${formatTime(elapsed)}`}
-                    </p>
-                    <div style={{
-                      background: "#1e293b", color: "#e2e8f0", padding: 12, borderRadius: 8,
-                      fontSize: "0.8rem", fontFamily: "monospace", maxHeight: 200, overflowY: "auto", marginBottom: 16,
-                    }}>
-                      {popupLogs.map((log, i) => <div key={i}>{log}</div>)}
-                    </div>
-                    {popupDone && (
-                      <button className={styles.typeBtn} onClick={() => setShowPopup(false)}>Fermer</button>
-                    )}
-                  </div>
-                </div>
-              )}
-
               <div className={styles.contentGrid}>
               {/* Column 1: Templates + URLs */}
               <div className={styles.contentCol}>
