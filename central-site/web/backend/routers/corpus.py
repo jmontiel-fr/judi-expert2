@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -266,3 +266,53 @@ async def download_corpus_file(domaine: str, filename: str) -> FileResponse:
         filename=download_name,
         media_type=media_type,
     )
+
+
+# ---------------------------------------------------------------------------
+# URL Crawl — Pré-crawl et distribution du contenu textuel des URLs
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{domaine}/urls/crawl")
+async def crawl_urls(domaine: str):
+    """Déclenche le pré-crawl de toutes les URLs du corpus d'un domaine.
+
+    Télécharge le contenu textuel de chaque URL et le stocke en cache.
+    Endpoint admin — à protéger en production.
+    """
+    _validate_domaine(domaine)
+
+    from services.url_crawler_service import UrlCrawlerService
+
+    service = UrlCrawlerService(domaine)
+    result = await service.crawl_all()
+
+    return {
+        "message": f"Crawl terminé — {result['crawled']}/{result['total']} URLs crawlées",
+        "crawled": result["crawled"],
+        "total": result["total"],
+        "errors": result["errors"],
+    }
+
+
+@router.get("/{domaine}/urls/{index}/content")
+async def get_url_content(domaine: str, index: int):
+    """Retourne le contenu textuel pré-crawlé d'une URL par son index.
+
+    L'index correspond à la position dans urls.yaml (0-based).
+    Retourne 404 si l'URL n'a pas été pré-crawlée.
+    """
+    _validate_domaine(domaine)
+
+    from services.url_crawler_service import UrlCrawlerService
+
+    service = UrlCrawlerService(domaine)
+    content = service.get_cached_content_by_index(index)
+
+    if content is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contenu non disponible — lancez d'abord le crawl",
+        )
+
+    return PlainTextResponse(content)
