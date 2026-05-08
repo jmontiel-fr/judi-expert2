@@ -88,10 +88,15 @@ class CorpusService:
                 fname_lower = fname.lower()
                 if "tpe" in fname_lower or "template_rapport" in fname_lower:
                     continue
+                # Identifier les URLs (fichiers .url.txt ou provenant de urls/)
+                if fname_lower.endswith(".url.txt") or "urls_" in fname_lower:
+                    doc_type = "url"
+                else:
+                    doc_type = "document"
                 docs.append({
                     "path": fpath,
                     "filename": fname,
-                    "type": "document",
+                    "type": doc_type,
                     "collection": self.corpus_collection,
                 })
 
@@ -106,10 +111,15 @@ class CorpusService:
         for fname in sorted(os.listdir(self.custom_dir)):
             fpath = os.path.join(self.custom_dir, fname)
             if os.path.isfile(fpath) and not fname.startswith("."):
+                # Identifier les URLs
+                if fname.lower().endswith(".url.txt"):
+                    doc_type = "url"
+                else:
+                    doc_type = "custom"
                 docs.append({
                     "path": fpath,
                     "filename": fname,
-                    "type": "custom",
+                    "type": doc_type,
                     "collection": self.corpus_collection,
                 })
 

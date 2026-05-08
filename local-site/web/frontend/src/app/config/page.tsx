@@ -22,6 +22,7 @@ function CorpusManager({ domaine, onUpdate }: { domaine: string; onUpdate: () =>
   const [error, setError] = useState("");
   const [corpusDocs, setCorpusDocs] = useState<Array<{ filename: string; type: string; source: string }>>([]);
   const [addFile, setAddFile] = useState<File | null>(null);
+  const [newUrl, setNewUrl] = useState("");
 
   // Popup state
   const [showPopup, setShowPopup] = useState(false);
@@ -221,6 +222,40 @@ function CorpusManager({ domaine, onUpdate }: { domaine: string; onUpdate: () =>
     }
   }
 
+  async function handleAddUrl() {
+    if (!newUrl.trim()) return;
+    setLoading(true);
+    setMessage("");
+    setError("");
+    try {
+      const token = localStorage.getItem("token");
+      // Créer un fichier texte avec l'URL comme contenu et nom
+      const urlFilename = newUrl.replace(/https?:\/\//, "").replace(/[^a-zA-Z0-9.-]/g, "_").slice(0, 60) + ".url.txt";
+      const blob = new Blob([newUrl], { type: "text/plain" });
+      const file = new File([blob], urlFilename, { type: "text/plain" });
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API_URL}/api/config/corpus/add`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage(`URL ajoutée : ${newUrl}`);
+        setNewUrl("");
+        fetchCorpusList();
+        onUpdate();
+      } else {
+        setError(data.detail || "Erreur");
+      }
+    } catch {
+      setError("Erreur réseau");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div>
       {/* Popup modal */}
@@ -289,46 +324,99 @@ function CorpusManager({ domaine, onUpdate }: { domaine: string; onUpdate: () =>
       {message && !showPopup && <p className={styles.success} role="status">{message}</p>}
       {error && !showPopup && <p className={styles.error} role="alert">{error}</p>}
 
-      {/* Liste des documents du corpus */}
-      {corpusDocs.length > 0 && (
-        <div className={styles.documentList} style={{ marginTop: 16 }}>
-          {corpusDocs.map((doc) => (
-            <div key={doc.filename} className={styles.documentItem}>
-              <span className={styles.documentName}>{doc.filename}</span>
-              <div className={styles.documentMeta}>
-                <span className={styles.badge}>{doc.source}</span>
-                <span className={styles.badge}>{doc.type}</span>
-                {doc.source === "custom" && (
-                  <button
-                    onClick={() => handleRemoveDocument(doc.filename)}
-                    style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: "0.8rem" }}
-                  >
-                    ✕ Supprimer
-                  </button>
-                )}
-              </div>
+      {/* Corpus en 2 colonnes */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginTop: 16 }}>
+        {/* Colonne 1 : URLs de référence */}
+        <div>
+          <p style={{ fontWeight: 600, marginBottom: 8 }}>🔗 URLs de référence</p>
+          {corpusDocs.filter((d) => d.type === "url").length === 0 ? (
+            <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>Aucune URL</p>
+          ) : (
+            <div className={styles.documentList}>
+              {corpusDocs.filter((d) => d.type === "url").map((doc) => (
+                <div key={doc.filename} className={styles.documentItem}>
+                  <span className={styles.documentName}>{doc.filename}</span>
+                  <div className={styles.documentMeta}>
+                    <span className={styles.badge}>{doc.source}</span>
+                    {doc.source === "custom" && (
+                      <button
+                        onClick={() => handleRemoveDocument(doc.filename)}
+                        style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: "0.8rem" }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+          {/* Ajouter une URL */}
+          <div style={{ marginTop: 12 }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="text"
+                placeholder="https://..."
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: "0.85rem" }}
+              />
+              <button
+                className={`${styles.button} ${styles.buttonSmall}`}
+                onClick={handleAddUrl}
+                disabled={!newUrl.trim() || loading}
+                style={{ whiteSpace: "nowrap" }}
+              >
+                + URL
+              </button>
+            </div>
+          </div>
         </div>
-      )}
 
-      {/* Ajouter un document */}
-      <div className={styles.uploadArea} style={{ marginTop: 16 }}>
-        <div className={styles.fileInputRow}>
-          <input
-            type="file"
-            className={styles.fileInput}
-            accept=".pdf,.md,.txt,.docx"
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setAddFile(e.target.files?.[0] ?? null)}
-            aria-label="Ajouter un document au corpus"
-          />
-          <button
-            className={`${styles.button} ${styles.buttonSmall}`}
-            onClick={handleAddDocument}
-            disabled={!addFile || loading}
-          >
-            {action === "add" ? "Ajout…" : "Ajouter au corpus"}
-          </button>
+        {/* Colonne 2 : Documents */}
+        <div>
+          <p style={{ fontWeight: 600, marginBottom: 8 }}>📄 Documents</p>
+          {corpusDocs.filter((d) => d.type === "document" || d.type === "custom").length === 0 ? (
+            <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>Aucun document</p>
+          ) : (
+            <div className={styles.documentList}>
+              {corpusDocs.filter((d) => d.type === "document" || d.type === "custom").map((doc) => (
+                <div key={doc.filename} className={styles.documentItem}>
+                  <span className={styles.documentName}>{doc.filename}</span>
+                  <div className={styles.documentMeta}>
+                    <span className={styles.badge}>{doc.source}</span>
+                    {doc.source === "custom" && (
+                      <button
+                        onClick={() => handleRemoveDocument(doc.filename)}
+                        style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: "0.8rem" }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* Ajouter un document */}
+          <div style={{ marginTop: 12 }}>
+            <div className={styles.fileInputRow}>
+              <input
+                type="file"
+                className={styles.fileInput}
+                accept=".pdf,.md,.txt,.docx"
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setAddFile(e.target.files?.[0] ?? null)}
+                aria-label="Ajouter un document au corpus"
+              />
+              <button
+                className={`${styles.button} ${styles.buttonSmall}`}
+                onClick={handleAddDocument}
+                disabled={!addFile || loading}
+              >
+                + Doc
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
