@@ -571,6 +571,33 @@ async def initialize_corpus(
             if os.path.isdir(service.custom_dir):
                 shutil.rmtree(service.custom_dir)
 
+            # Télécharger les contenus pré-crawlés des URLs
+            yield f"data: {json.dumps({'log': 'Téléchargement des contenus pré-crawlés (URLs)…'})}\n\n"
+            try:
+                client = SiteCentralClient()
+                urls_resp = await client.get(f"/api/corpus/{domaine}/urls")
+                if urls_resp.status_code == 200:
+                    url_items = urls_resp.json()
+                    cache_dir = service._ensure_cache_dir()
+                    for idx, url_item in enumerate(url_items):
+                        url_nom = url_item.get("nom", f"url_{idx}")
+                        try:
+                            content_resp = await client.get(f"/api/corpus/{domaine}/urls/{idx}/content")
+                            if content_resp.status_code == 200:
+                                safe_name = f"url_{idx}_{url_nom[:30].replace(' ', '_')}.url.txt"
+                                safe_name = "".join(c for c in safe_name if c.isalnum() or c in "._-")
+                                cache_path = os.path.join(cache_dir, safe_name)
+                                with open(cache_path, "w", encoding="utf-8") as f:
+                                    f.write(content_resp.text)
+                                indexed += 1
+                                yield f"data: {json.dumps({'log': f'  ✔ URL pré-crawlée : {url_nom}'})}\n\n"
+                            else:
+                                yield f"data: {json.dumps({'log': f'  ⚠ Non pré-crawlée : {url_nom}'})}\n\n"
+                        except Exception as exc:
+                            yield f"data: {json.dumps({'log': f'  ⚠ Erreur URL {url_nom} : {exc}'})}\n\n"
+            except Exception as exc:
+                yield f"data: {json.dumps({'log': f'  ⚠ URLs non récupérées : {exc}'})}\n\n"
+
         finally:
             await rag.close()
 

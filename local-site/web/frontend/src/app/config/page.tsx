@@ -313,27 +313,33 @@ function CorpusManager({ domaine, onUpdate }: { domaine: string; onUpdate: () =>
       <div className={styles.defaultActions} style={{ marginBottom: 16, gap: 8, display: "flex", flexWrap: "wrap" }}>
         <button
           className={styles.button}
-          onClick={() => handleAction("initialize", "initialize", "Initialisation du corpus")}
+          onClick={() => handleAction("initialize", "initialize", "Téléchargement du corpus")}
           disabled={loading}
         >
-          {action === "initialize" ? "Initialisation…" : "Initialiser le corpus"}
+          {action === "initialize" ? "Téléchargement…" : "⬇ Télécharger le corpus"}
         </button>
         <button
           className={`${styles.button} ${styles.buttonSmall}`}
-          onClick={() => handleAction("rebuild", "rebuild", "Reconstruction du RAG")}
+          onClick={() => handleAction("reset", "reset", "Reset — Nouvelle version")}
           disabled={loading}
+          style={{ backgroundColor: "#d97706" }}
         >
-          {action === "rebuild" ? "Reconstruction…" : "Rebuilder le RAG"}
+          {action === "reset" ? "Réinitialisation…" : "🔄 Reset (nouvelle version)"}
         </button>
         <button
           className={`${styles.button} ${styles.buttonSmall}`}
-          onClick={() => handleAction("reset", "reset", "Reset to original")}
+          onClick={() => handleAction("rebuild", "rebuild", "Build RAG — Indexation")}
           disabled={loading}
-          style={{ backgroundColor: "#dc2626" }}
+          style={{ backgroundColor: "#16a34a" }}
         >
-          {action === "reset" ? "Réinitialisation…" : "Reset to original"}
+          {action === "rebuild" ? "Indexation…" : "🧠 Build RAG"}
         </button>
       </div>
+      <p style={{ fontSize: "0.75rem", color: "#6b7280", marginBottom: 12 }}>
+        <strong>Télécharger</strong> : récupère les PDFs et contenus pré-crawlés depuis le Site Central. 
+        <strong> Reset</strong> : supprime le cache local et re-télécharge (après mise à jour du corpus). 
+        <strong> Build RAG</strong> : indexe tous les documents téléchargés dans la base vectorielle.
+      </p>
 
       {message && !showPopup && <p className={styles.success} role="status">{message}</p>}
       {error && !showPopup && <p className={styles.error} role="alert">{error}</p>}
