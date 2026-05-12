@@ -102,16 +102,13 @@ async def client(session_factory, tmp_data_dir):
     app.dependency_overrides[get_db] = _override_get_db
     app.dependency_overrides[get_current_user] = _override_auth
 
-    # Patcher DATA_DIR dans le module step_files
-    import routers.step_files as sf_module
-    original_data_dir = sf_module.DATA_DIR
-    sf_module.DATA_DIR = tmp_data_dir
+    # Patcher DATA_DIR dans le module file_paths
+    from unittest.mock import patch
+    with patch("services.file_paths.DATA_DIR", tmp_data_dir):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            yield ac
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
-
-    sf_module.DATA_DIR = original_data_dir
     app.dependency_overrides.clear()
 
 
@@ -120,8 +117,8 @@ async def _create_dossier_step_and_file(
     tmp_data_dir: str,
     filename: str,
     content: bytes,
-    step_number: int = 0,
-    statut: str = "réalisé",
+    step_number: int = 1,
+    statut: str = "fait",
 ) -> tuple[int, int, int]:
     """Crée un dossier, une étape et un StepFile en base + fichier sur disque.
 
@@ -192,7 +189,7 @@ async def test_download_returns_attachment_with_original_filename(
     )
 
     resp = await client.get(
-        f"/api/dossiers/{dossier_id}/steps/0/files/{file_id}/download"
+        f"/api/dossiers/{dossier_id}/steps/1/files/{file_id}/download"
     )
 
     assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
@@ -232,7 +229,7 @@ async def test_view_returns_inline_disposition_with_correct_content_type(
     )
 
     resp = await client.get(
-        f"/api/dossiers/{dossier_id}/steps/0/files/{file_id}/view"
+        f"/api/dossiers/{dossier_id}/steps/1/files/{file_id}/view"
     )
 
     assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
@@ -278,11 +275,11 @@ async def test_replace_rejected_on_validated_step(
         tmp_data_dir,
         filename,
         original_content,
-        statut="validé",
+        statut="valide",
     )
 
     resp = await client.post(
-        f"/api/dossiers/{dossier_id}/steps/0/files/{file_id}/replace",
+        f"/api/dossiers/{dossier_id}/steps/1/files/{file_id}/replace",
         files={"file": (filename, new_content)},
     )
 
@@ -295,7 +292,7 @@ async def test_replace_rejected_on_validated_step(
     )
 
     # Vérifier que le fichier sur disque est inchangé
-    step_dir = Path(tmp_data_dir) / "dossiers" / str(dossier_id) / "step0"
+    step_dir = Path(tmp_data_dir) / "dossiers" / str(dossier_id) / "step1"
     original_path = step_dir / filename
     assert original_path.read_bytes() == original_content, (
         "Le fichier sur disque ne devrait pas avoir changé"

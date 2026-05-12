@@ -457,4 +457,4 @@ class TestCentralDownloadsApp:
         assert resp.status_code == 200
         data = resp.json()
         assert "version" in data
-        assert "0.1.0" in data["version"]
+        assert "1.0.0" in data["version"]

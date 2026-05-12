@@ -112,7 +112,7 @@ def verify_ticket_token(token: str) -> dict:
 
 def _sign(data: str) -> str:
     """Calcule la signature HMAC-SHA256 en base64url."""
-    sig_bytes = hmac.new(
+    sig_bytes = hmac.HMAC(
         TICKET_SECRET.encode(),
         data.encode(),
         hashlib.sha256,

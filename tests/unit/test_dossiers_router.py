@@ -56,35 +56,57 @@ async def client(session_factory):
 
 
 async def _setup_config(client: AsyncClient):
-    """Helper: create initial config via setup endpoint."""
+    """Helper: create initial config directly in DB via the login endpoint.
+
+    Since the /api/auth/setup endpoint no longer exists, we create the config
+    by calling the login endpoint which creates a LocalConfig row on success.
+    We mock the Site Central call to succeed.
+    """
+    from unittest.mock import MagicMock
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "access_token": "fake-access",
+        "id_token": "fake-id",
+        "refresh_token": "fake-refresh",
+    }
+
     original_auth = app.dependency_overrides.get(get_current_user)
     if get_current_user in app.dependency_overrides:
         del app.dependency_overrides[get_current_user]
 
-    resp = await client.post("/api/auth/setup", json={
-        "password": "secret123",
-        "domaine": "psychologie",
-    })
-    assert resp.status_code == 201
+    with patch("routers.auth.SiteCentralClient.post", new_callable=AsyncMock, return_value=mock_resp):
+        resp = await client.post("/api/auth/login", json={
+            "email": "user@test.com",
+            "password": "secret123",
+        })
+    assert resp.status_code == 200
 
     if original_auth is not None:
         app.dependency_overrides[get_current_user] = original_auth
 
     # Install RAG so config is complete — mock the Site Central call
-    mock_resp = MagicMock()
-    mock_resp.status_code = 200
-    mock_resp.json.return_value = []
-    with patch("routers.config.SiteCentralClient.get", new_callable=AsyncMock, return_value=mock_resp):
+    mock_rag_resp = MagicMock()
+    mock_rag_resp.status_code = 200
+    mock_rag_resp.json.return_value = []
+    with patch("routers.config.SiteCentralClient.get", new_callable=AsyncMock, return_value=mock_rag_resp):
         resp = await client.post("/api/config/rag-install", json={"version": "1.0.0"})
     assert resp.status_code == 200
 
 
 def _mock_verify_ticket_success():
-    """Patch _verify_ticket to return valid."""
+    """Patch _verify_ticket to return valid with unique ticket codes."""
+    import itertools
+    _counter = itertools.count(1)
+
+    async def _verify(*args, **kwargs):
+        n = next(_counter)
+        return {"valid": True, "message": "Ticket valide", "ticket_code": f"TKT-MOCK{n:04d}"}
+
     return patch(
         "routers.dossiers._verify_ticket",
-        new_callable=AsyncMock,
-        return_value={"valid": True, "message": "Ticket valide"},
+        new=_verify,
     )
 
 
@@ -143,13 +165,13 @@ async def test_create_dossier_success(client: AsyncClient):
     assert resp.status_code == 201
     data = resp.json()
     assert data["nom"] == "Mon dossier"
-    assert data["ticket_id"] == "T-100"
+    assert data["ticket_id"].startswith("TKT-MOCK")
     assert data["domaine"] == "psychologie"
     assert data["statut"] == "actif"
-    # 4 steps created
-    assert len(data["steps"]) == 4
+    # 5 steps created
+    assert len(data["steps"]) == 5
     for i, step in enumerate(data["steps"]):
-        assert step["step_number"] == i
+        assert step["step_number"] == i + 1
         assert step["statut"] == "initial"
 
 
@@ -182,7 +204,11 @@ async def test_create_dossier_ticket_invalid(client: AsyncClient):
 async def test_create_dossier_duplicate_ticket(client: AsyncClient):
     await _setup_config(client)
 
-    with _mock_verify_ticket_success():
+    # Use a fixed ticket_code to test duplicate detection
+    with patch(
+        "routers.dossiers._verify_ticket",
+        new=AsyncMock(return_value={"valid": True, "message": "Ticket valide", "ticket_code": "TKT-FIXED-DUP"}),
+    ):
         resp1 = await client.post("/api/dossiers", json={"nom": "D1", "ticket_id": "T-DUP"})
         assert resp1.status_code == 201
 
@@ -223,7 +249,7 @@ async def test_get_dossier_detail(client: AsyncClient):
     assert resp.status_code == 200
     data = resp.json()
     assert data["nom"] == "Detail"
-    assert len(data["steps"]) == 4
+    assert len(data["steps"]) == 5
 
 
 @pytest.mark.asyncio
@@ -246,7 +272,7 @@ async def test_get_step_detail(client: AsyncClient):
         create_resp = await client.post("/api/dossiers", json={"nom": "Steps", "ticket_id": "T-STP"})
     dossier_id = create_resp.json()["id"]
 
-    for step_num in range(4):
+    for step_num in range(1, 6):
         resp = await client.get(f"/api/dossiers/{dossier_id}/steps/{step_num}")
         assert resp.status_code == 200
         data = resp.json()
@@ -263,14 +289,14 @@ async def test_get_step_invalid_number(client: AsyncClient):
         create_resp = await client.post("/api/dossiers", json={"nom": "Bad", "ticket_id": "T-BAD"})
     dossier_id = create_resp.json()["id"]
 
-    resp = await client.get(f"/api/dossiers/{dossier_id}/steps/5")
+    resp = await client.get(f"/api/dossiers/{dossier_id}/steps/6")
     assert resp.status_code == 400
 
 
 @pytest.mark.asyncio
 async def test_get_step_dossier_not_found(client: AsyncClient):
     await _setup_config(client)
-    resp = await client.get("/api/dossiers/9999/steps/0")
+    resp = await client.get("/api/dossiers/9999/steps/1")
     assert resp.status_code == 404
 
 

@@ -190,6 +190,9 @@ class WorkflowEngine:
         step = self._get_step(dossier, step_number)
         if step.statut == STATUT_EN_COURS:
             step.statut = STATUT_INITIAL
+            step.progress_current = None
+            step.progress_total = None
+            step.progress_message = None
             await db.flush()
         return step
 
@@ -455,6 +458,9 @@ class WorkflowEngine:
                 s.statut = STATUT_INITIAL
                 s.executed_at = None
                 s.validated_at = None
+                s.progress_current = None
+                s.progress_total = None
+                s.progress_message = None
 
         # Supprimer les StepFile de cette étape en base
         result = await db.execute(

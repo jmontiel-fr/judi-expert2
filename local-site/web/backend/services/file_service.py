@@ -116,7 +116,7 @@ class FileService:
 
         # 1. Conserver l'original (une seule fois)
         if not step_file.is_modified and original_path.exists():
-            os.rename(original_path, backup_path)
+            os.replace(original_path, backup_path)
             logger.info("Original conservé : %s → %s", original_path, backup_path)
 
         # 2. Écrire le nouveau contenu sous le nom original

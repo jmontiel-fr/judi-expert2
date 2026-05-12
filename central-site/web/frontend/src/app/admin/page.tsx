@@ -470,6 +470,27 @@ function CorpusTab({ accessToken }: { accessToken: string | null }) {
     }
   };
 
+  const [downloading, setDownloading] = useState(false);
+  const [downloadResult, setDownloadResult] = useState<{ message: string; errors: string[] } | null>(null);
+
+  const handleAutoDownload = async () => {
+    if (!selected) return;
+    setDownloading(true);
+    setDownloadResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/corpus/${selected.nom}/documents/download-all`, { method: "POST" });
+      const data = await res.json();
+      setDownloadResult({ message: data.message || "Terminé", errors: data.errors || [] });
+      // Refresh content to update status indicators
+      const c = await apiGetCorpusContenu(selected.nom);
+      setContenu(c);
+    } catch {
+      setDownloadResult({ message: "Erreur réseau", errors: [] });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const handleBulkUpload = async () => {
     if (!accessToken || !selected || !bulkFiles || bulkFiles.length === 0) return;
     setBulkUploading(true);
@@ -542,8 +563,12 @@ function CorpusTab({ accessToken }: { accessToken: string | null }) {
                 <button type="button" className={styles.actionBtn} onClick={handleCrawlUrls} disabled={crawling}>
                   {crawling ? "Crawling…" : "🔄 Pré-crawling URLs"}
                 </button>
+                <button type="button" className={styles.actionBtn} onClick={handleAutoDownload} disabled={downloading}>
+                  {downloading ? "Téléchargement…" : "⬇ Télécharger auto (PDFs)"}
+                </button>
                 <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: "4px 0 0", gridColumn: "1 / -1" }}>
                   Le pré-crawling télécharge le contenu textuel de chaque URL de référence pour l&apos;injecter dans le RAG des applications locales.
+                  Le téléchargement auto récupère les PDFs ayant un <code>download_url</code> dans contenu.yaml.
                 </p>
               </div>
 
@@ -555,6 +580,20 @@ function CorpusTab({ accessToken }: { accessToken: string | null }) {
                       <summary style={{ cursor: "pointer", color: "#d97706" }}>{crawlResult.errors.length} erreur(s)</summary>
                       <ul style={{ margin: "4px 0", paddingLeft: 16, fontSize: "0.8rem" }}>
                         {crawlResult.errors.map((e: string, i: number) => <li key={i}>{e}</li>)}
+                      </ul>
+                    </details>
+                  )}
+                </div>
+              )}
+
+              {downloadResult && (
+                <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: 12, marginBottom: 12, fontSize: "0.85rem" }}>
+                  <p style={{ fontWeight: 600, marginBottom: 4 }}>{downloadResult.message}</p>
+                  {downloadResult.errors.length > 0 && (
+                    <details>
+                      <summary style={{ cursor: "pointer", color: "#d97706" }}>{downloadResult.errors.length} erreur(s)</summary>
+                      <ul style={{ margin: "4px 0", paddingLeft: 16, fontSize: "0.8rem" }}>
+                        {downloadResult.errors.map((e: string, i: number) => <li key={i}>{e}</li>)}
                       </ul>
                     </details>
                   )}
@@ -696,9 +735,26 @@ function CorpusTab({ accessToken }: { accessToken: string | null }) {
                   <h3 className={styles.formTitle}>Documents</h3>
                   {contenu.map((c, i) => (
                     <div key={i} className={styles.contentItem}>
-                      <div className={styles.contentItemName}>{c.nom}</div>
+                      <div className={styles.contentItemName}>
+                        <span style={{ marginRight: 6, fontSize: "0.85rem" }}>
+                          {c.type === "document" ? (c.downloaded ? "✔" : "⚠") : "📋"}
+                        </span>
+                        {c.nom}
+                      </div>
                       {c.description && <div className={styles.contentItemDesc}>{c.description}</div>}
-                      <div className={styles.contentItemType}>{c.type} — {formatDate(c.date_ajout)}</div>
+                      <div className={styles.contentItemType}>
+                        {c.type} — {formatDate(c.date_ajout)}
+                        {c.type === "document" && !c.downloaded && (
+                          <span style={{ marginLeft: 8, color: "#d97706", fontSize: "0.75rem" }}>
+                            (upload manuel requis)
+                          </span>
+                        )}
+                        {c.type === "document" && c.downloaded && (
+                          <span style={{ marginLeft: 8, color: "#16a34a", fontSize: "0.75rem" }}>
+                            (présent sur disque)
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

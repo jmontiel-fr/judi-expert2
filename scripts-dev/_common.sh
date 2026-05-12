@@ -74,7 +74,7 @@ free_ports() {
 }
 
 # ── Vérifier et télécharger le modèle LLM ────────────────
-LLM_MODEL="mistral:7b-instruct-v0.3"
+LLM_MODEL="qwen2.5:7b-instruct-q3_K_M"
 LLM_CONTAINER="judi-llm"
 
 ensure_llm_model() {
@@ -133,7 +133,7 @@ check_llm_model() {
     echo -e "  ${RED}✘${NC} Modèle LLM — ${RED}conteneur arrêté${NC}"
     return 1
   fi
-  if docker exec "$LLM_CONTAINER" ollama list 2>/dev/null | grep -q "mistral"; then
+  if docker exec "$LLM_CONTAINER" ollama list 2>/dev/null | grep -q "qwen2.5"; then
     echo -e "  ${GREEN}✔${NC} Modèle LLM $LLM_MODEL — ${GREEN}disponible${NC}"
   else
     echo -e "  ${RED}✘${NC} Modèle LLM $LLM_MODEL — ${RED}non téléchargé${NC}"

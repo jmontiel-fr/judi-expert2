@@ -12,14 +12,17 @@ import styles from "./OperationSection.module.css";
 
 const PROGRESS_STEPS: Record<number, string[]> = {
   1: [
-    "Étape 1/3 — OCR (extraction du texte)",
-    "Étape 2/3 — Structuration, extraction questions et placeholders",
-    "Étape 3/3 — Génération des documents (.md, .docx, questions.md, place_holders.csv)",
+    "Étape 1/5 — OCR (extraction du texte)",
+    "Étape 2/5 — Structuration en Markdown (LLM)",
+    "Étape 3/5 — Extraction des questions (LLM)",
+    "Étape 4/5 — Extraction des placeholders (LLM)",
+    "Étape 5/5 — Sauvegarde des fichiers (demande.md, placeholders.csv)",
   ],
   2: [
-    "Étape 1/3 — Récupération du TPE/TPA et du contexte RAG",
-    "Étape 2/3 — Génération du Plan d'Entretien (PE) ou Plan d'Analyse (PA)",
-    "Étape 3/3 — Génération des documents Word (.docx)",
+    "Étape 1/4 — Validation syntaxique du TRE (annotations, placeholders)",
+    "Étape 2/4 — Extraction du Plan d'Entretien depuis le TRE",
+    "Étape 3/4 — Intégration des questions en conclusion",
+    "Étape 4/4 — Sauvegarde du PE (.docx)",
   ],
   3: [
     "Étape 1/2 — OCR (extraction du texte des pièces de diligence)",
@@ -50,6 +53,7 @@ interface OperationSectionProps {
   isDossierClosed: boolean;
   onExecute: () => Promise<void>;
   onCancel: () => Promise<void>;
+  onSkip?: () => Promise<void>;
   executionDuration?: number | null;
 }
 
@@ -76,6 +80,7 @@ export default function OperationSection({
   isDossierClosed,
   onExecute,
   onCancel,
+  onSkip,
   executionDuration,
 }: OperationSectionProps) {
   const config = STEP_CONFIG[stepNumber];
@@ -88,17 +93,26 @@ export default function OperationSection({
   const showLockIndicator = isLocked || isDossierClosed;
   const progressSteps = PROGRESS_STEPS[stepNumber] ?? [];
 
-  // Chrono progressif pendant le traitement
+  // Chrono progressif pendant le traitement — calcule depuis executed_at
   const [elapsed, setElapsed] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (isProcessing) {
-      setElapsed(0);
+    if (isProcessing && step.executed_at) {
+      // Calculer le temps déjà écoulé depuis executed_at
+      // Ajouter 'Z' si pas de timezone (le backend stocke en UTC sans suffixe)
+      const isoDate = step.executed_at.endsWith("Z") || step.executed_at.includes("+")
+        ? step.executed_at
+        : step.executed_at + "Z";
+      const startTime = new Date(isoDate).getTime();
+      const initialElapsed = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+      setElapsed(initialElapsed);
+
       intervalRef.current = setInterval(() => {
-        setElapsed((prev) => prev + 1);
+        setElapsed(Math.max(0, Math.floor((Date.now() - startTime) / 1000)));
       }, 1000);
     } else {
+      setElapsed(0);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -107,13 +121,13 @@ export default function OperationSection({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isProcessing]);
+  }, [isProcessing, step.executed_at]);
 
   // Steps 4, 5: le bouton principal est dans InputSection (upload déclenche le traitement).
   // Step 1: upload séparé de l'exécution — le bouton "Extraire" est ici.
   // Steps 2, 3: bouton d'exécution classique.
-  const isUploadStep = stepNumber === 4 || stepNumber === 5;
-  const showValidateButton = (isUploadStep || stepNumber === 1) && isRealise && !isDossierClosed;
+  const isUploadStep = stepNumber === 5;
+  const showValidateButton = (isUploadStep || stepNumber === 1 || stepNumber === 2 || stepNumber === 3) && isRealise && !isDossierClosed;
   const showExecuteButton = !isUploadStep && !isProcessing && !isRealise && !isValidated;
   const isButtonDisabled = isProcessing || isValidated || isDossierClosed;
 
@@ -142,7 +156,16 @@ export default function OperationSection({
         <div className={styles.progressContainer}>
           <span className={styles.hourglass} aria-hidden="true">⏳</span>
           <div>
-            <StepProgressList active steps={progressSteps} />
+            <StepProgressList
+              active
+              steps={progressSteps}
+              currentStep={step.progress_current ?? undefined}
+            />
+            {step.progress_message && (
+              <p style={{ fontSize: "0.8rem", color: "#2563eb", margin: "4px 0" }}>
+                {step.progress_message}
+              </p>
+            )}
             <p className={styles.progressHint}>
               Traitement en cours… <strong>{formatDuration(elapsed)}</strong>
             </p>
@@ -178,14 +201,26 @@ export default function OperationSection({
           </button>
         )}
 
-        {/* Bouton réinitialiser pendant le traitement */}
-        {isProcessing && (
+        {/* Bouton réinitialiser — visible dès qu'il y a quelque chose à réinitialiser (pas validé, pas dossier fermé) */}
+        {(isProcessing || isRealise || isInitial) && !isValidated && !isDossierClosed && (
           <button
             type="button"
             className={styles.btnDanger}
             onClick={onCancel}
           >
             ✕ Réinitialiser cette étape
+          </button>
+        )}
+
+        {/* Bouton "Sans objet" pour le Step 3 quand initial (pas de pièces à consolider) */}
+        {stepNumber === 3 && isInitial && !isDossierClosed && onSkip && (
+          <button
+            type="button"
+            className={styles.btnValidate}
+            onClick={onSkip}
+            style={{ backgroundColor: "#6b7280" }}
+          >
+            Sans objet — Valider sans pièces
           </button>
         )}
       </div>

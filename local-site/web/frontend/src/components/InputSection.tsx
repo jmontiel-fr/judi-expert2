@@ -69,8 +69,19 @@ export default function InputSection({
           files={inputFiles}
           isLocked={isLocked || isDossierClosed}
           showReplaceButton={canUpload}
+          showDeleteButton={canUpload}
           onFileReplaced={onFileUploaded}
+          onFileDeleted={onFileUploaded}
         />
+      ) : stepNumber === 2 ? (
+        <p className={styles.placeholder} style={{ color: "#6b7280", fontStyle: "italic" }}>
+          Entrées implicites : <strong>tre.docx</strong> (TRE du domaine ou personnalisé) + <strong>placeholders.csv</strong> (Step 1).
+          Vous pouvez uploader un TRE personnalisé ci-dessous.
+        </p>
+      ) : stepNumber === 3 ? (
+        <p className={styles.placeholder} style={{ color: "#6b7280", fontStyle: "italic" }}>
+          Les entrées de cette étape sont générées automatiquement à partir des étapes précédentes.
+        </p>
       ) : (
         <p className={styles.placeholder}>
           Aucun fichier d&apos;entrée disponible
@@ -391,12 +402,25 @@ function Step4Upload({
     setError("");
     setSuccess("");
     try {
-      await step4Api.execute(dossierId, peaFile);
-      setSuccess("PEA/PAA importé — pré-rapport en cours de génération.");
+      // Uniquement importer le fichier PEA — la génération sera lancée via le bouton Opération
+      const formData = new FormData();
+      formData.append("file", peaFile);
+      const token = localStorage.getItem("token");
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${API_URL}/api/dossiers/${dossierId}/step4/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || "Erreur lors de l'import");
+      }
+      setSuccess("PEA/PAA importé avec succès.");
       setPeaFile(null);
       await onFileUploaded();
     } catch (err: unknown) {
-      setError(getErrorMessage(err, "Erreur lors de l'import du PEA/PAA."));
+      setError(err instanceof Error ? err.message : "Erreur lors de l'import du PEA/PAA.");
     } finally {
       setUploading(false);
     }
@@ -434,7 +458,7 @@ function Step4Upload({
         disabled={!peaFile || uploading}
         style={{ fontWeight: 600 }}
       >
-        {uploading ? "Génération en cours…" : "Importer et générer le pré-rapport"}
+        {uploading ? "Import en cours…" : "Importer le PEA/PAA"}
       </button>
     </div>
   );

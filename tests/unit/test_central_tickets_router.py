@@ -107,9 +107,23 @@ async def client(session_factory, seed_expert):
     _app.dependency_overrides[_get_db] = _override_get_db
     _app.dependency_overrides[_profile_mod.get_current_expert] = _fake_get_current_expert(seed_expert)
 
+    # Restore central backend modules for the duration of the test
+    saved = {}
+    for k, v in _central_cache.items():
+        if k in sys.modules:
+            saved[k] = sys.modules[k]
+        sys.modules[k] = v
+    sys.path.insert(0, _central_backend)
+
     transport = ASGITransport(app=_app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+
+    # Cleanup
+    sys.path.remove(_central_backend)
+    for k in list(_central_cache.keys()):
+        sys.modules.pop(k, None)
+    sys.modules.update(saved)
     _app.dependency_overrides.clear()
 
 
@@ -122,9 +136,24 @@ async def unauth_client(session_factory):
             yield session
 
     _app.dependency_overrides[_get_db] = _override_get_db
+
+    # Restore central backend modules for the duration of the test
+    saved = {}
+    for k, v in _central_cache.items():
+        if k in sys.modules:
+            saved[k] = sys.modules[k]
+        sys.modules[k] = v
+    sys.path.insert(0, _central_backend)
+
     transport = ASGITransport(app=_app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+
+    # Cleanup
+    sys.path.remove(_central_backend)
+    for k in list(_central_cache.keys()):
+        sys.modules.pop(k, None)
+    sys.modules.update(saved)
     _app.dependency_overrides.clear()
 
 
@@ -196,7 +225,12 @@ async def test_verify_ticket_success(unauth_client: AsyncClient, session_factory
         session.add(ticket)
         await session.commit()
 
-    resp = await unauth_client.post("/api/tickets/verify", json={"ticket_code": code})
+    # Mock verify_ticket_token to return a valid payload
+    with patch.object(_tickets_mod, "verify_ticket_token", return_value={
+        "valid": True,
+        "payload": {"ticket_code": code, "email": "expert@example.com"},
+    }):
+        resp = await unauth_client.post("/api/tickets/verify", json={"ticket_token": "signed-token-123"})
     assert resp.status_code == 200
     data = resp.json()
     assert data["success"] is True
@@ -220,7 +254,11 @@ async def test_verify_ticket_already_used(unauth_client: AsyncClient, session_fa
         session.add(ticket)
         await session.commit()
 
-    resp = await unauth_client.post("/api/tickets/verify", json={"ticket_code": code})
+    with patch.object(_tickets_mod, "verify_ticket_token", return_value={
+        "valid": True,
+        "payload": {"ticket_code": code, "email": "expert@example.com"},
+    }):
+        resp = await unauth_client.post("/api/tickets/verify", json={"ticket_token": "signed-token-used"})
     assert resp.status_code == 200
     data = resp.json()
     assert data["success"] is False
@@ -230,10 +268,14 @@ async def test_verify_ticket_already_used(unauth_client: AsyncClient, session_fa
 @pytest.mark.asyncio
 async def test_verify_ticket_not_found(unauth_client: AsyncClient):
     """Un ticket inexistant retourne l'erreur 'invalide'."""
-    resp = await unauth_client.post(
-        "/api/tickets/verify",
-        json={"ticket_code": "nonexistent-code"},
-    )
+    with patch.object(_tickets_mod, "verify_ticket_token", return_value={
+        "valid": True,
+        "payload": {"ticket_code": "nonexistent-code", "email": "test@example.com"},
+    }):
+        resp = await unauth_client.post(
+            "/api/tickets/verify",
+            json={"ticket_token": "signed-token-notfound"},
+        )
     assert resp.status_code == 200
     data = resp.json()
     assert data["success"] is False

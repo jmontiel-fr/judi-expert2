@@ -79,15 +79,12 @@ async def client(session_factory, tmp_data_dir):
     app.dependency_overrides[get_db] = _override_get_db
     app.dependency_overrides[get_current_user] = _override_auth
 
-    import routers.step_files as sf_module
-    original_data_dir = sf_module.DATA_DIR
-    sf_module.DATA_DIR = tmp_data_dir
+    from unittest.mock import patch
+    with patch("services.file_paths.DATA_DIR", tmp_data_dir):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            yield ac
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
-
-    sf_module.DATA_DIR = original_data_dir
     app.dependency_overrides.clear()
 
 
@@ -96,8 +93,8 @@ async def _create_dossier_step_and_file(
     tmp_data_dir: str,
     filename: str = "rapport.md",
     content: bytes = b"# Contenu original",
-    step_number: int = 0,
-    statut: str = "réalisé",
+    step_number: int = 1,
+    statut: str = "fait",
     write_to_disk: bool = True,
 ) -> tuple[int, int, int, str]:
     """Crée un dossier, une étape et un StepFile.
@@ -158,7 +155,7 @@ async def test_download_returns_404_when_file_missing_on_disk(
     )
 
     resp = await client.get(
-        f"/api/dossiers/{dossier_id}/steps/0/files/{file_id}/download"
+        f"/api/dossiers/{dossier_id}/steps/1/files/{file_id}/download"
     )
 
     assert resp.status_code == 404
@@ -180,7 +177,7 @@ async def test_view_returns_404_when_file_missing_on_disk(
     )
 
     resp = await client.get(
-        f"/api/dossiers/{dossier_id}/steps/0/files/{file_id}/view"
+        f"/api/dossiers/{dossier_id}/steps/1/files/{file_id}/view"
     )
 
     assert resp.status_code == 404
@@ -198,11 +195,11 @@ async def test_replace_returns_403_when_step_validated(
 ) -> None:
     """Replace retourne 403 si l'étape est validée (verrouillée)."""
     dossier_id, _, file_id, _ = await _create_dossier_step_and_file(
-        session_factory, tmp_data_dir, statut="validé",
+        session_factory, tmp_data_dir, statut="valide",
     )
 
     resp = await client.post(
-        f"/api/dossiers/{dossier_id}/steps/0/files/{file_id}/replace",
+        f"/api/dossiers/{dossier_id}/steps/1/files/{file_id}/replace",
         files={"file": ("rapport.md", b"nouveau contenu")},
     )
 
@@ -227,7 +224,7 @@ async def test_replace_returns_400_when_extension_mismatch(
 
     # Upload un .pdf au lieu d'un .md
     resp = await client.post(
-        f"/api/dossiers/{dossier_id}/steps/0/files/{file_id}/replace",
+        f"/api/dossiers/{dossier_id}/steps/1/files/{file_id}/replace",
         files={"file": ("rapport.pdf", b"fake pdf content")},
     )
 
@@ -250,7 +247,7 @@ async def test_replace_returns_400_when_file_empty(
     )
 
     resp = await client.post(
-        f"/api/dossiers/{dossier_id}/steps/0/files/{file_id}/replace",
+        f"/api/dossiers/{dossier_id}/steps/1/files/{file_id}/replace",
         files={"file": ("rapport.md", b"")},
     )
 

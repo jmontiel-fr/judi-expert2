@@ -108,7 +108,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://judi-web-backend:8000
+      - NEXT_PUBLIC_API_URL=
       - HOSTNAME=0.0.0.0
     depends_on:
       judi-web-backend:

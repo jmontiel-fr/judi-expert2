@@ -303,13 +303,12 @@ async def test_all_error_scenarios_produce_same_response(
     password: str,
     captcha: str,
 ):
-    """Les trois scénarios d'erreur (email inconnu, mot de passe incorrect,
-    autre ClientError) produisent exactement la même réponse HTTP
-    (même status code et même message)."""
+    """Les scénarios d'erreur d'identifiants (email inconnu, mot de passe incorrect)
+    produisent exactement la même réponse HTTP (même status code et même message).
+    UserNotConfirmedException est un cas spécial (403) et n'est pas inclus."""
     error_codes = [
         "UserNotFoundException",
         "NotAuthorizedException",
-        "UserNotConfirmedException",
     ]
     responses = []
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, ReactNode } from "react";
 import axios from "axios";
 import UpdateScreen from "./UpdateScreen";
+import { useSessionGuard } from "../hooks/useSessionGuard";
 
 interface VersionCheckProviderProps {
   children: ReactNode;
@@ -19,6 +20,9 @@ interface VersionCheckResponse {
 }
 
 export default function VersionCheckProvider({ children }: VersionCheckProviderProps) {
+  // Proactive session guard: checks token on tab focus & every 60s
+  useSessionGuard();
+
   const [updateInfo, setUpdateInfo] = useState<VersionCheckResponse | null>(null);
   const [loading, setLoading] = useState(true);
 

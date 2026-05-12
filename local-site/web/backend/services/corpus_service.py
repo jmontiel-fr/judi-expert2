@@ -263,15 +263,15 @@ class CorpusService:
         """Reconstruit le RAG avec les documents par défaut + cache + custom.
 
         Returns:
-            dict avec le nombre de documents indexés.
+            dict avec le nombre de documents indexés et le détail par document.
         """
         rag = RAGService()
         indexed = 0
         errors = []
+        details: list[dict] = []
 
         try:
-            # Supprimer les collections existantes
-            await rag.delete_collection(self.config_collection)
+            # Supprimer uniquement la collection corpus (pas config — contient TPE/Template)
             await rag.delete_collection(self.corpus_collection)
 
             # Indexer les documents par défaut (locaux)
@@ -279,7 +279,7 @@ class CorpusService:
                 try:
                     text = self._read_document_text(doc["path"])
                     if text.strip():
-                        await rag.index_document(
+                        doc_id = await rag.index_document(
                             file_path=None,
                             collection=doc["collection"],
                             metadata={
@@ -289,6 +289,13 @@ class CorpusService:
                             },
                             text_content=text,
                         )
+                        chunk_count = max(1, len(text.split()) // 500 + 1)
+                        details.append({
+                            "filename": doc["filename"],
+                            "source": "default",
+                            "chunks": chunk_count,
+                            "chars": len(text),
+                        })
                         indexed += 1
                 except Exception as exc:
                     errors.append(f"{doc['filename']}: {exc}")
@@ -299,7 +306,7 @@ class CorpusService:
                 try:
                     text = self._read_document_text(doc["path"])
                     if text.strip():
-                        await rag.index_document(
+                        doc_id = await rag.index_document(
                             file_path=None,
                             collection=doc["collection"],
                             metadata={
@@ -310,6 +317,13 @@ class CorpusService:
                             },
                             text_content=text,
                         )
+                        chunk_count = max(1, len(text.split()) // 500 + 1)
+                        details.append({
+                            "filename": doc["filename"],
+                            "source": "central",
+                            "chunks": chunk_count,
+                            "chars": len(text),
+                        })
                         indexed += 1
                 except Exception as exc:
                     errors.append(f"{doc['filename']}: {exc}")
@@ -320,7 +334,7 @@ class CorpusService:
                 try:
                     text = self._read_document_text(doc["path"])
                     if text.strip():
-                        await rag.index_document(
+                        doc_id = await rag.index_document(
                             file_path=None,
                             collection=doc["collection"],
                             metadata={
@@ -331,6 +345,13 @@ class CorpusService:
                             },
                             text_content=text,
                         )
+                        chunk_count = max(1, len(text.split()) // 500 + 1)
+                        details.append({
+                            "filename": doc["filename"],
+                            "source": "custom",
+                            "chunks": chunk_count,
+                            "chars": len(text),
+                        })
                         indexed += 1
                 except Exception as exc:
                     errors.append(f"{doc['filename']}: {exc}")
@@ -339,7 +360,7 @@ class CorpusService:
         finally:
             await rag.close()
 
-        return {"indexed": indexed, "errors": errors}
+        return {"indexed": indexed, "errors": errors, "details": details}
 
     async def add_document(self, filename: str, content: bytes) -> dict:
         """Ajoute un document personnalisé au corpus.

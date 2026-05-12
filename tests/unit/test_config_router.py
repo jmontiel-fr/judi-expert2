@@ -55,17 +55,28 @@ async def client(session_factory):
 
 
 async def _setup_config(client: AsyncClient, is_configured: bool = True, rag_version: str = "1.0.0"):
-    """Helper: create initial config via setup endpoint, then optionally update rag fields."""
-    # Temporarily restore real auth for setup
+    """Helper: create initial config via login endpoint, then optionally update rag fields."""
+    from unittest.mock import MagicMock as _MagicMock
+
+    mock_resp = _MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "access_token": "fake-access",
+        "id_token": "fake-id",
+        "refresh_token": "fake-refresh",
+    }
+
+    # Temporarily restore real auth for login
     original_auth = app.dependency_overrides.get(get_current_user)
     if get_current_user in app.dependency_overrides:
         del app.dependency_overrides[get_current_user]
 
-    resp = await client.post("/api/auth/setup", json={
-        "password": "secret123",
-        "domaine": "psychologie",
-    })
-    assert resp.status_code == 201
+    with patch("routers.auth.SiteCentralClient.post", new_callable=AsyncMock, return_value=mock_resp):
+        resp = await client.post("/api/auth/login", json={
+            "email": "user@test.com",
+            "password": "secret123",
+        })
+    assert resp.status_code == 200
 
     # Restore mocked auth
     if original_auth is not None:
@@ -182,27 +193,35 @@ async def test_rag_install_empty_version(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_tpe_upload_rag_not_configured(client: AsyncClient):
-    """Uploading TPE when RAG is not configured should return 403."""
-    # Setup without installing RAG (is_configured stays True from setup, but rag_version is None)
+    """Uploading TPE when RAG is not configured should still succeed (saves locally)."""
+    # Setup without installing RAG — login creates config with rag_version=None
     original_auth = app.dependency_overrides.get(get_current_user)
     if get_current_user in app.dependency_overrides:
         del app.dependency_overrides[get_current_user]
-    await client.post("/api/auth/setup", json={"password": "secret123", "domaine": "psychologie"})
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "access_token": "fake-access",
+        "id_token": "fake-id",
+        "refresh_token": "fake-refresh",
+    }
+    with patch("routers.auth.SiteCentralClient.post", new_callable=AsyncMock, return_value=mock_resp):
+        await client.post("/api/auth/login", json={"email": "user@test.com", "password": "secret123"})
+
     if original_auth is not None:
         app.dependency_overrides[get_current_user] = original_auth
 
-    # The setup endpoint sets is_configured=True but rag_version is None
-    # We need to ensure rag_version is None for this test
-    # Since setup sets is_configured=True, we need to check the guard logic
-    # The guard checks: not is_configured OR rag_version is None
-    # Setup sets is_configured=True but rag_version stays None → should be 403
-    resp = await client.post(
-        "/api/config/tpe",
-        files={"file": ("TPE_test.tpl", b"contenu test", "text/plain")},
-    )
-    # rag_version is None after setup (no rag-install), so 403
-    assert resp.status_code == 403
-    assert "RAG non configuré" in resp.json()["detail"]
+    # TPE upload with valid .md extension — should succeed even without RAG
+    with patch("routers.config.CONFIG_DIR", str(Path(__file__).parent / "tmp_config")):
+        import os
+        os.makedirs(str(Path(__file__).parent / "tmp_config"), exist_ok=True)
+        resp = await client.post(
+            "/api/config/tpe",
+            files={"file": ("TPE_test.md", b"contenu test", "text/markdown")},
+        )
+    # Should succeed — TPE upload doesn't require RAG
+    assert resp.status_code == 200
 
 
 # ---------------------------------------------------------------------------
@@ -221,12 +240,11 @@ async def test_tpe_upload_success(client: AsyncClient, tmp_path):
          patch("routers.config.CONFIG_DIR", str(tmp_path)):
         resp = await client.post(
             "/api/config/tpe",
-            files={"file": ("TPE_psychologie.tpl", b"contenu du TPE", "text/plain")},
+            files={"file": ("TPE_psychologie.md", b"contenu du TPE", "text/markdown")},
         )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["filename"] == "TPE_psychologie.tpl"
-    assert data["doc_id"] == "abc123"
+    assert data["filename"] == "TPE_psychologie.md"
 
 
 # ---------------------------------------------------------------------------
@@ -249,25 +267,38 @@ async def test_template_upload_success(client: AsyncClient, tmp_path):
         )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["filename"] == "template_rapport.docx"
-    assert data["doc_id"] == "def456"
+    assert data["filename"] == "template_psychologie.docx"
 
 
 @pytest.mark.asyncio
 async def test_template_upload_rag_not_configured(client: AsyncClient):
-    """Uploading template when RAG is not configured should return 403."""
+    """Uploading template when RAG is not configured should still succeed (saves locally)."""
     original_auth = app.dependency_overrides.get(get_current_user)
     if get_current_user in app.dependency_overrides:
         del app.dependency_overrides[get_current_user]
-    await client.post("/api/auth/setup", json={"password": "secret123", "domaine": "psychologie"})
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "access_token": "fake-access",
+        "id_token": "fake-id",
+        "refresh_token": "fake-refresh",
+    }
+    with patch("routers.auth.SiteCentralClient.post", new_callable=AsyncMock, return_value=mock_resp):
+        await client.post("/api/auth/login", json={"email": "user@test.com", "password": "secret123"})
+
     if original_auth is not None:
         app.dependency_overrides[get_current_user] = original_auth
 
-    resp = await client.post(
-        "/api/config/template",
-        files={"file": ("template.docx", b"contenu", "application/octet-stream")},
-    )
-    assert resp.status_code == 403
+    with patch("routers.config.CONFIG_DIR", str(Path(__file__).parent / "tmp_config")):
+        import os
+        os.makedirs(str(Path(__file__).parent / "tmp_config"), exist_ok=True)
+        resp = await client.post(
+            "/api/config/template",
+            files={"file": ("template_rapport.docx", b"contenu", "application/octet-stream")},
+        )
+    # Template upload doesn't require RAG — should succeed
+    assert resp.status_code == 200
 
 
 # ---------------------------------------------------------------------------
@@ -298,13 +329,25 @@ async def test_list_documents_success(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_list_documents_rag_not_configured(client: AsyncClient):
-    """Listing documents when RAG is not configured should return 403."""
+    """Listing documents when RAG is not configured should return empty list."""
     original_auth = app.dependency_overrides.get(get_current_user)
     if get_current_user in app.dependency_overrides:
         del app.dependency_overrides[get_current_user]
-    await client.post("/api/auth/setup", json={"password": "secret123", "domaine": "psychologie"})
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "access_token": "fake-access",
+        "id_token": "fake-id",
+        "refresh_token": "fake-refresh",
+    }
+    with patch("routers.auth.SiteCentralClient.post", new_callable=AsyncMock, return_value=mock_resp):
+        await client.post("/api/auth/login", json={"email": "user@test.com", "password": "secret123"})
+
     if original_auth is not None:
         app.dependency_overrides[get_current_user] = original_auth
 
     resp = await client.get("/api/config/documents")
-    assert resp.status_code == 403
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["documents"] == []

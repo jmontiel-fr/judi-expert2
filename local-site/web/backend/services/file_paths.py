@@ -94,6 +94,68 @@ def file_path_out(dossier_name: str, step_number: int, filename: str) -> str:
     return os.path.join(step_out_dir(dossier_name, step_number), filename)
 
 
+def archive_dir(dossier_name: str) -> str:
+    """Retourne le chemin du répertoire d'archive d'un dossier.
+
+    Ex: data/Expertise Dupont 2026/archive/
+    """
+    return os.path.join(dossier_root(dossier_name), "archive")
+
+
+def create_archive_dir(dossier_name: str) -> str:
+    """Crée le répertoire d'archive d'un dossier s'il n'existe pas.
+
+    Retourne le chemin du répertoire créé.
+    """
+    path = archive_dir(dossier_name)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def tre_path(dossier_name: str, domaine: str) -> str | None:
+    """Résout le chemin du TRE par ordre de priorité.
+
+    Priorité :
+    1. step2/in/tre.docx (TRE figé pour ce dossier)
+    2. data/config/tre.docx (TRE personnalisé de l'expert)
+    3. data/config/template_{domaine}.docx (template uploadé via config)
+    4. corpus/{domaine}/tre.docx (TRE par défaut du domaine)
+
+    Retourne le chemin du premier fichier trouvé, ou None si aucun.
+    """
+    import glob
+
+    # 1. TRE figé dans le dossier
+    dossier_tre = os.path.join(step_in_dir(dossier_name, 2), "tre.docx")
+    if os.path.isfile(dossier_tre):
+        return dossier_tre
+
+    # 2. TRE personnalisé de l'expert (tre.docx ou TRE.docx)
+    config_tre = os.path.join(DATA_DIR, "config", "tre.docx")
+    if os.path.isfile(config_tre):
+        return config_tre
+    config_tre_upper = os.path.join(DATA_DIR, "config", "TRE.docx")
+    if os.path.isfile(config_tre_upper):
+        return config_tre_upper
+
+    # 3. Template uploadé via config (template_{domaine}.docx)
+    config_template = os.path.join(DATA_DIR, "config", f"template_{domaine}.docx")
+    if os.path.isfile(config_template):
+        return config_template
+
+    # 3b. Chercher tout fichier template_*.docx dans config
+    config_templates = glob.glob(os.path.join(DATA_DIR, "config", "template_*.docx"))
+    if config_templates:
+        return config_templates[0]
+
+    # 4. TRE par défaut du domaine
+    corpus_tre = os.path.join("corpus", domaine, "tre.docx")
+    if os.path.isfile(corpus_tre):
+        return corpus_tre
+
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Compatibilité : fonctions legacy (par ID) — à supprimer après migration
 # ---------------------------------------------------------------------------

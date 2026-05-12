@@ -6,9 +6,11 @@ import {
   useState,
   useCallback,
   useEffect,
+  useRef,
   type ReactNode,
 } from "react";
 import { apiLogin, apiLogout, apiGetProfile, type Profile } from "@/lib/api";
+import { isTokenExpired } from "@/lib/auth";
 
 /* ------------------------------------------------------------------ */
 /* ------------------------------------------------------------------ */
@@ -67,6 +69,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const expirationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /* ---- Expiration timer helpers ---- */
+  function clearExpirationTimer() {
+    if (expirationTimerRef.current !== null) {
+      clearTimeout(expirationTimerRef.current);
+      expirationTimerRef.current = null;
+    }
+  }
+
+  function startExpirationTimer(token: string) {
+    clearExpirationTimer();
+    try {
+      const parts = token.split(".");
+      if (parts.length !== 3) return;
+      let base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      const padding = 4 - (base64.length % 4);
+      if (padding !== 4) base64 += "=".repeat(padding);
+      const payload = JSON.parse(atob(base64));
+      if (typeof payload.exp !== "number") return;
+
+      const msUntilExpiry = (payload.exp - Date.now() / 1000) * 1000;
+      if (msUntilExpiry <= 0) return; // Already expired, will be caught by visibilitychange or restoreSession
+
+      expirationTimerRef.current = setTimeout(async () => {
+        try {
+          const currentToken = localStorage.getItem(TOKEN_KEY);
+          if (currentToken) {
+            await apiLogout(currentToken).catch(() => {});
+          }
+        } catch {
+          // Best-effort backend logout
+        }
+        setUser(null);
+        setIsAdmin(false);
+        setAccessToken(null);
+        localStorage.removeItem(TOKEN_KEY);
+        const path = window.location.pathname;
+        if (path !== "/" && path !== "/login") {
+          window.location.href = "/";
+        }
+      }, msUntilExpiry);
+    } catch {
+      // Token decode failed — timer not set
+    }
+  }
 
   /* Restore session on mount */
   useEffect(() => {
@@ -78,6 +126,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const savedToken = localStorage.getItem(TOKEN_KEY);
       if (savedToken) {
+        // Check token expiration BEFORE making any API call
+        if (isTokenExpired(savedToken)) {
+          localStorage.removeItem(TOKEN_KEY);
+          setUser(null);
+          setIsAdmin(false);
+          setAccessToken(null);
+          setLoading(false);
+          const path = window.location.pathname;
+          if (path !== "/" && path !== "/login") {
+            window.location.href = "/";
+          }
+          return;
+        }
+
         const profile = await apiGetProfile(savedToken);
         applyProfile(profile, savedToken);
         return;
@@ -88,6 +150,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setLoading(false);
   }
+
+  /* Visibilitychange listener — check token expiration when tab becomes visible */
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        const token = localStorage.getItem(TOKEN_KEY);
+        if (token && isTokenExpired(token)) {
+          // Token expired while tab was hidden — trigger logout
+          clearExpirationTimer();
+          setUser(null);
+          setIsAdmin(false);
+          setAccessToken(null);
+          localStorage.removeItem(TOKEN_KEY);
+          const path = window.location.pathname;
+          if (path !== "/" && path !== "/login") {
+            window.location.href = "/";
+          }
+        }
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      clearExpirationTimer();
+    };
+  }, []);
 
   function applyProfile(profile: Profile, token: string) {
     const u: User = {
@@ -105,6 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccessToken(token);
     setIsAdmin(profile.email === ADMIN_EMAIL);
     localStorage.setItem(TOKEN_KEY, token);
+    startExpirationTimer(token);
     setLoading(false);
   }
 
@@ -141,6 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /* ---- Logout ---- */
   const logout = useCallback(async () => {
+    clearExpirationTimer();
     try {
       if (accessToken) {
         await apiLogout(accessToken);

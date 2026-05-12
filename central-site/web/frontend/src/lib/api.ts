@@ -16,6 +16,14 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
+/** Module-level flag to prevent multiple simultaneous redirections */
+let isRedirecting = false;
+
+/** Reset the redirect flag (exported for testing purposes) */
+export function _resetRedirectFlag() {
+  isRedirecting = false;
+}
+
 function authHeaders(token: string | null): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) {
@@ -26,6 +34,17 @@ function authHeaders(token: string | null): Record<string, string> {
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
+    // Handle 401: clear token and redirect to home
+    if (res.status === 401) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("judi_access_token");
+        const path = window.location.pathname;
+        if (!isRedirecting && path !== "/" && path !== "/login") {
+          isRedirecting = true;
+          window.location.href = "/";
+        }
+      }
+    }
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     throw new ApiError(res.status, body.detail ?? "Erreur serveur");
   }
@@ -470,6 +489,8 @@ export interface ContenuItem {
   description: string;
   type: string;
   date_ajout: string;
+  download_url?: string;
+  downloaded?: boolean;
 }
 
 export interface UrlItem {

@@ -230,4 +230,4 @@ async def test_download_app_returns_info(client: AsyncClient):
     assert "download_url" in data
     assert "version" in data
     assert "description" in data
-    assert data["version"] == "0.1.0"
+    assert data["version"] == "1.0.0"

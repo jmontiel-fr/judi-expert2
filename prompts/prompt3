@@ -1,0 +1,73 @@
+Modifier glossaire-workflow.md comme suit:
+
+Le principe du workflow est de produire le rapport final d'expertise (REF) 
+à partir d'un document cnetral : le templade de raport d'expertise (TRE).
+Ce temple est un document .docx suivant le format word du dapport final 
+mais avec des méta-instructions qui seront utilisées dans le workflow.
+
+Les méta-insruction snt de 2 types :
+- placeholder : <<placeholder>>,
+ ex/ <<nom_personne_evaluee>>, <<demande_trinal>>
+- annotation : @annotation ... texte abrégé ... @,
+ex: @dires père agrressi. donne régilèrement gifles @,
+@dires agressions verbales fréquentes verbation sale morveuse @
+
+Les annotations peuvent être personnalisées, mais le plus simple 
+est d'utiliser les annotation préfinies qui ont en plus un 
+traitement spécial dans le workflow :
+- @annotation ... @ : retransccit dans le rapport en Annotation Dires : ... .
+ex: @dires Mère bienveillante.@ : retranscrit en Dires: Mère bienveillante.
+
+Les annotations spécifiques de l'expert sont possible avec la convention :
+@/mon_annotation ... texte ...@ : retranscrite en Mon Annotation : ...texte ... 
+
+Certaines annotations ont une signafication partitulière :
+- @debut_tpe@ : indique que le début d'extraction pour créer le PE (la fin est la fin du TRE).
+- @vernatim ...@ : indique du texte à restituer dans modification dans le PRE. c'est utile essentiellement dans les annotations @dires.
+- @question n@ : il faut substituer le paclaceholder question_n
+
+Le PE est donc la partie essentielle de l'expertise pouvant conten des placeholdres et surtout des annotations à compléter en entretien pour produire le PEA (plan d'entretine annoté).
+Le PE comprend la partie entretien proprement diteavec la concusion qui reprend les diverses questions extrtaires des placeholders.
+
+L'expert apporte pendant l'entretien ses notes en texte abégé dans les annotations @dire et @analyse. Puis il complète la conclusion avec du texte propre pour chaque question posée avec des annotations  spéciales :
+- @reference @dires_xxx @ et @reference @analyse_xxx : susbtitue le noméro de sction et le path titre.
+ex: @refernce dire_2.1.3@ : substitue "cf section 2.1.3 - biogarhie/education/primaire"
+- @cite @dires_xxx @ : susbtitue le contenu par "citation section 2.1.3 - biogarhie/education/primaire ... texte de la citation"
+
+On peut principes  tous ces principes pour une expertise d'analyse sur piècés avec des particularité restant à définir avec des annotations spécifiques aux analyses et diligence qui seront utilisées dans le TRA et le PA.
+
+
+En synthèse : poru le workflow expertise psychologique
+ -step1 : 
+ entrée = un fichier.pdf de réquisition ou d'ordonnace 
+ opération : extraction OCR
+ sortie : fichier banalisé demande.md, fichier placeholders.csv avec les placeholders princpaus déduits de la demande, en particulier les questions extraintes : question_1, ... question_n
+ Vérification : le ficheir et valeurs placeholders.csv
+
+ - step2 : 
+ entrée : TRE (standard ou custom), fichier palceholders.csv
+ opération : extrait le TPE de @debut_tpe@ jusqu'à la fin, complète la section conlusion avec en sous sections les questions extraites présentes en palceholder.csv et référencées en placeholders quesiton_1 à question_n.
+ sortie : le TPE 
+ vérification : vérifie que le TPe est bien contruit avec les annotations présentes et les questions en conclusion.
+
+ step 3 inchangé (non utilisé pour psychologie)
+
+ step4 : 
+ entrée : PEA contenant toutes les annotations renseignées en texte abrégé et la conclusion complétée avec pour chaque question du texte et des annotations                @refernce ou @citation contenant @dires et @analyse.
+ opération :
+ - ajoute la parte tronquée de TRE jusqu'à @debur_tpe
+ - met en forme le contenu de toutes les sections @dire et @analyse
+ - substiute les @citation et @refernce avec leux valeurs et @ verbatim avec le texte entre "..."
+ - contruit le DAC sur la base d'analyse du PRE 
+ sortie : PRE le projet de rapport d'expertise et le DAC (document d'analyse contradictoire).
+ vérification : controle du PRE
+ 
+ step5 :
+ - entrée : REF contruit sur la base du PRE ajusté et passé ands le service révision pour une version finale sans faute. Le résultat contient les correcction langue éventuelle en mode correction, à valider. La mise en forme finale garde intacts les texte entre " (les verbatim).
+
+ - opération :
+ -> génère le fichier <nom-dossier>.zip contenant tous les fichier du répertoire c:\judi-expert\<nom-dossier> excluant archive\ ) et le place dans c:\judi-expert\<nom-dosier>\archive
+ -> génère <nom-dossier>-timbre.txt comprenant les données
+* en clair le contexte expertise (demandeur, demander_nom, demandeur_prenom,  demandeur_adresse, demande_date, triunal_nom, tribunal_adresse, demande_reference, demande_date, mec_nom, mec_prenom, mec_adresse, expert_nom, expert_prenom, expert_adresse), 
+le nom du fichier <nom-dossier>.zip log d'archive.
+le fichier <nom-dossier>-timbre.txt est placé dans c:\judi-expert\<nom-dosier>\archive

@@ -85,6 +85,14 @@ export default function Header() {
             </Link>
           </li>
           <li>
+            <Link
+              href="/revision"
+              className={`${styles.link} ${pathname === "/revision" ? styles.active : ""}`}
+            >
+              Révision
+            </Link>
+          </li>
+          <li>
             <a
               href={SITE_CENTRAL_URL}
               target="_blank"

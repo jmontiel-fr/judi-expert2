@@ -23,6 +23,19 @@ class LocalConfig(Base):
     llm_model_version: Mapped[Optional[str]] = mapped_column(String(100))
     # Digest SHA256 du modèle LLM courant (ex: "sha256:abc123...")
 
+    rag_built_at: Mapped[Optional[datetime]] = mapped_column()
+    # Date du dernier Build RAG réussi
+
+    corpus_downloaded_at: Mapped[Optional[datetime]] = mapped_column()
+    # Date du dernier téléchargement/reset du corpus depuis le Site Central
+
+    # Hardware Performance Tuning
+    detected_hardware_json: Mapped[Optional[str]] = mapped_column(String(1024))
+    # JSON sérialisé du HardwareInfo détecté au dernier démarrage
+
+    performance_profile_override: Mapped[Optional[str]] = mapped_column(String(50))
+    # Nom du profil forcé ("high", "medium", "low", "minimal") ou NULL = auto
+
     is_configured: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(default=func.now())
     updated_at: Mapped[datetime] = mapped_column(default=func.now(), onupdate=func.now())

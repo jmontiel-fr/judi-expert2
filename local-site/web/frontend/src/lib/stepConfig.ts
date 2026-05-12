@@ -48,18 +48,18 @@ export const STEP_CONFIG: Record<number, StepConfig> = {
     },
   },
   2: {
-    name: "Préparation investigations",
+    name: "Extraction PE depuis TRE",
     bannerText:
-      "Génération du Plan d'Entretien (PE) ou du Plan d'Analyse (PA) à partir de l'ordonnance structurée, du template personnel (TPE/TPA) et du contexte RAG du domaine. En mode Analyse, génère également des projets de courriers de diligence.",
-    buttonLabel: "Générer le plan",
-    inputFileTypes: ["markdown", "template_tpe", "template_tpa", "complementary_ocr"],
+      "Extraction du Plan d'Entretien (PE) depuis le TRE (Template de Rapport d'Expertise). Valide la syntaxe du TRE (annotations, placeholders), puis extrait la partie après @debut_tpe@ et intègre les questions en conclusion.",
+    buttonLabel: "Extraire le PE",
+    inputFileTypes: ["tre", "markdown", "template_tpe", "template_tpa", "complementary_ocr"],
     outputFileTypes: ["plan_entretien", "plan_entretien_docx", "plan_analyse", "plan_analyse_docx", "courrier_diligence"],
     description: {
-      objectif: "Générer un plan d'entretien (PE) ou un plan d'analyse (PA) structuré, adapté aux questions du tribunal.",
-      entrees: ["ordonnance.md (texte structuré du Step 1)", "TPE ou TPA (template personnel de l'expert)", "piece-xxx.md (pièces complémentaires extraites)"],
-      operation: "Récupération du template et du corpus RAG → Génération du PE ou PA par le LLM. En mode Analyse : génération de courriers de diligence.",
-      sorties: ["Mode Entretien : pe.md, pe.docx (Plan d'Entretien)", "Mode Analyse : pa.md, pa.docx, diligence-xxx.docx (Plan d'Analyse + courriers)"],
-      roleExpert: "Télécharger le PE/PA, l'adapter si nécessaire, puis mener les entretiens ou analyses (étape E/A hors application).",
+      objectif: "Extraire le Plan d'Entretien (PE) depuis le TRE et y intégrer les questions du tribunal.",
+      entrees: ["tre.docx (Template de Rapport d'Expertise)", "placeholders.csv (questions et métadonnées du Step 1)"],
+      operation: "Validation syntaxique du TRE (annotations, placeholders) → Extraction du PE depuis @debut_tpe@ → Intégration des questions en conclusion.",
+      sorties: ["pe.docx (Plan d'Entretien extrait du TRE)"],
+      roleExpert: "Télécharger le PE, l'adapter si nécessaire, puis mener les entretiens (étape E/A hors application).",
     },
   },
   3: {

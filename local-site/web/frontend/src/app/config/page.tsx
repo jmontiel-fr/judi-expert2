@@ -5,9 +5,13 @@ import styles from "./config.module.css";
 import {
   configApi,
   getErrorMessage,
-  type RAGVersion,
   type DocumentItem,
 } from "@/lib/api";
+import PerformanceSection, {
+  type HardwareInfo,
+  type ProfileInfo,
+  type ModelDownloadStatus,
+} from "@/components/PerformanceSection";
 
 /* ------------------------------------------------------------------ */
 /* CorpusManager sub-component                                         */
@@ -270,6 +274,35 @@ function CorpusManager({ domaine, onUpdate }: { domaine: string; onUpdate: () =>
     }
   }
 
+  async function handleCrawlUrl(url: string, filename: string) {
+    setLoading(true);
+    setMessage("");
+    setError("");
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/api/config/corpus/crawl-url`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage(data.message || "URL pré-crawlée");
+        fetchCorpusList();
+        onUpdate();
+      } else {
+        setError(data.detail || "Erreur lors du pré-crawl");
+      }
+    } catch {
+      setError("Erreur réseau");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div>
       {/* Popup modal */}
@@ -371,6 +404,35 @@ function CorpusManager({ domaine, onUpdate }: { domaine: string; onUpdate: () =>
                   <div className={styles.documentMeta}>
                     <span className={styles.badge}>custom</span>
                     <button
+                      onClick={async () => {
+                        // Lire le contenu du fichier .url.txt pour obtenir l'URL
+                        try {
+                          const token = localStorage.getItem("token");
+                          const res = await fetch(`${API_URL}/api/config/corpus/file-content/${encodeURIComponent(doc.filename)}`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                          });
+                          if (res.ok) {
+                            const data = await res.json();
+                            const url = data.content?.trim();
+                            if (url && url.startsWith("http")) {
+                              handleCrawlUrl(url, doc.filename);
+                            } else {
+                              // Le fichier contient déjà du contenu crawlé
+                              setMessage("Ce fichier contient déjà du contenu pré-crawlé.");
+                            }
+                          }
+                        } catch {
+                          // Fallback: essayer de reconstruire l'URL depuis le nom
+                          setError("Impossible de lire l'URL depuis le fichier");
+                        }
+                      }}
+                      disabled={loading}
+                      style={{ background: "none", border: "1px solid #2563eb", color: "#2563eb", cursor: "pointer", fontSize: "0.75rem", borderRadius: 4, padding: "2px 6px" }}
+                      title="Pré-crawler cette URL (télécharger le contenu textuel)"
+                    >
+                      🔄 Crawl
+                    </button>
+                    <button
                       onClick={() => handleRemoveDocument(doc.filename)}
                       style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: "0.8rem" }}
                     >
@@ -398,6 +460,21 @@ function CorpusManager({ domaine, onUpdate }: { domaine: string; onUpdate: () =>
                 style={{ whiteSpace: "nowrap" }}
               >
                 + URL
+              </button>
+              <button
+                className={`${styles.button} ${styles.buttonSmall}`}
+                onClick={async () => {
+                  if (!newUrl.trim()) return;
+                  // Ajouter l'URL puis la pré-crawler
+                  await handleAddUrl();
+                  if (newUrl.trim()) return; // Si handleAddUrl a échoué, newUrl n'est pas vidé
+                  // Le crawl sera fait via le bouton individuel
+                }}
+                disabled={!newUrl.trim() || loading}
+                style={{ whiteSpace: "nowrap", backgroundColor: "#2563eb" }}
+                title="Ajouter l'URL et télécharger son contenu textuel"
+              >
+                + Crawl
               </button>
             </div>
           </div>
@@ -481,13 +558,13 @@ export default function ConfigPage() {
   /* --- Domain state --- */
   const [domaine, setDomaine] = useState<string>("");
 
-  /* --- RAG versions state --- */
-  const [ragVersions, setRagVersions] = useState<RAGVersion[]>([]);
-  const [installedVersion, setInstalledVersion] = useState<string | null>(null);
-  const [ragLoading, setRagLoading] = useState(true);
-  const [ragError, setRagError] = useState("");
-  const [installingVersion, setInstallingVersion] = useState<string | null>(null);
-  const [ragSuccess, setRagSuccess] = useState("");
+  /* --- RAG status state --- */
+  const [ragStatus, setRagStatus] = useState<{
+    is_configured: boolean;
+    rag_built_at: string | null;
+    corpus_downloaded_at: string | null;
+    documents_count: number;
+  } | null>(null);
 
   /* --- TPE state --- */
   const [tpeFile, setTpeFile] = useState<File | null>(null);
@@ -495,6 +572,7 @@ export default function ConfigPage() {
   const [tpeError, setTpeError] = useState("");
   const [tpeSuccess, setTpeSuccess] = useState("");
   const [tpeDefaultLoading, setTpeDefaultLoading] = useState(false);
+  const [tpeInfo, setTpeInfo] = useState<{ filename: string; size: number } | null>(null);
 
   /* --- Template state --- */
   const [templateFile, setTemplateFile] = useState<File | null>(null);
@@ -502,6 +580,17 @@ export default function ConfigPage() {
   const [templateError, setTemplateError] = useState("");
   const [templateSuccess, setTemplateSuccess] = useState("");
   const [templateDefaultLoading, setTemplateDefaultLoading] = useState(false);
+  const [templateInfo, setTemplateInfo] = useState<{ filename: string; size: number } | null>(null);
+
+  /* --- Performance state --- */
+  const [hardwareInfo, setHardwareInfo] = useState<HardwareInfo | null>(null);
+  const [activeProfile, setActiveProfile] = useState<ProfileInfo | null>(null);
+  const [isOverride, setIsOverride] = useState(false);
+  const [allProfiles, setAllProfiles] = useState<ProfileInfo[]>([]);
+  const [autoDetectedProfile, setAutoDetectedProfile] = useState<string>("");
+  const [downloadStatus, setDownloadStatus] = useState<ModelDownloadStatus | null>(null);
+  const [overrideLoading, setOverrideLoading] = useState(false);
+  const [perfError, setPerfError] = useState("");
 
   /* --- Documents state --- */
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
@@ -516,25 +605,21 @@ export default function ConfigPage() {
     try {
       const data = await configApi.getDomain();
       setDomaine(data.domaine ?? "");
-      if ((data as { rag_version?: string }).rag_version) {
-        setInstalledVersion((data as { rag_version?: string }).rag_version!);
-      }
     } catch {
       /* domain may not be set yet */
     }
   }, []);
 
-  const fetchRagVersions = useCallback(async () => {
-    setRagLoading(true);
-    setRagError("");
+  const fetchRagStatus = useCallback(async () => {
     try {
-      const data = await configApi.getRagVersions();
-      setRagVersions(data.versions ?? []);
-    } catch {
-      setRagError("Impossible de récupérer les versions RAG.");
-    } finally {
-      setRagLoading(false);
-    }
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/api/config/rag-status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setRagStatus(await res.json());
+      }
+    } catch { /* ignore */ }
   }, []);
 
   const fetchDocuments = useCallback(async () => {
@@ -550,31 +635,91 @@ export default function ConfigPage() {
     }
   }, []);
 
+  const fetchFileInfos = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    try {
+      const tpeRes = await fetch(`${API_URL}/api/config/tpe/info`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (tpeRes.ok) {
+        setTpeInfo(await tpeRes.json());
+      } else {
+        setTpeInfo(null);
+      }
+    } catch { setTpeInfo(null); }
+    try {
+      const templateRes = await fetch(`${API_URL}/api/config/template/info`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (templateRes.ok) {
+        setTemplateInfo(await templateRes.json());
+      } else {
+        setTemplateInfo(null);
+      }
+    } catch { setTemplateInfo(null); }
+  }, []);
+
+  const fetchPerformanceProfile = useCallback(async () => {
+    try {
+      const data = await configApi.getPerformanceProfile();
+      setHardwareInfo(data.hardware_info);
+      setActiveProfile(data.active_profile);
+      setIsOverride(data.is_override);
+      setAllProfiles(data.all_profiles ?? []);
+      setAutoDetectedProfile(data.auto_detected_profile ?? "");
+      setPerfError("");
+    } catch { /* ignore — section will not render */ }
+  }, []);
+
+  const pollDownloadStatus = useCallback(() => {
+    let cancelled = false;
+
+    const poll = async () => {
+      if (cancelled) return;
+      try {
+        const status = await configApi.getModelDownloadStatus();
+        setDownloadStatus(status);
+        if (status.in_progress && !cancelled) {
+          setTimeout(poll, 2000);
+        }
+      } catch {
+        // Stop polling on error
+        setDownloadStatus(null);
+      }
+    };
+
+    poll();
+
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleOverrideChange = useCallback(async (profileName: string | null) => {
+    setOverrideLoading(true);
+    setPerfError("");
+    try {
+      await configApi.setPerformanceOverride(profileName);
+      // Re-fetch to get updated profile and step durations
+      await fetchPerformanceProfile();
+      // Start polling for model download status
+      pollDownloadStatus();
+    } catch (err: unknown) {
+      setPerfError(getErrorMessage(err, "Erreur lors du changement de profil."));
+    } finally {
+      setOverrideLoading(false);
+    }
+  }, [fetchPerformanceProfile, pollDownloadStatus]);
+
   useEffect(() => {
     fetchDomain();
-    fetchRagVersions();
+    fetchRagStatus();
     fetchDocuments();
-  }, [fetchDomain, fetchRagVersions, fetchDocuments]);
+    fetchFileInfos();
+    fetchPerformanceProfile();
+  }, [fetchDomain, fetchRagStatus, fetchDocuments, fetchFileInfos, fetchPerformanceProfile]);
 
   /* ---------------------------------------------------------------- */
   /* Handlers                                                          */
   /* ---------------------------------------------------------------- */
-
-  async function handleInstallRag(version: string) {
-    setInstallingVersion(version);
-    setRagError("");
-    setRagSuccess("");
-    try {
-      const data = await configApi.installRag(version);
-      setInstalledVersion(version);
-      setRagSuccess(data.message ?? `Module RAG ${version} installé.`);
-      fetchDocuments();
-    } catch (err: unknown) {
-      setRagError(getErrorMessage(err, "Erreur lors de l'installation du module RAG."));
-    } finally {
-      setInstallingVersion(null);
-    }
-  }
 
   async function handleUploadTpe() {
     if (!tpeFile) return;
@@ -586,6 +731,7 @@ export default function ConfigPage() {
       setTpeSuccess(data.message ?? "TPE uploadé avec succès.");
       setTpeFile(null);
       fetchDocuments();
+      fetchFileInfos();
     } catch (err: unknown) {
       setTpeError(getErrorMessage(err, "Erreur lors de l'upload du TPE."));
     } finally {
@@ -603,6 +749,7 @@ export default function ConfigPage() {
       setTemplateSuccess(data.message ?? "Template uploadé avec succès.");
       setTemplateFile(null);
       fetchDocuments();
+      fetchFileInfos();
     } catch (err: unknown) {
       setTemplateError(getErrorMessage(err, "Erreur lors de l'upload du Template."));
     } finally {
@@ -629,6 +776,7 @@ export default function ConfigPage() {
       const data = await configApi.uploadTpe(file);
       setTpeSuccess(data.message ?? "TPE par défaut installé.");
       fetchDocuments();
+      fetchFileInfos();
     } catch (err: unknown) {
       setTpeError(getErrorMessage(err, "Erreur lors de l'installation du TPE par défaut."));
     } finally {
@@ -657,6 +805,7 @@ export default function ConfigPage() {
       const data = await configApi.uploadTemplate(file);
       setTemplateSuccess(data.message ?? "Template par défaut installé.");
       fetchDocuments();
+      fetchFileInfos();
     } catch (err: unknown) {
       setTemplateError(getErrorMessage(err, "Erreur lors de l'installation du Template par défaut."));
     } finally {
@@ -666,6 +815,9 @@ export default function ConfigPage() {
 
   const isPsychologie = domaine === "psychologie";
 
+  /* --- Tab state --- */
+  const [activeTab, setActiveTab] = useState<"corpus" | "performance">("corpus");
+
   /* ---------------------------------------------------------------- */
   /* Render                                                            */
   /* ---------------------------------------------------------------- */
@@ -674,62 +826,72 @@ export default function ConfigPage() {
     <div className={styles.container}>
       <h1 className={styles.title}>Configuration</h1>
       <p className={styles.subtitle}>
-        Gérez le module RAG, les fichiers de configuration et consultez les documents indexés.
+        Gérez le module RAG, les fichiers de configuration et les performances LLM.
       </p>
 
-      {/* ---- Section 1: Module RAG ---- */}
-      <section className={styles.section} aria-labelledby="rag-title">
+      {/* ---- Tab bar ---- */}
+      <div className={styles.tabBar} role="tablist">
+        <button
+          className={`${styles.tab} ${activeTab === "corpus" ? styles.tabActive : ""}`}
+          role="tab"
+          aria-selected={activeTab === "corpus"}
+          onClick={() => setActiveTab("corpus")}
+        >
+          📚 Corpus / RAG
+        </button>
+        <button
+          className={`${styles.tab} ${activeTab === "performance" ? styles.tabActive : ""}`}
+          role="tab"
+          aria-selected={activeTab === "performance"}
+          onClick={() => setActiveTab("performance")}
+        >
+          ⚡ Performance
+        </button>
+      </div>
+
+      {/* ---- Tab: Corpus / RAG ---- */}
+      {activeTab === "corpus" && (
+        <>
+          {/* ---- Section 1: État du RAG ---- */}
+          <section className={styles.section} aria-labelledby="rag-title">
         <h2 className={styles.sectionTitle} id="rag-title">
           <span className={styles.sectionIcon} aria-hidden="true">🧠</span>
-          Module RAG
+          État du RAG
         </h2>
 
-        {ragLoading ? (
+        {ragStatus ? (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+            <div style={{ background: ragStatus.is_configured ? "#f0fdf4" : "#fef2f2", border: `1px solid ${ragStatus.is_configured ? "#bbf7d0" : "#fecaca"}`, borderRadius: 8, padding: 12, textAlign: "center" }}>
+              <p style={{ fontSize: "1.5rem", margin: "0 0 4px" }}>{ragStatus.is_configured ? "✔" : "⚠"}</p>
+              <p style={{ fontSize: "0.85rem", fontWeight: 600, margin: 0 }}>
+                {ragStatus.is_configured ? "Configuré" : "Non initialisé"}
+              </p>
+              <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: "4px 0 0" }}>
+                {ragStatus.documents_count} document{ragStatus.documents_count > 1 ? "s" : ""} indexé{ragStatus.documents_count > 1 ? "s" : ""}
+              </p>
+            </div>
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: 12, textAlign: "center" }}>
+              <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: "0 0 4px" }}>Dernier téléchargement</p>
+              <p style={{ fontSize: "0.9rem", fontWeight: 600, margin: 0 }}>
+                {ragStatus.corpus_downloaded_at
+                  ? new Date(ragStatus.corpus_downloaded_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                  : ragStatus.is_configured ? "Avant mise à jour" : "—"}
+              </p>
+            </div>
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: 12, textAlign: "center" }}>
+              <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: "0 0 4px" }}>Dernier Build RAG</p>
+              <p style={{ fontSize: "0.9rem", fontWeight: 600, margin: 0 }}>
+                {ragStatus.rag_built_at
+                  ? new Date(ragStatus.rag_built_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                  : ragStatus.is_configured ? "Avant mise à jour" : "—"}
+              </p>
+            </div>
+          </div>
+        ) : (
           <div className={styles.loading}>
             <span className={styles.spinner} aria-hidden="true" />
-            Chargement des versions…
+            Chargement…
           </div>
-        ) : ragError && ragVersions.length === 0 ? (
-          <p className={styles.error} role="alert">{ragError}</p>
-        ) : ragVersions.length === 0 ? (
-          <p className={styles.emptyState}>Aucune version RAG disponible.</p>
-        ) : (
-          <>
-            <div className={styles.versionList}>
-              {ragVersions.map((v) => {
-                const isCurrent = installedVersion === v.version;
-                return (
-                  <div
-                    key={v.version}
-                    className={`${styles.versionCard} ${isCurrent ? styles.installed : ""}`}
-                  >
-                    <div className={styles.versionInfo}>
-                      <div className={styles.versionNumber}>
-                        v{v.version}
-                        {isCurrent && (
-                          <span className={styles.installedBadge}>Installée</span>
-                        )}
-                      </div>
-                      <div className={styles.versionDesc}>{v.description}</div>
-                    </div>
-                    <button
-                      className={`${styles.button} ${styles.buttonSmall}`}
-                      onClick={() => handleInstallRag(v.version)}
-                      disabled={installingVersion !== null}
-                    >
-                      {installingVersion === v.version
-                        ? "Installation…"
-                        : isCurrent
-                          ? "Réinstaller"
-                          : "Installer"}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-            {ragError && <p className={styles.error} role="alert">{ragError}</p>}
-            {ragSuccess && <p className={styles.success} role="status">{ragSuccess}</p>}
-          </>
         )}
       </section>
 
@@ -738,7 +900,47 @@ export default function ConfigPage() {
         <h2 className={styles.sectionTitle} id="tpe-title">
           <span className={styles.sectionIcon} aria-hidden="true">📋</span>
           TPE (Trame d&apos;entretien)
+          {tpeInfo && (
+            <span style={{ marginLeft: 12, fontSize: "0.8rem", color: "#16a34a", fontWeight: 400 }}>
+              ✔ Installé
+            </span>
+          )}
         </h2>
+
+        {tpeInfo && (
+          <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: 12, marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: "1.2rem" }}>📄</span>
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: 0, fontWeight: 600, fontSize: "0.9rem" }}>{tpeInfo.filename}</p>
+              <p style={{ margin: 0, fontSize: "0.75rem", color: "#6b7280" }}>
+                {(tpeInfo.size / 1024).toFixed(1)} Ko
+              </p>
+            </div>
+            <a
+              href={`${API_URL}/api/config/tpe/download`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${styles.button} ${styles.buttonSmall}`}
+              style={{ textDecoration: "none" }}
+              onClick={(e) => {
+                e.preventDefault();
+                const token = localStorage.getItem("token");
+                fetch(`${API_URL}/api/config/tpe/download`, {
+                  headers: { Authorization: `Bearer ${token}` },
+                }).then(res => res.blob()).then(blob => {
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = tpeInfo.filename;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                });
+              }}
+            >
+              ↓ Télécharger
+            </a>
+          </div>
+        )}
 
         {isPsychologie && (
           <div className={styles.defaultSuggestion}>
@@ -791,7 +993,47 @@ export default function ConfigPage() {
         <h2 className={styles.sectionTitle} id="template-title">
           <span className={styles.sectionIcon} aria-hidden="true">📄</span>
           Template Rapport
+          {templateInfo && (
+            <span style={{ marginLeft: 12, fontSize: "0.8rem", color: "#16a34a", fontWeight: 400 }}>
+              ✔ Installé
+            </span>
+          )}
         </h2>
+
+        {templateInfo && (
+          <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: 12, marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: "1.2rem" }}>📄</span>
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: 0, fontWeight: 600, fontSize: "0.9rem" }}>{templateInfo.filename}</p>
+              <p style={{ margin: 0, fontSize: "0.75rem", color: "#6b7280" }}>
+                {(templateInfo.size / 1024).toFixed(1)} Ko
+              </p>
+            </div>
+            <a
+              href={`${API_URL}/api/config/template/download`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${styles.button} ${styles.buttonSmall}`}
+              style={{ textDecoration: "none" }}
+              onClick={(e) => {
+                e.preventDefault();
+                const token = localStorage.getItem("token");
+                fetch(`${API_URL}/api/config/template/download`, {
+                  headers: { Authorization: `Bearer ${token}` },
+                }).then(res => res.blob()).then(blob => {
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = templateInfo.filename;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                });
+              }}
+            >
+              ↓ Télécharger
+            </a>
+          </div>
+        )}
 
         {isPsychologie && (
           <div className={styles.defaultSuggestion}>
@@ -850,7 +1092,7 @@ export default function ConfigPage() {
           Corpus RAG
         </h2>
 
-        <CorpusManager domaine={domaine} onUpdate={fetchDocuments} />
+        <CorpusManager domaine={domaine} onUpdate={() => { fetchDocuments(); fetchRagStatus(); }} />
       </section>
 
       {/* ---- Section 5: Documents RAG (indexés) ---- */}
@@ -886,6 +1128,38 @@ export default function ConfigPage() {
           </div>
         )}
       </section>
+        </>
+      )}
+
+      {/* ---- Tab: Performance ---- */}
+      {activeTab === "performance" && (
+        <>
+          <section className={styles.section} aria-labelledby="performance-title">
+            <h2 className={styles.sectionTitle} id="performance-title">
+              <span className={styles.sectionIcon} aria-hidden="true">⚡</span>
+              Performance LLM
+            </h2>
+            {perfError && <p className={styles.error} role="alert">{perfError}</p>}
+            {hardwareInfo && activeProfile ? (
+              <PerformanceSection
+                hardwareInfo={hardwareInfo}
+                activeProfile={activeProfile}
+                isOverride={isOverride}
+                allProfiles={allProfiles}
+                autoDetectedProfile={autoDetectedProfile}
+                downloadStatus={downloadStatus}
+                onOverrideChange={handleOverrideChange}
+                overrideLoading={overrideLoading}
+              />
+            ) : (
+              <div className={styles.loading}>
+                <span className={styles.spinner} aria-hidden="true" />
+                Chargement des informations de performance…
+              </div>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }

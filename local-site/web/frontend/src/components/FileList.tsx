@@ -19,7 +19,9 @@ interface FileListProps {
   files: StepFileItem[];
   isLocked: boolean;
   showReplaceButton: boolean;
+  showDeleteButton?: boolean;
   onFileReplaced?: () => void;
+  onFileDeleted?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -51,17 +53,22 @@ function FileRow({
   stepNumber,
   isLocked,
   showReplaceButton,
+  showDeleteButton,
   onFileReplaced,
+  onFileDeleted,
 }: {
   file: StepFileItem;
   dossierId: string | number;
   stepNumber: number;
   isLocked: boolean;
   showReplaceButton: boolean;
+  showDeleteButton?: boolean;
   onFileReplaced?: () => void;
+  onFileDeleted?: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [replacing, setReplacing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [mdPreview, setMdPreview] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -131,6 +138,20 @@ function FileRow({
     [dossierId, stepNumber, file.id, ext, onFileReplaced],
   );
 
+  const handleDelete = useCallback(async () => {
+    if (!window.confirm(`Supprimer le fichier « ${file.filename} » ?`)) return;
+    setError(null);
+    setDeleting(true);
+    try {
+      await stepFilesApi.deleteFile(dossierId, stepNumber, file.id);
+      onFileDeleted?.();
+    } catch (err) {
+      setError(getErrorMessage(err, "Erreur lors de la suppression du fichier."));
+    } finally {
+      setDeleting(false);
+    }
+  }, [dossierId, stepNumber, file.id, file.filename, onFileDeleted]);
+
   return (
     <li className={styles.fileRow}>
       <div className={styles.fileInfo}>
@@ -172,6 +193,16 @@ function FileRow({
             />
           </>
         )}
+        {showDeleteButton && !isLocked && (
+          <button
+            type="button"
+            className={`${styles.btn} ${styles.btnDelete}`}
+            onClick={handleDelete}
+            disabled={deleting}
+          >
+            {deleting ? "…" : "Supprimer"}
+          </button>
+        )}
       </div>
 
       {error && (
@@ -197,7 +228,9 @@ export default function FileList({
   files,
   isLocked,
   showReplaceButton,
+  showDeleteButton,
   onFileReplaced,
+  onFileDeleted,
 }: FileListProps) {
   if (files.length === 0) {
     return <p className={styles.empty}>Aucun fichier pour cette étape</p>;
@@ -213,7 +246,9 @@ export default function FileList({
           stepNumber={stepNumber}
           isLocked={isLocked}
           showReplaceButton={showReplaceButton}
+          showDeleteButton={showDeleteButton}
           onFileReplaced={onFileReplaced}
+          onFileDeleted={onFileDeleted}
         />
       ))}
     </ul>

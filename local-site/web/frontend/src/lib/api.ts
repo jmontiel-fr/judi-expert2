@@ -64,6 +64,9 @@ export interface StepDetail {
   executed_at: string | null;
   validated_at: string | null;
   execution_duration_seconds: number | null;
+  progress_current: number | null;
+  progress_total: number | null;
+  progress_message: string | null;
   files: StepFileItem[];
 }
 
@@ -146,11 +149,38 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor — normalize errors
+// ---------------------------------------------------------------------------
+// 401 Auto-logout — module-level flag to prevent multiple simultaneous redirects
+// ---------------------------------------------------------------------------
+
+let isRedirecting = false;
+
+// Response interceptor — handle 401 (session expired) + normalize errors
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<{ detail?: string }>) => {
-    // Extract a human-readable message from the backend error
+    // Handle 401 — expired token auto-logout
+    if (error.response?.status === 401) {
+      // Clear the expired token
+      localStorage.removeItem(TOKEN_KEY);
+
+      // Guard: do not redirect if already on /login or /accueil (prevent loops)
+      const currentPath = window.location.pathname;
+      const isOnPublicPage =
+        currentPath === "/login" ||
+        currentPath === "/accueil" ||
+        currentPath.startsWith("/login/") ||
+        currentPath.startsWith("/accueil/");
+
+      if (!isOnPublicPage && !isRedirecting) {
+        isRedirecting = true;
+        window.location.href = "/accueil";
+      }
+
+      return Promise.reject(error);
+    }
+
+    // Non-401 errors: extract a human-readable message from the backend error
     if (error.response?.data?.detail) {
       error.message = error.response.data.detail;
     }
@@ -280,6 +310,60 @@ export const configApi = {
     const res = await apiClient.get<{ documents: DocumentItem[] }>(
       "/api/config/documents",
     );
+    return res.data;
+  },
+
+  async getPerformanceProfile() {
+    const res = await apiClient.get<{
+      active_profile: {
+        name: string;
+        display_name: string;
+        ram_range: string;
+        ctx_max: number;
+        model: string;
+        rag_chunks: number;
+        tokens_per_sec: number;
+        step_durations: Record<string, string>;
+      };
+      is_override: boolean;
+      auto_detected_profile: string;
+      all_profiles: Array<{
+        name: string;
+        display_name: string;
+        ram_range: string;
+        ctx_max: number;
+        model: string;
+        rag_chunks: number;
+        tokens_per_sec: number;
+        step_durations: Record<string, string>;
+      }>;
+      hardware_info: {
+        cpu_model: string;
+        cpu_freq_ghz: number;
+        cpu_cores: number;
+        ram_total_gb: number;
+        gpu_name: string | null;
+        gpu_vram_gb: number | null;
+      };
+    }>("/api/config/performance-profile");
+    return res.data;
+  },
+
+  async setPerformanceOverride(profileName: string | null) {
+    const res = await apiClient.put<{ message: string }>(
+      "/api/config/performance-profile/override",
+      { profile_name: profileName },
+    );
+    return res.data;
+  },
+
+  async getModelDownloadStatus() {
+    const res = await apiClient.get<{
+      needed: boolean;
+      in_progress: boolean;
+      progress_percent: number | null;
+      error: string | null;
+    }>("/api/config/model-download-status");
     return res.data;
   },
 };
@@ -473,11 +557,11 @@ export const step1Api = {
 // ---------------------------------------------------------------------------
 
 export const step2Api = {
-  /** Générer le Plan d'Entretien (PE) ou Plan d'Analyse (PA) */
-  async execute(dossierId: string | number, mode: "entretien" | "analyse" = "entretien") {
-    const res = await apiClient.post<{ plan: string }>(
+  /** Extraire le Plan d'Entretien (PE) depuis le TRE */
+  async execute(dossierId: string | number) {
+    const res = await apiClient.post<{ qmec: string }>(
       `/api/dossiers/${dossierId}/step2/execute`,
-      { mode },
+      {},
       { timeout: 1_800_000 },
     );
     return res.data;
@@ -543,14 +627,12 @@ export const step3Api = {
 // ---------------------------------------------------------------------------
 
 export const step4Api = {
-  /** Upload du PEA/PAA annoté et génération du pré-rapport + DAC */
-  async execute(dossierId: string | number, peaFile: File) {
-    const formData = new FormData();
-    formData.append("file", peaFile);
+  /** Lancer la génération du pré-rapport + DAC (PEA déjà uploadé) */
+  async execute(dossierId: string | number) {
     const res = await apiClient.post<{ message: string; filenames: string[] }>(
       `/api/dossiers/${dossierId}/step4/execute`,
-      formData,
-      { headers: { "Content-Type": "multipart/form-data" }, timeout: 1_800_000 },
+      {},
+      { timeout: 1_800_000 },
     );
     return res.data;
   },
@@ -642,6 +724,17 @@ export const stepFilesApi = {
     );
     return res.data;
   },
+
+  async deleteFile(
+    dossierId: string | number,
+    stepNumber: number,
+    fileId: number,
+  ): Promise<{ message: string }> {
+    const res = await apiClient.delete<{ message: string }>(
+      `/api/dossiers/${dossierId}/steps/${stepNumber}/files/${fileId}`,
+    );
+    return res.data;
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -700,6 +793,63 @@ export const chatbotApi = {
 };
 
 // ---------------------------------------------------------------------------
+// Revision API — Document revision (correction orthographique/grammaticale)
+// ---------------------------------------------------------------------------
+
+export interface TextRevisionResponse {
+  corrected_text: string;
+  filename: string | null;
+}
+
+export const revisionApi = {
+  /**
+   * Upload a file (.docx, .txt, .md) for LLM-based revision.
+   *
+   * - .docx → returns a Blob (revised file with track changes)
+   * - .txt/.md → returns JSON with corrected text and filename
+   */
+  async uploadFile(file: File): Promise<Blob | TextRevisionResponse> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const ext = file.name.split(".").pop()?.toLowerCase();
+
+    if (ext === "docx") {
+      // .docx → retourne un blob (fichier avec track changes)
+      const res = await apiClient.post("/api/revision/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+        responseType: "blob",
+        timeout: 1_800_000, // 30 min — LLM processing can be slow
+      });
+      return res.data as Blob;
+    } else {
+      // .txt/.md → retourne du JSON avec le texte corrigé
+      const res = await apiClient.post<TextRevisionResponse>(
+        "/api/revision/upload",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+          timeout: 1_800_000,
+        },
+      );
+      return res.data;
+    }
+  },
+
+  /**
+   * Submit raw text (copy-paste) for LLM-based revision.
+   * Returns the corrected text.
+   */
+  async submitText(text: string): Promise<{ corrected_text: string }> {
+    const res = await apiClient.post<{ corrected_text: string }>(
+      "/api/revision/text",
+      { text },
+      { timeout: 1_800_000 },
+    );
+    return res.data;
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Workflow helpers
 // ---------------------------------------------------------------------------
 
@@ -746,3 +896,5 @@ export function formatFileSize(bytes: number): string {
 }
 
 export default apiClient;
+
+// Force rebuild - TRE-centric workflow v2

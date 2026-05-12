@@ -1,0 +1,371 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Cards grid */
+.cardsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .cardsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Card */
+.card {
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.cardTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cardIcon {
+  font-size: 1.1rem;
+}
+
+/* Info rows */
+.infoList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.infoRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.infoLabel {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.infoValue {
+  color: var(--color-text);
+  font-weight: 600;
+  text-align: right;
+}
+
+/* Profile badge */
+.profileBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badgeAuto {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.badgeManual {
+  background-color: #fff7ed;
+  color: #9a3412;
+}
+
+/* Profile name display */
+.profileName {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* GPU absent */
+.gpuAbsent {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* Override selector */
+.overrideSection {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.overrideLabel {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.overrideSelect {
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  cursor: pointer;
+  min-width: 180px;
+}
+
+.overrideSelect:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.overrideSpinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* RAM warning */
+.ramWarning {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background-color: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: #9a3412;
+  line-height: 1.4;
+}
+
+/* Download progress */
+.downloadProgress {
+  background-color: #eff6ff;
+  border: 1px solid #93c5fd;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.downloadHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1e40af;
+}
+
+.downloadIcon {
+  font-size: 1rem;
+}
+
+.progressBarContainer {
+  width: 100%;
+  height: 8px;
+  background-color: #dbeafe;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  background-color: #3b82f6;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.downloadPercent {
+  font-size: 0.8rem;
+  color: #1e40af;
+  font-weight: 600;
+  align-self: flex-end;
+}
+
+.downloadError {
+  padding: 10px 14px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #dc2626;
+}
+
+/* Strategy explanation (collapsible) */
+.strategyDetails {
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.strategySummary {
+  padding: 14px 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  user-select: none;
+}
+
+.strategySummary::-webkit-details-marker {
+  display: none;
+}
+
+.strategySummary::after {
+  content: "▸";
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  transition: transform 0.2s ease;
+}
+
+.strategyDetails[open] .strategySummary::after {
+  transform: rotate(90deg);
+}
+
+.strategyIcon {
+  font-size: 1rem;
+}
+
+.strategyContent {
+  padding: 0 20px 16px;
+  font-size: 0.83rem;
+  line-height: 1.6;
+  color: var(--color-text);
+}
+
+.strategyContent p {
+  margin: 0 0 10px;
+}
+
+.strategyContent ul {
+  margin: 8px 0 12px;
+  padding-left: 20px;
+}
+
+.strategyContent li {
+  margin-bottom: 4px;
+}
+
+.strategyContent strong {
+  color: var(--color-text);
+}
+
+/* Reference table */
+.referenceTable {
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.tableTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 14px;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  border-bottom: 2px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.activeRow {
+  background-color: #eff6ff;
+}
+
+.activeRow td {
+  font-weight: 600;
+}
+
+.detectedRow {
+  background-color: rgba(59, 130, 246, 0.06);
+  border-left: 3px solid #3b82f6;
+}
+
+.profileCellName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.detectedBadge {
+  color: #3b82f6;
+  font-size: 0.9rem;
+}
+
+.modelCell {
+  font-family: monospace;
+  font-size: 0.75rem;
+}
+
+.durationCell {
+  white-space: nowrap;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.tableNote {
+  margin-top: 10px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

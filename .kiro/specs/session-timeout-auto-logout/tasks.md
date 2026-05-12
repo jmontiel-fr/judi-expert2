@@ -1,0 +1,142 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Bug Condition** - Token expiré sans déconnexion automatique
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the bug exists on both local and central sites
+  - **Scoped PBT Approach**: Scope the property to sessions with expired JWT tokens (currentTime > token.exp)
+  - Test file: `tests/property/test_prop_session_timeout_bug.py`
+  - Generate random SessionState inputs where `isBugCondition(input)` is true: token is not null AND currentTime > token.exp
+  - For the **local site**: simulate a 401 response from axios interceptor → assert that `localStorage.removeItem("token")` is called AND redirect to `/accueil` occurs
+  - For the **central site**: simulate a 401 response from `handleResponse` → assert that token is cleared from localStorage AND redirect to `/` occurs
+  - Test that `isTokenExpired(token)` correctly identifies expired tokens for any token with `exp < Date.now()/1000`
+  - Test that `visibilitychange` event with expired token triggers logout
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bug exists: no 401 interception, no proactive check, no auto-logout)
+  - Document counterexamples found: e.g., "Token expired 5 minutes ago, user still on /dossiers/1 with no redirection"
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 1.1, 1.2, 1.3, 1.4_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Sessions valides non affectées
+  - **IMPORTANT**: Follow observation-first methodology
+  - Test file: `tests/property/test_prop_session_timeout_preservation.py`
+  - Observe on UNFIXED code: API calls with valid (non-expired) tokens return data normally without interruption
+  - Observe on UNFIXED code: Manual logout via "Déconnexion" button clears token and redirects to `/login` (local) or `/` (central)
+  - Observe on UNFIXED code: Public pages (login, accueil) are accessible without triggering any logout logic
+  - Observe on UNFIXED code: Active user within token validity period experiences no session interruption
+  - Write property-based test: for all SessionState inputs where `NOT isBugCondition(input)` (token is null OR currentTime <= token.exp):
+    - API calls succeed without triggering logout/redirect
+    - Navigation continues uninterrupted
+    - No token removal from localStorage
+  - Write property-based test: for all valid tokens (random exp values in the future), `isTokenExpired(token)` returns false
+  - Write property-based test: `visibilitychange` event with valid token does NOT trigger logout
+  - Verify tests pass on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4_
+
+- [x] 3. Fix for session timeout auto-logout
+
+  - [x] 3.1 Implement `isTokenExpired()` utility function (local site)
+    - Create or update `local-site/web/frontend/src/lib/auth.ts`
+    - Decode JWT payload using `atob()` (base64 part 2 of token)
+    - Compare `exp` with `Date.now() / 1000` with 30-second safety margin (`exp - 30`)
+    - Return `true` if expired, malformed, or null token
+    - Handle edge cases: missing `exp` field, invalid base64, null/undefined token
+    - _Bug_Condition: isBugCondition(input) where token IS NOT NULL AND currentTime > token.exp_
+    - _Expected_Behavior: isTokenExpired returns true for all expired tokens_
+    - _Preservation: Returns false for all valid non-expired tokens_
+    - _Requirements: 2.1, 2.4_
+
+  - [x] 3.2 Add 401 response interceptor to axios client (local site)
+    - Modify `local-site/web/frontend/src/lib/api.ts`
+    - In the response error interceptor, detect `error.response.status === 401`
+    - Call `localStorage.removeItem("token")` to clear the expired token
+    - Redirect to `/accueil` via `window.location.href`
+    - Add guard: do not redirect if already on `/login` or `/accueil` (prevent redirect loops)
+    - Add `isRedirecting` flag to prevent multiple simultaneous redirections
+    - _Bug_Condition: isBugCondition(input) where API returns 401 due to expired token_
+    - _Expected_Behavior: token cleared AND redirected to /accueil_
+    - _Preservation: Non-401 errors continue to be handled as before (message extraction)_
+    - _Requirements: 2.1, 2.3_
+
+  - [x] 3.3 Add 401 handling in `handleResponse` (central site)
+    - Modify `central-site/web/frontend/src/lib/api.ts`
+    - In `handleResponse`, when status is 401: remove `"judi_access_token"` from localStorage and redirect to `/`
+    - Add guard: do not redirect if already on `/` or `/login`
+    - Add `isRedirecting` flag to prevent multiple simultaneous redirections
+    - _Bug_Condition: isBugCondition(input) where fetch returns 401 due to expired token_
+    - _Expected_Behavior: token cleared AND redirected to /_
+    - _Preservation: Non-401 errors continue to throw ApiError as before_
+    - _Requirements: 2.2, 2.3_
+
+  - [x] 3.4 Implement `isTokenExpired()` utility function (central site)
+    - Create or update `central-site/web/frontend/src/lib/auth.ts`
+    - Same logic as local site: decode JWT payload, compare `exp` with `Date.now() / 1000 - 30`
+    - Return `true` if expired, malformed, or null token
+    - _Bug_Condition: isBugCondition(input) where token IS NOT NULL AND currentTime > token.exp_
+    - _Expected_Behavior: isTokenExpired returns true for all expired tokens_
+    - _Preservation: Returns false for all valid non-expired tokens_
+    - _Requirements: 2.2, 2.4_
+
+  - [x] 3.5 Add `visibilitychange` listener for proactive token checking (local site)
+    - Create `local-site/web/frontend/src/hooks/useSessionGuard.ts`
+    - Listen for `document.visibilitychange` event
+    - When tab becomes visible (`document.visibilityState === 'visible'`): call `isTokenExpired()`
+    - If token is expired: clear localStorage token and redirect to `/accueil`
+    - Add periodic timer (every 60 seconds) to check token validity
+    - Clean up listeners and timer on unmount
+    - Integrate hook in the app layout or root component
+    - _Bug_Condition: isBugCondition(input) where user returns to tab after inactivity with expired token_
+    - _Expected_Behavior: proactive logout triggered before any API call_
+    - _Preservation: No action taken when token is valid or absent_
+    - _Requirements: 2.1, 2.4_
+
+  - [x] 3.6 Add `visibilitychange` listener and session timer (central site)
+    - Modify `central-site/web/frontend/src/contexts/AuthContext.tsx`
+    - Add `visibilitychange` listener in `AuthProvider` useEffect
+    - When tab becomes visible: call `isTokenExpired()` on stored token
+    - If expired: call `logout()` and redirect to `/`
+    - Add expiration timer: at login, calculate `exp - Date.now()/1000` and set `setTimeout` for auto-logout
+    - Clear timer on manual logout or unmount
+    - _Bug_Condition: isBugCondition(input) where user returns to tab after inactivity with expired token_
+    - _Expected_Behavior: proactive logout triggered, redirect to /_
+    - _Preservation: No action taken when token is valid; timer cleared on manual logout_
+    - _Requirements: 2.2, 2.4_
+
+  - [x] 3.7 Improve `restoreSession()` on central site
+    - Modify `central-site/web/frontend/src/contexts/AuthContext.tsx`
+    - In `restoreSession()`: check `isTokenExpired()` BEFORE calling `apiGetProfile()`
+    - If token is expired: remove from localStorage, set user to null, redirect to `/`
+    - Only call `apiGetProfile()` if token is still valid
+    - _Bug_Condition: isBugCondition(input) where page reloads with expired token in localStorage_
+    - _Expected_Behavior: expired token detected early, no unnecessary API call, immediate redirect_
+    - _Preservation: Valid tokens still trigger apiGetProfile() and restore session normally_
+    - _Requirements: 2.2, 2.4_
+
+  - [x] 3.8 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Auto-déconnexion sur token expiré
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior (token cleared + redirect on expiration)
+    - When this test passes, it confirms the expected behavior is satisfied for both sites
+    - Run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
+    - _Requirements: 2.1, 2.2, 2.3, 2.4_
+
+  - [x] 3.9 Verify preservation tests still pass
+    - **Property 2: Preservation** - Sessions valides non affectées
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Confirm all tests still pass after fix: valid tokens work, manual logout works, public pages accessible
+    - _Requirements: 3.1, 3.2, 3.3, 3.4_
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Run full test suite: `pytest tests/property/test_prop_session_timeout_bug.py tests/property/test_prop_session_timeout_preservation.py -v`
+  - Verify Property 1 (Bug Condition) test passes → bug is fixed
+  - Verify Property 2 (Preservation) test passes → no regressions
+  - Run existing test suite to confirm no other tests are broken: `pytest tests/ -v`
+  - Ensure all tests pass, ask the user if questions arise.

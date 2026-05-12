@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import styles from "./StepProgressList.module.css";
 
 interface StepProgressListProps {
@@ -8,8 +7,8 @@ interface StepProgressListProps {
   steps: string[];
   /** Whether the process is currently running */
   active: boolean;
-  /** Approximate duration per step in ms (default: 8000) */
-  stepDurationMs?: number;
+  /** Current step index (1-based) from backend. If provided, overrides internal timer. */
+  currentStep?: number;
 }
 
 /**
@@ -17,41 +16,25 @@ interface StepProgressListProps {
  * - ✓ before completed steps
  * - → before the current step (animated)
  * - · before pending steps
+ *
+ * Uses `currentStep` from backend (polled every 5s) to show real progression.
  */
 export default function StepProgressList({
   steps,
   active,
-  stepDurationMs = 8000,
+  currentStep,
 }: StepProgressListProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  // currentStep is 1-based from backend, convert to 0-based index
+  // If null/undefined, show all steps as pending (no highlight)
+  const currentIndex = currentStep != null ? Math.min(currentStep - 1, steps.length - 1) : -1;
 
-  useEffect(() => {
-    if (!active) {
-      setCurrentIndex(0);
-      return;
-    }
-
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => {
-        // Stay on the last step (don't go past it)
-        if (prev >= steps.length - 1) return prev;
-        return prev + 1;
-      });
-    }, stepDurationMs);
-
-    return () => clearInterval(interval);
-  }, [active, steps.length, stepDurationMs]);
-
-  // Reset when steps change
-  useEffect(() => {
-    setCurrentIndex(0);
-  }, [steps]);
+  if (!active) return null;
 
   return (
     <div className={styles.list}>
       {steps.map((label, i) => {
-        const isDone = i < currentIndex;
-        const isCurrent = i === currentIndex;
+        const isDone = currentIndex >= 0 && i < currentIndex;
+        const isCurrent = currentIndex >= 0 && i === currentIndex;
 
         return (
           <div

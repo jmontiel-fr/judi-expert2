@@ -43,6 +43,8 @@ class ContenuItemResponse(BaseModel):
     description: str
     type: str
     date_ajout: str
+    download_url: Optional[str] = None
+    downloaded: bool = False
 
 
 class UrlItemResponse(BaseModel):

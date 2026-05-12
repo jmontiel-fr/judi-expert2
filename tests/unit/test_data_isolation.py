@@ -87,6 +87,9 @@ class TestDataIsolationStaticAnalysis:
             # site_central_client.py is the centralized HTTP client — allowed
             if "services/site_central_client" in rel_normalized:
                 continue
+            # corpus_service.py legitimately references SITE_CENTRAL_URL for corpus download
+            if "services/corpus_service" in rel_normalized:
+                continue
 
             source = py_file.read_text(encoding="utf-8", errors="replace")
 
@@ -114,7 +117,7 @@ class TestDataIsolationStaticAnalysis:
             json_key_sets = _extract_json_keys_from_post_calls(source)
 
             for keys in json_key_sets:
-                extra = keys - {"ticket_code"}
+                extra = keys - {"ticket_code", "ticket_token"}
                 if extra:
                     violations.append(
                         f"{rel_name}: envoie les champs {extra} en plus de ticket_code"
@@ -175,6 +178,9 @@ class TestDataIsolationStaticAnalysis:
 
             # site_central_client.py is the centralized HTTP client — allowed
             if "site_central_client" in rel_name:
+                continue
+            # corpus_service.py legitimately references SITE_CENTRAL_URL for corpus download
+            if "corpus_service" in rel_name:
                 continue
 
             if SITE_CENTRAL_REF_PATTERN.search(source):

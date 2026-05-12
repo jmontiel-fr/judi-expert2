@@ -74,7 +74,7 @@ echo ""
 
 # ── If LLM container was not running before, pull model after restart ──
 if [ "$PULL_LLM" = "yes" ]; then
-  if ! docker exec "$LLM_CONTAINER" ollama list 2>/dev/null | grep -q "mistral"; then
+  if ! docker exec "$LLM_CONTAINER" ollama list 2>/dev/null | grep -q "qwen2.5"; then
     echo -e "${YELLOW}[LLM] Modèle non trouvé — téléchargement post-démarrage...${NC}"
     if ! ensure_llm_model; then
       echo -e "${RED}  ✘ Échec de la vérification/téléchargement du modèle LLM.${NC}"

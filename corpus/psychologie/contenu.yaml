@@ -21,54 +21,56 @@ contenu:
     type: template
     date_ajout: "2025-01-01"
 
-  # --- Documents PDF de référence ---
+  # --- Documents de référence (copier-coller depuis sources non crawlables) ---
+  # Ces fichiers .txt sont constitués par l'admin en copiant le texte brut
+  # depuis les sites sources. Ils sont placés dans corpus/psychologie/documents/.
 
-  - nom: documents/guide_methodologique_expertise_psychologique_penale.pdf
+  - nom: documents/apa_apls_specialty_guidelines_forensic_psychology_2013.txt
     description: >
-      Guide méthodologique pour la conduite d'expertises psychologiques dans
-      le cadre pénal. Source : Ministère de la Justice. Couvre la méthodologie
-      d'entretien, les outils d'évaluation et la rédaction du rapport.
+      Référentiel international APA/AP-LS de bonnes pratiques pour la psychologie
+      légale (2013). Couvre la méthodologie d'évaluation forensique, l'impartialité,
+      les méthodes et procédures, et les standards d'assessment. En anglais.
+      Utilisé comme référence pour l'analyse contradictoire (Step 4).
     type: document
     date_ajout: "2025-07-14"
 
-  - nom: documents/code_deontologie_psychologues.pdf
+  - nom: documents/legifrance_cpp_art156-169_expertise.txt
     description: >
-      Code de déontologie des psychologues (version consolidée 2012).
-      Source : CNCDP. Définit les principes éthiques fondamentaux applicables
-      à la pratique de l'expertise psychologique judiciaire.
+      Articles 156 à 169-1 du Code de procédure pénale relatifs à l'expertise
+      judiciaire. Copier-coller brut depuis Légifrance. Couvre la désignation,
+      les obligations de l'expert et le cadre procédural.
     type: document
     date_ajout: "2025-07-14"
 
-  - nom: documents/referentiel_has_evaluation_psychologique.pdf
+  - nom: documents/legifrance_decret_2004_experts_judiciaires.txt
     description: >
-      Recommandations de bonnes pratiques de la HAS relatives à l'évaluation
-      psychologique, incluant les outils psychométriques validés et les
-      protocoles d'évaluation standardisés.
+      Décret n°2004-1463 du 23 décembre 2004 relatif aux experts judiciaires.
+      Copier-coller brut depuis Légifrance. Conditions d'inscription sur les
+      listes et obligations des experts.
     type: document
     date_ajout: "2025-07-14"
 
-  - nom: documents/textes_reglementaires_expertise_judiciaire.pdf
+  - nom: documents/legifrance_cpc_art232-284_mesures_instruction.txt
     description: >
-      Compilation des articles du Code de procédure pénale relatifs à
-      l'expertise judiciaire (articles 156 à 169-1). Source : Légifrance.
-      Conditions de désignation, obligations de l'expert, cadre procédural.
+      Articles 232 à 284-1 du Code de procédure civile relatifs aux mesures
+      d'instruction exécutées par un technicien (expert judiciaire).
+      Copier-coller brut depuis Légifrance.
     type: document
     date_ajout: "2025-07-14"
 
-  - nom: documents/guide_bonnes_pratiques_expertise_personnalite.pdf
+  - nom: documents/legifrance_loi_1985_titre_psychologue.txt
     description: >
-      Référentiel de bonnes pratiques pour l'évaluation de la personnalité
-      dans le cadre de l'expertise judiciaire. Source : SFP. Tests
-      psychométriques recommandés (MMPI-2, Rorschach, TAT) et protocoles.
+      Loi n°85-772 du 25 juillet 1985 portant sur la protection du titre
+      de psychologue. Copier-coller brut depuis Légifrance.
     type: document
     date_ajout: "2025-07-14"
 
   # --- URLs publiques de référence ---
 
-  - nom: urls/urls.yaml — Ministère de la Justice — Experts judiciaires
+  - nom: urls/urls.yaml — Service-Public.fr — Experts judiciaires
     description: >
-      Page officielle du ministère de la Justice consacrée aux experts
-      judiciaires : cadre réglementaire, listes d'experts, procédures.
+      Page officielle de Service-Public.fr consacrée aux experts
+      judiciaires : cadre réglementaire, rôle de l'expert, procédures.
     type: url
     date_ajout: "2025-07-14"
 
@@ -128,24 +130,18 @@ contenu:
     type: url
     date_ajout: "2025-07-14"
 
-  - nom: urls/urls.yaml — Cairn.info — Revue Pratiques Psychologiques
-    description: >
-      Revue scientifique francophone de référence en psychologie appliquée,
-      publiant des articles sur l'expertise psychologique judiciaire.
-    type: url
-    date_ajout: "2025-07-14"
-
-  - nom: urls/urls.yaml — Cairn.info — Revue L'Évolution Psychiatrique
-    description: >
-      Revue scientifique couvrant la psychiatrie et la psychologie clinique,
-      avec des articles sur l'expertise médico-légale et psycho-légale.
-    type: url
-    date_ajout: "2025-07-14"
-
   - nom: urls/urls.yaml — HAL — Archives ouvertes (psychologie légale)
     description: >
       Archive ouverte pluridisciplinaire HAL : publications scientifiques
       en accès libre sur la psychologie légale et l'expertise judiciaire.
+    type: url
+    date_ajout: "2025-07-14"
+
+  - nom: urls/urls.yaml — APA/AP-LS — Specialty Guidelines for Forensic Psychology
+    description: >
+      Référentiel international de bonnes pratiques pour la psychologie légale.
+      Méthodologie d'évaluation, obligations éthiques, standards de qualité.
+      En anglais — utilisé comme référence méthodologique pour l'analyse contradictoire.
     type: url
     date_ajout: "2025-07-14"
 

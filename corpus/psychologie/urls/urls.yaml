@@ -5,10 +5,10 @@ urls:
   # --- Sites institutionnels ---
 
   - nom: "Ministère de la Justice — Experts judiciaires"
-    url: "https://www.justice.gouv.fr/justice-civile/experts-judiciaires"
+    url: "https://www.service-public.fr/particuliers/vosdroits/F2161"
     description: >
-      Page officielle du ministère de la Justice consacrée aux experts judiciaires :
-      cadre réglementaire, listes d'experts, procédures d'inscription.
+      Page officielle de Service-Public.fr consacrée aux experts judiciaires :
+      cadre réglementaire, rôle de l'expert, procédures de désignation.
     type: institutionnel
     date_ajout: "2025-07-14"
 
@@ -80,21 +80,12 @@ urls:
 
   # --- Ressources académiques en psychologie légale ---
 
-  - nom: "Cairn.info — Revue Pratiques Psychologiques"
-    url: "https://www.cairn.info/revue-pratiques-psychologiques.htm"
+  - nom: "APA/AP-LS — Specialty Guidelines for Forensic Psychology (2013)"
+    url: "https://ap-ls.org/resources/guidelines/"
     description: >
-      Revue scientifique francophone de référence en psychologie appliquée,
-      publiant des articles sur l'expertise psychologique judiciaire.
-      Accès libre aux résumés et à certains articles.
-    type: academique
-    date_ajout: "2025-07-14"
-
-  - nom: "Cairn.info — Revue L'Évolution Psychiatrique"
-    url: "https://www.cairn.info/revue-l-evolution-psychiatrique.htm"
-    description: >
-      Revue scientifique couvrant la psychiatrie et la psychologie clinique,
-      avec des articles sur l'expertise médico-légale et psycho-légale.
-      Accès libre aux résumés.
+      Référentiel international de bonnes pratiques pour la psychologie légale
+      (American Psychology-Law Society). Couvre la méthodologie d'évaluation,
+      les obligations éthiques et les standards de qualité. En anglais.
     type: academique
     date_ajout: "2025-07-14"
 

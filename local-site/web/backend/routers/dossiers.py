@@ -97,6 +97,10 @@ class StepDetailResponse(BaseModel):
     statut: str
     executed_at: datetime | None = None
     validated_at: datetime | None = None
+    execution_duration_seconds: float | None = None
+    progress_current: int | None = None
+    progress_total: int | None = None
+    progress_message: str | None = None
     files: list[StepFileItem]
 
 
@@ -402,6 +406,10 @@ async def get_step_detail(
         statut=step.statut,
         executed_at=step.executed_at,
         validated_at=step.validated_at,
+        execution_duration_seconds=step.execution_duration_seconds,
+        progress_current=step.progress_current,
+        progress_total=step.progress_total,
+        progress_message=step.progress_message,
         files=[
             StepFileItem(
                 id=f.id,
@@ -490,20 +498,43 @@ async def cancel_step(
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Annule un step en cours de traitement et le remet à initial."""
+    """Réinitialise un step (annule le traitement ou remet à zéro).
+
+    Fonctionne pour les statuts : en_cours, fait, initial.
+    Supprime les fichiers associés en base et remet le step à initial.
+    """
     result = await db.execute(
         select(Step)
+        .options(selectinload(Step.files))
         .where(Step.dossier_id == dossier_id, Step.step_number == step_number)
     )
     step = result.scalar_one_or_none()
     if step is None:
         raise HTTPException(status_code=404, detail="Étape non trouvée")
-    if step.statut != "en_cours":
-        raise HTTPException(status_code=400, detail="L'étape n'est pas en cours")
+    if step.statut == "valide":
+        raise HTTPException(status_code=400, detail="L'étape est validée et verrouillée")
+
+    # Supprimer les fichiers en base
+    for sf in list(step.files):
+        # Supprimer le fichier sur disque
+        import os
+        if sf.file_path and os.path.isfile(sf.file_path):
+            try:
+                os.remove(sf.file_path)
+            except OSError:
+                pass
+        await db.delete(sf)
+
+    # Remettre le step à initial
     step.statut = "initial"
     step.executed_at = None
+    step.validated_at = None
+    step.execution_duration_seconds = None
+    step.progress_current = None
+    step.progress_total = None
+    step.progress_message = None
     await db.commit()
-    return StepResetResponse(message=f"Étape {step_number} annulée")
+    return StepResetResponse(message=f"Étape {step_number} réinitialisée")
 
 
 # ---- 5c. POST /{id}/reset-all  (reset complet) ----------------------------

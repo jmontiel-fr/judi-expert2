@@ -96,17 +96,14 @@ async def client(session_factory, tmp_data_dir):
     app.dependency_overrides[get_db] = _override_get_db
     app.dependency_overrides[get_current_user] = _override_auth
 
-    # Patcher DATA_DIR dans le module dossiers
-    import routers.dossiers as dossiers_module
+    # Patcher DATA_DIR dans le module file_paths
+    from unittest.mock import patch
 
-    original_data_dir = dossiers_module.DATA_DIR
-    dossiers_module.DATA_DIR = tmp_data_dir
+    with patch("services.file_paths.DATA_DIR", tmp_data_dir):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            yield ac
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
-
-    dossiers_module.DATA_DIR = original_data_dir
     app.dependency_overrides.clear()
 
 
@@ -116,7 +113,7 @@ async def _create_dossier_step_and_file(
     filename: str,
     content: bytes,
     step_number: int = 2,
-    step_statut: str = "réalisé",
+    step_statut: str = "fait",
     dossier_statut: str = "actif",
 ) -> tuple[int, int, int]:
     """Crée un dossier, une étape et un StepFile en base + fichier sur disque.
@@ -143,8 +140,10 @@ async def _create_dossier_step_and_file(
         await session.flush()
 
         # Créer le répertoire et le fichier sur disque
+        # Use the same path structure as the router: {DATA_DIR}/{dossier_name}/step{n}/out/
+        from services.file_paths import _slugify
         step_dir = (
-            Path(tmp_data_dir) / "dossiers" / str(dossier.id) / f"step{step_number}"
+            Path(tmp_data_dir) / _slugify(dossier.nom) / f"step{step_number}" / "out"
         )
         step_dir.mkdir(parents=True, exist_ok=True)
         file_path = step_dir / filename
@@ -196,7 +195,7 @@ async def test_replace_file_roundtrip(
         tmp_data_dir,
         filename,
         original_content,
-        step_statut="réalisé",
+        step_statut="fait",
         dossier_statut="actif",
     )
 
@@ -211,7 +210,8 @@ async def test_replace_file_roundtrip(
     assert body["new_size"] == len(new_content)
 
     # Vérifier le fichier sur disque
-    step_dir = Path(tmp_data_dir) / "dossiers" / str(dossier_id) / "step2"
+    from services.file_paths import _slugify
+    step_dir = Path(tmp_data_dir) / _slugify("Test Dossier") / "step2" / "out"
     disk_path = step_dir / filename
     assert disk_path.exists(), f"Fichier manquant sur le disque : {disk_path}"
     assert disk_path.read_bytes() == new_content
@@ -262,7 +262,7 @@ async def test_validated_step_blocks_replacement(
         tmp_data_dir,
         filename,
         original_content,
-        step_statut="validé",
+        step_statut="valide",
         dossier_statut="actif",
     )
 
@@ -276,7 +276,8 @@ async def test_validated_step_blocks_replacement(
     assert "verrouillée" in detail.lower() or "modification impossible" in detail.lower()
 
     # Vérifier que le fichier sur disque est inchangé
-    step_dir = Path(tmp_data_dir) / "dossiers" / str(dossier_id) / "step2"
+    from services.file_paths import _slugify
+    step_dir = Path(tmp_data_dir) / _slugify("Test Dossier") / "step2" / "out"
     assert (step_dir / filename).read_bytes() == original_content
 
     # Vérifier que le StepFile est inchangé en base

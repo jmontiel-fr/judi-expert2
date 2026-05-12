@@ -25,6 +25,9 @@ class Step(Base):
     executed_at: Mapped[Optional[datetime]] = mapped_column()
     validated_at: Mapped[Optional[datetime]] = mapped_column()
     execution_duration_seconds: Mapped[Optional[float]] = mapped_column(Float, default=None)
+    progress_current: Mapped[Optional[int]] = mapped_column(default=None)
+    progress_total: Mapped[Optional[int]] = mapped_column(default=None)
+    progress_message: Mapped[Optional[str]] = mapped_column(String(255), default=None)
 
     dossier: Mapped["Dossier"] = relationship(back_populates="steps")
     files: Mapped[list["StepFile"]] = relationship(back_populates="step")

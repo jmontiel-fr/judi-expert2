@@ -42,7 +42,7 @@ sys.path.insert(
 from models import Base, Dossier, Step
 from services.workflow_engine import (
     DOSSIER_ACTIF,
-    DOSSIER_ARCHIVE,
+    DOSSIER_FERME,
     STATUT_INITIAL,
     STATUT_REALISE,
     STATUT_VALIDE,
@@ -71,14 +71,14 @@ class WorkflowStateMachine(RuleBasedStateMachine):
     """Machine à états Hypothesis pour le workflow d'expertise.
 
     Explore toutes les séquences possibles d'opérations execute_step et
-    validate_step sur un dossier avec 4 étapes, et vérifie que le
+    validate_step sur un dossier avec 5 étapes, et vérifie que le
     WorkflowEngine respecte les invariants du workflow.
     """
 
     def __init__(self):
         super().__init__()
         self.engine = WorkflowEngine()
-        # État attendu de chaque étape (0-3)
+        # État attendu de chaque étape (1-5)
         self.expected_statuts: dict[int, str] = {}
         self.expected_dossier_statut: str = DOSSIER_ACTIF
         self.dossier_id: int | None = None
@@ -87,7 +87,7 @@ class WorkflowStateMachine(RuleBasedStateMachine):
 
     @initialize()
     def setup_dossier(self):
-        """Crée une base en mémoire, un dossier avec 4 étapes 'initial'."""
+        """Crée une base en mémoire, un dossier avec 5 étapes 'initial'."""
         self.db_engine = create_async_engine(
             "sqlite+aiosqlite:///:memory:", echo=False
         )
@@ -109,7 +109,7 @@ class WorkflowStateMachine(RuleBasedStateMachine):
                 session.add(dossier)
                 await session.flush()
 
-                for step_number in range(4):
+                for step_number in range(1, 6):
                     session.add(
                         Step(
                             dossier_id=dossier.id,
@@ -122,7 +122,7 @@ class WorkflowStateMachine(RuleBasedStateMachine):
                 return dossier.id
 
         self.dossier_id = run_async(_init())
-        self.expected_statuts = {i: STATUT_INITIAL for i in range(4)}
+        self.expected_statuts = {i: STATUT_INITIAL for i in range(1, 6)}
         self.expected_dossier_statut = DOSSIER_ACTIF
 
     def teardown(self):
@@ -141,7 +141,7 @@ class WorkflowStateMachine(RuleBasedStateMachine):
         if self.expected_statuts[step_number] != STATUT_INITIAL:
             return False
         # Toutes les étapes précédentes doivent être validées
-        for i in range(step_number):
+        for i in range(1, step_number):
             if self.expected_statuts[i] != STATUT_VALIDE:
                 return False
         return True
@@ -153,7 +153,7 @@ class WorkflowStateMachine(RuleBasedStateMachine):
         if self.expected_statuts[step_number] != STATUT_REALISE:
             return False
         # Toutes les étapes précédentes doivent être validées
-        for i in range(step_number):
+        for i in range(1, step_number):
             if self.expected_statuts[i] != STATUT_VALIDE:
                 return False
         return True
@@ -161,10 +161,6 @@ class WorkflowStateMachine(RuleBasedStateMachine):
     # ------------------------------------------------------------------
     # Règles
     # ------------------------------------------------------------------
-
-    @rule()
-    def execute_step_0(self):
-        self._do_execute(0)
 
     @rule()
     def execute_step_1(self):
@@ -179,8 +175,12 @@ class WorkflowStateMachine(RuleBasedStateMachine):
         self._do_execute(3)
 
     @rule()
-    def validate_step_0(self):
-        self._do_validate(0)
+    def execute_step_4(self):
+        self._do_execute(4)
+
+    @rule()
+    def execute_step_5(self):
+        self._do_execute(5)
 
     @rule()
     def validate_step_1(self):
@@ -193,6 +193,14 @@ class WorkflowStateMachine(RuleBasedStateMachine):
     @rule()
     def validate_step_3(self):
         self._do_validate(3)
+
+    @rule()
+    def validate_step_4(self):
+        self._do_validate(4)
+
+    @rule()
+    def validate_step_5(self):
+        self._do_validate(5)
 
     # ------------------------------------------------------------------
     # Implémentation des actions
@@ -260,9 +268,6 @@ class WorkflowStateMachine(RuleBasedStateMachine):
             assert data.statut == STATUT_VALIDE
             assert data.validated_at is not None
             self.expected_statuts[step_number] = STATUT_VALIDE
-            # Validation du Step3 → archivage du dossier
-            if step_number == 3:
-                self.expected_dossier_statut = DOSSIER_ARCHIVE
         else:
             assert outcome == "error", (
                 f"validate_step({step_number}) devrait échouer "
@@ -277,16 +282,16 @@ class WorkflowStateMachine(RuleBasedStateMachine):
 
     def _check_invariants(self):
         """Vérifie les invariants globaux du workflow."""
-        # Si le dossier est archivé, toutes les étapes doivent être validées
-        if self.expected_dossier_statut == DOSSIER_ARCHIVE:
-            for i in range(4):
+        # Si le dossier est fermé, toutes les étapes doivent être validées
+        if self.expected_dossier_statut == DOSSIER_FERME:
+            for i in range(1, 6):
                 assert self.expected_statuts[i] == STATUT_VALIDE
 
         # L'ordre séquentiel est respecté : si step N est réalisé ou validé,
         # toutes les étapes < N doivent être validées
-        for i in range(4):
+        for i in range(1, 6):
             if self.expected_statuts[i] in (STATUT_REALISE, STATUT_VALIDE):
-                for j in range(i):
+                for j in range(1, i):
                     assert self.expected_statuts[j] == STATUT_VALIDE, (
                         f"Step {i} est {self.expected_statuts[i]} mais "
                         f"Step {j} est {self.expected_statuts[j]} (devrait être validé)"

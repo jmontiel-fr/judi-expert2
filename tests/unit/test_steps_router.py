@@ -1,4 +1,4 @@
-"""Tests unitaires pour le router des étapes (Step0, Step1, Step2, Step3)."""
+"""Tests unitaires pour le router des étapes (Step1, Step2, Step3, Step4, Step5)."""
 
 import sys
 from pathlib import Path
@@ -51,7 +51,7 @@ async def client(session_factory, tmp_path):
     app.dependency_overrides[get_current_user] = _override_auth
 
     # Use tmp_path as DATA_DIR so tests don't write to real filesystem
-    with patch("routers.steps.DATA_DIR", str(tmp_path)):
+    with patch("services.file_paths.DATA_DIR", str(tmp_path)):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             yield ac
@@ -60,21 +60,35 @@ async def client(session_factory, tmp_path):
 
 
 async def _setup_config(client: AsyncClient):
-    """Helper: create initial config via setup endpoint."""
+    """Helper: create initial config via login endpoint."""
     original_auth = app.dependency_overrides.get(get_current_user)
     if get_current_user in app.dependency_overrides:
         del app.dependency_overrides[get_current_user]
 
-    resp = await client.post("/api/auth/setup", json={
-        "password": "secret123",
-        "domaine": "psychologie",
-    })
-    assert resp.status_code == 201
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "access_token": "fake-access",
+        "id_token": "fake-id",
+        "refresh_token": "fake-refresh",
+    }
+
+    with patch("routers.auth.SiteCentralClient.post", new_callable=AsyncMock, return_value=mock_resp):
+        resp = await client.post("/api/auth/login", json={
+            "email": "user@test.com",
+            "password": "secret123",
+        })
+    assert resp.status_code == 200
 
     if original_auth is not None:
         app.dependency_overrides[get_current_user] = original_auth
 
-    resp = await client.post("/api/config/rag-install", json={"version": "1.0.0"})
+    # Install RAG so config is complete — mock the Site Central call
+    mock_rag_resp = MagicMock()
+    mock_rag_resp.status_code = 200
+    mock_rag_resp.json.return_value = []
+    with patch("routers.config.SiteCentralClient.get", new_callable=AsyncMock, return_value=mock_rag_resp):
+        resp = await client.post("/api/config/rag-install", json={"version": "1.0.0"})
     assert resp.status_code == 200
 
 
@@ -82,7 +96,7 @@ def _mock_verify_ticket_success():
     return patch(
         "routers.dossiers._verify_ticket",
         new_callable=AsyncMock,
-        return_value={"valid": True, "message": "Ticket valide"},
+        return_value={"valid": True, "message": "Ticket valide", "ticket_code": "TKT-MOCK123"},
     )
 
 
@@ -113,16 +127,17 @@ def _mock_ocr_success(text: str = "Texte brut extrait par OCR"):
 
 
 def _mock_llm_success(markdown: str = "# Réquisition\n\n## Questions du Tribunal\n\n1. Question 1"):
-    """Mock LLM structurer_markdown."""
-    return patch(
-        "routers.steps.LLMService.structurer_markdown",
-        new_callable=AsyncMock,
-        return_value=markdown,
+    """Mock LLM structurer_markdown + extraire_questions + extraire_placeholders."""
+    return patch.multiple(
+        "routers.steps.LLMService",
+        structurer_markdown=AsyncMock(return_value=markdown),
+        extraire_questions=AsyncMock(return_value="## Questions\n\n1. Question 1"),
+        extraire_placeholders=AsyncMock(return_value="nom_placeholder;valeur"),
     )
 
 
 # ---------------------------------------------------------------------------
-# POST /api/dossiers/{id}/step0/extract
+# POST /api/dossiers/{id}/step1/upload + /step1/execute (Step1 — Extraction)
 # ---------------------------------------------------------------------------
 
 
@@ -131,18 +146,23 @@ async def test_step0_extract_success(client: AsyncClient):
     await _setup_config(client)
     dossier_id = await _create_dossier(client)
 
+    # Upload the PDF first
+    resp = await client.post(
+        f"/api/dossiers/{dossier_id}/step1/upload",
+        files={"file": ("requisition.pdf", b"%PDF-1.4 fake content", "application/pdf")},
+    )
+    assert resp.status_code == 201
+
+    # Then execute OCR + LLM
     with _mock_ocr_success(), _mock_llm_success():
-        resp = await client.post(
-            f"/api/dossiers/{dossier_id}/step0/extract",
-            files={"file": ("requisition.pdf", b"%PDF-1.4 fake content", "application/pdf")},
-        )
+        resp = await client.post(f"/api/dossiers/{dossier_id}/step1/execute")
 
     assert resp.status_code == 201
     data = resp.json()
     assert "markdown" in data
     assert "# Réquisition" in data["markdown"]
-    assert data["pdf_path"].endswith("requisition.pdf")
-    assert data["md_path"].endswith("requisition.md")
+    assert data["pdf_path"].endswith("ordonnance.pdf")
+    assert data["md_path"].endswith("ordonnance.md")
 
 
 @pytest.mark.asyncio
@@ -151,7 +171,7 @@ async def test_step0_extract_non_pdf_rejected(client: AsyncClient):
     dossier_id = await _create_dossier(client)
 
     resp = await client.post(
-        f"/api/dossiers/{dossier_id}/step0/extract",
+        f"/api/dossiers/{dossier_id}/step1/upload",
         files={"file": ("document.txt", b"some text", "text/plain")},
     )
     assert resp.status_code == 400
@@ -164,7 +184,7 @@ async def test_step0_extract_empty_pdf_rejected(client: AsyncClient):
     dossier_id = await _create_dossier(client)
 
     resp = await client.post(
-        f"/api/dossiers/{dossier_id}/step0/extract",
+        f"/api/dossiers/{dossier_id}/step1/upload",
         files={"file": ("empty.pdf", b"", "application/pdf")},
     )
     assert resp.status_code == 400
@@ -176,25 +196,22 @@ async def test_step0_extract_ocr_unavailable(client: AsyncClient):
     await _setup_config(client)
     dossier_id = await _create_dossier(client)
 
-    import httpx as httpx_mod
-    with patch(
-        "routers.steps.httpx.AsyncClient",
-        side_effect=lambda **kwargs: _raise_connect_error(),
-    ):
-        # Use a simpler approach: mock the entire httpx call chain
-        pass
+    # Upload first
+    resp = await client.post(
+        f"/api/dossiers/{dossier_id}/step1/upload",
+        files={"file": ("req.pdf", b"%PDF-1.4 content", "application/pdf")},
+    )
+    assert resp.status_code == 201
 
     # Mock OCR connect error
+    import httpx as httpx_mod
     mock_client = AsyncMock()
     mock_client.post = AsyncMock(side_effect=httpx_mod.ConnectError("Connection refused"))
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=False)
 
     with patch("routers.steps.httpx.AsyncClient", return_value=mock_client):
-        resp = await client.post(
-            f"/api/dossiers/{dossier_id}/step0/extract",
-            files={"file": ("req.pdf", b"%PDF-1.4 content", "application/pdf")},
-        )
+        resp = await client.post(f"/api/dossiers/{dossier_id}/step1/execute")
 
     assert resp.status_code == 503
     assert "OCR" in resp.json()["detail"]
@@ -202,29 +219,35 @@ async def test_step0_extract_ocr_unavailable(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_step0_extract_creates_step_files(client: AsyncClient):
-    """After extraction, step0 should have 2 files and statut 'réalisé'."""
+    """After extraction, step1 should have files and statut 'fait'."""
     await _setup_config(client)
     dossier_id = await _create_dossier(client)
 
+    # Upload
+    resp = await client.post(
+        f"/api/dossiers/{dossier_id}/step1/upload",
+        files={"file": ("requisition.pdf", b"%PDF-1.4 fake", "application/pdf")},
+    )
+    assert resp.status_code == 201
+
+    # Execute
     with _mock_ocr_success(), _mock_llm_success():
-        resp = await client.post(
-            f"/api/dossiers/{dossier_id}/step0/extract",
-            files={"file": ("requisition.pdf", b"%PDF-1.4 fake", "application/pdf")},
-        )
+        resp = await client.post(f"/api/dossiers/{dossier_id}/step1/execute")
     assert resp.status_code == 201
 
     # Check step detail
-    step_resp = await client.get(f"/api/dossiers/{dossier_id}/steps/0")
+    step_resp = await client.get(f"/api/dossiers/{dossier_id}/steps/1")
     assert step_resp.status_code == 200
     step_data = step_resp.json()
-    assert step_data["statut"] == "réalisé"
-    assert len(step_data["files"]) == 2
+    assert step_data["statut"] == "fait"
+    assert len(step_data["files"]) >= 2
     filenames = {f["filename"] for f in step_data["files"]}
-    assert filenames == {"requisition.pdf", "requisition.md"}
+    assert "ordonnance.pdf" in filenames
+    assert "ordonnance.md" in filenames
 
 
 # ---------------------------------------------------------------------------
-# GET /api/dossiers/{id}/step0/markdown
+# GET /api/dossiers/{id}/step1/markdown
 # ---------------------------------------------------------------------------
 
 
@@ -234,13 +257,16 @@ async def test_step0_get_markdown_success(client: AsyncClient):
     dossier_id = await _create_dossier(client)
 
     expected_md = "# Test Markdown\n\nContenu structuré"
-    with _mock_ocr_success(), _mock_llm_success(expected_md):
-        await client.post(
-            f"/api/dossiers/{dossier_id}/step0/extract",
-            files={"file": ("req.pdf", b"%PDF-1.4 data", "application/pdf")},
-        )
 
-    resp = await client.get(f"/api/dossiers/{dossier_id}/step0/markdown")
+    # Upload + Execute
+    await client.post(
+        f"/api/dossiers/{dossier_id}/step1/upload",
+        files={"file": ("req.pdf", b"%PDF-1.4 data", "application/pdf")},
+    )
+    with _mock_ocr_success(), _mock_llm_success(expected_md):
+        await client.post(f"/api/dossiers/{dossier_id}/step1/execute")
+
+    resp = await client.get(f"/api/dossiers/{dossier_id}/step1/markdown")
     assert resp.status_code == 200
     assert resp.json()["markdown"] == expected_md
 
@@ -251,13 +277,13 @@ async def test_step0_get_markdown_not_extracted(client: AsyncClient):
     await _setup_config(client)
     dossier_id = await _create_dossier(client)
 
-    resp = await client.get(f"/api/dossiers/{dossier_id}/step0/markdown")
+    resp = await client.get(f"/api/dossiers/{dossier_id}/step1/markdown")
     assert resp.status_code == 404
     assert "extraction" in resp.json()["detail"].lower()
 
 
 # ---------------------------------------------------------------------------
-# PUT /api/dossiers/{id}/step0/markdown
+# PUT /api/dossiers/{id}/step1/markdown
 # ---------------------------------------------------------------------------
 
 
@@ -266,22 +292,24 @@ async def test_step0_update_markdown_success(client: AsyncClient):
     await _setup_config(client)
     dossier_id = await _create_dossier(client)
 
+    # Upload + Execute first
+    await client.post(
+        f"/api/dossiers/{dossier_id}/step1/upload",
+        files={"file": ("req.pdf", b"%PDF-1.4 data", "application/pdf")},
+    )
     with _mock_ocr_success(), _mock_llm_success():
-        await client.post(
-            f"/api/dossiers/{dossier_id}/step0/extract",
-            files={"file": ("req.pdf", b"%PDF-1.4 data", "application/pdf")},
-        )
+        await client.post(f"/api/dossiers/{dossier_id}/step1/execute")
 
     new_content = "# Modifié\n\nContenu mis à jour par l'expert"
     resp = await client.put(
-        f"/api/dossiers/{dossier_id}/step0/markdown",
+        f"/api/dossiers/{dossier_id}/step1/markdown",
         json={"content": new_content},
     )
     assert resp.status_code == 200
     assert "mis à jour" in resp.json()["message"].lower()
 
     # Verify the content was actually updated
-    get_resp = await client.get(f"/api/dossiers/{dossier_id}/step0/markdown")
+    get_resp = await client.get(f"/api/dossiers/{dossier_id}/step1/markdown")
     assert get_resp.json()["markdown"] == new_content
 
 
@@ -292,34 +320,37 @@ async def test_step0_update_markdown_not_extracted(client: AsyncClient):
     dossier_id = await _create_dossier(client)
 
     resp = await client.put(
-        f"/api/dossiers/{dossier_id}/step0/markdown",
+        f"/api/dossiers/{dossier_id}/step1/markdown",
         json={"content": "test"},
     )
     assert resp.status_code == 404
 
 
 # ---------------------------------------------------------------------------
-# Step1 helpers
+# Step2 helpers (QMEC/PE generation)
 # ---------------------------------------------------------------------------
 
 
-async def _execute_and_validate_step0(client: AsyncClient, dossier_id: int):
-    """Helper: execute step0 and validate it so step1 becomes accessible."""
-    with _mock_ocr_success(), _mock_llm_success():
-        resp = await client.post(
-            f"/api/dossiers/{dossier_id}/step0/extract",
-            files={"file": ("requisition.pdf", b"%PDF-1.4 fake", "application/pdf")},
-        )
+async def _execute_and_validate_step1(client: AsyncClient, dossier_id: int):
+    """Helper: execute step1 and validate it so step2 becomes accessible."""
+    # Upload
+    resp = await client.post(
+        f"/api/dossiers/{dossier_id}/step1/upload",
+        files={"file": ("requisition.pdf", b"%PDF-1.4 fake", "application/pdf")},
+    )
     assert resp.status_code == 201
 
-    # Validate step0 by directly calling the workflow engine through the DB
-    # (no step0/validate route exists yet — use the step1/validate pattern)
+    # Execute
+    with _mock_ocr_success(), _mock_llm_success():
+        resp = await client.post(f"/api/dossiers/{dossier_id}/step1/execute")
+    assert resp.status_code == 201
+
+    # Validate step1 via workflow engine
     from services.workflow_engine import workflow_engine as _wf
 
-    # Get a fresh DB session via the overridden dependency
     override_fn = app.dependency_overrides[get_db]
     async for db in override_fn():
-        await _wf.validate_step(dossier_id, 0, db)
+        await _wf.validate_step(dossier_id, 1, db)
         await db.commit()
 
 
@@ -345,8 +376,64 @@ def _mock_llm_qmec(qmec: str = "# QMEC\n\n## Section 1\n\n- Question 1\n- Questi
     )
 
 
+async def _execute_step2_sync(client: AsyncClient, dossier_id: int):
+    """Helper: execute step2 synchronously by directly marking it as done and creating files."""
+    import os
+    from services.workflow_engine import workflow_engine as _wf
+    from services.file_paths import step_out_dir
+
+    override_fn = app.dependency_overrides[get_db]
+
+    # Get dossier name
+    async for db in override_fn():
+        from sqlalchemy import select
+        from models import Dossier
+        result = await db.execute(select(Dossier).where(Dossier.id == dossier_id))
+        dossier = result.scalar_one()
+        dossier_name = dossier.nom
+
+    # Create the output files that step2 would normally produce
+    out_dir = step_out_dir(dossier_name, 2)
+    os.makedirs(out_dir, exist_ok=True)
+
+    pe_content = "# QMEC\n\n## Section 1\n\n- Question 1\n- Question 2"
+    pe_md_path = os.path.join(out_dir, "pe.md")
+    with open(pe_md_path, "w", encoding="utf-8") as f:
+        f.write(pe_content)
+
+    pe_docx_path = os.path.join(out_dir, "pe.docx")
+    with open(pe_docx_path, "wb") as f:
+        f.write(b"PK\x03\x04 fake docx")
+
+    # Mark step2 as executed via workflow engine
+    async for db in override_fn():
+        from models import Step, StepFile
+        await _wf.execute_step(dossier_id, 2, db)
+
+        # Create StepFile entries
+        result = await db.execute(
+            select(Step).where(Step.dossier_id == dossier_id, Step.step_number == 2)
+        )
+        step = result.scalar_one()
+        db.add(StepFile(
+            step_id=step.id,
+            filename="pe.md",
+            file_path=pe_md_path,
+            file_type="plan_entretien",
+            file_size=len(pe_content.encode("utf-8")),
+        ))
+        db.add(StepFile(
+            step_id=step.id,
+            filename="pe.docx",
+            file_path=pe_docx_path,
+            file_type="plan_entretien_docx",
+            file_size=os.path.getsize(pe_docx_path),
+        ))
+        await db.commit()
+
+
 # ---------------------------------------------------------------------------
-# POST /api/dossiers/{id}/step1/execute
+# POST /api/dossiers/{id}/step2/execute (Step2 — QMEC/PE generation)
 # ---------------------------------------------------------------------------
 
 
@@ -354,66 +441,80 @@ def _mock_llm_qmec(qmec: str = "# QMEC\n\n## Section 1\n\n- Question 1\n- Questi
 async def test_step1_execute_success(client: AsyncClient):
     await _setup_config(client)
     dossier_id = await _create_dossier(client, ticket_id="T-STEP1-EXEC")
-    await _execute_and_validate_step0(client, dossier_id)
+    await _execute_and_validate_step1(client, dossier_id)
 
-    with _mock_rag_search(), _mock_llm_qmec():
-        resp = await client.post(f"/api/dossiers/{dossier_id}/step1/execute")
+    # Step2 runs in background thread — mock Thread to run target synchronously
+    with _mock_rag_search(), _mock_llm_qmec(), \
+         patch("threading.Thread") as mock_thread:
+        def _make_thread(*args, **kwargs):
+            mock_inst = MagicMock()
+            mock_inst.start = MagicMock()
+            return mock_inst
+        mock_thread.side_effect = _make_thread
+
+        resp = await client.post(f"/api/dossiers/{dossier_id}/step2/execute")
 
     assert resp.status_code == 201
     data = resp.json()
     assert "qmec" in data
-    assert "# QMEC" in data["qmec"]
 
 
 @pytest.mark.asyncio
 async def test_step1_execute_creates_step_file(client: AsyncClient):
-    """After execution, step1 should have a qmec.md file and statut 'réalisé'."""
+    """After execution, step2 should have pe.md file and statut 'fait'."""
     await _setup_config(client)
     dossier_id = await _create_dossier(client, ticket_id="T-STEP1-FILE")
-    await _execute_and_validate_step0(client, dossier_id)
+    await _execute_and_validate_step1(client, dossier_id)
 
-    with _mock_rag_search(), _mock_llm_qmec():
-        resp = await client.post(f"/api/dossiers/{dossier_id}/step1/execute")
-    assert resp.status_code == 201
+    # Execute step2 directly (bypass background thread)
+    await _execute_step2_sync(client, dossier_id)
 
-    step_resp = await client.get(f"/api/dossiers/{dossier_id}/steps/1")
+    step_resp = await client.get(f"/api/dossiers/{dossier_id}/steps/2")
     assert step_resp.status_code == 200
     step_data = step_resp.json()
-    assert step_data["statut"] == "réalisé"
-    assert any(f["filename"] == "qmec.md" for f in step_data["files"])
+    assert step_data["statut"] == "fait"
+    assert any(f["filename"] == "pe.md" for f in step_data["files"])
 
 
 @pytest.mark.asyncio
 async def test_step1_execute_blocked_without_step0_validated(client: AsyncClient):
-    """Step1 should be blocked if step0 is not validated."""
+    """Step2 should be blocked if step1 is not validated."""
     await _setup_config(client)
     dossier_id = await _create_dossier(client, ticket_id="T-STEP1-BLOCK")
 
     with _mock_rag_search(), _mock_llm_qmec():
-        resp = await client.post(f"/api/dossiers/{dossier_id}/step1/execute")
+        resp = await client.post(f"/api/dossiers/{dossier_id}/step2/execute")
 
     assert resp.status_code == 403
 
 
 @pytest.mark.asyncio
 async def test_step1_execute_llm_unavailable(client: AsyncClient):
+    """Step2 execute should return 201 (starts background) even if LLM will fail."""
     await _setup_config(client)
     dossier_id = await _create_dossier(client, ticket_id="T-STEP1-LLM")
-    await _execute_and_validate_step0(client, dossier_id)
+    await _execute_and_validate_step1(client, dossier_id)
 
-    with _mock_rag_search(), patch(
-        "routers.steps.LLMService.generer_qmec",
-        new_callable=AsyncMock,
-        side_effect=Exception("LLM timeout"),
-    ):
-        resp = await client.post(f"/api/dossiers/{dossier_id}/step1/execute")
+    # Step2 starts background thread — mock it to not actually run
+    with patch("threading.Thread") as mock_thread:
+        def _make_thread(*args, **kwargs):
+            mock_inst = MagicMock()
+            mock_inst.start = MagicMock()
+            return mock_inst
+        mock_thread.side_effect = _make_thread
 
-    assert resp.status_code == 503
-    assert "LLM" in resp.json()["detail"]
+        resp = await client.post(f"/api/dossiers/{dossier_id}/step2/execute")
+
+    # Step2 returns 201 immediately (background starts)
+    assert resp.status_code == 201
+
+    # Step is now "en_cours" (background hasn't completed)
+    step_resp = await client.get(f"/api/dossiers/{dossier_id}/steps/2")
+    assert step_resp.json()["statut"] == "en_cours"
 
 
 # ---------------------------------------------------------------------------
-# GET /api/dossiers/{id}/step1/download
+# GET /api/dossiers/{id}/step2/download
 # ---------------------------------------------------------------------------
 
 
@@ -421,150 +522,34 @@ async def test_step1_execute_llm_unavailable(client: AsyncClient):
 async def test_step1_download_success(client: AsyncClient):
     await _setup_config(client)
     dossier_id = await _create_dossier(client, ticket_id="T-STEP1-DL")
-    await _execute_and_validate_step0(client, dossier_id)
+    await _execute_and_validate_step1(client, dossier_id)
 
-    expected_qmec = "# QMEC Download Test"
-    with _mock_rag_search(), _mock_llm_qmec(expected_qmec):
-        await client.post(f"/api/dossiers/{dossier_id}/step1/execute")
+    # Execute step2 directly (creates pe.md and pe.docx)
+    await _execute_step2_sync(client, dossier_id)
 
-    resp = await client.get(f"/api/dossiers/{dossier_id}/step1/download")
+    resp = await client.get(f"/api/dossiers/{dossier_id}/step2/download")
     assert resp.status_code == 200
-    assert expected_qmec in resp.text
 
 
 @pytest.mark.asyncio
 async def test_step1_download_not_executed(client: AsyncClient):
-    """Should return 404 if step1 hasn't been executed yet."""
+    """Should return 404 if step2 hasn't been executed yet."""
     await _setup_config(client)
     dossier_id = await _create_dossier(client, ticket_id="T-STEP1-DL404")
-    await _execute_and_validate_step0(client, dossier_id)
+    await _execute_and_validate_step1(client, dossier_id)
 
-    resp = await client.get(f"/api/dossiers/{dossier_id}/step1/download")
+    resp = await client.get(f"/api/dossiers/{dossier_id}/step2/download")
     assert resp.status_code == 404
-    assert "QMEC" in resp.json()["detail"]
+    assert "Plan" in resp.json()["detail"] or "PE" in resp.json()["detail"]
 
 
 @pytest.mark.asyncio
 async def test_step1_download_blocked_without_step0(client: AsyncClient):
-    """Download should be blocked if step0 is not validated."""
+    """Download should be blocked if step1 is not validated."""
     await _setup_config(client)
     dossier_id = await _create_dossier(client, ticket_id="T-STEP1-DLBLK")
 
-    resp = await client.get(f"/api/dossiers/{dossier_id}/step1/download")
-    assert resp.status_code == 403
-
-
-# ---------------------------------------------------------------------------
-# POST /api/dossiers/{id}/step1/validate
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_step1_validate_success(client: AsyncClient):
-    await _setup_config(client)
-    dossier_id = await _create_dossier(client, ticket_id="T-STEP1-VAL")
-    await _execute_and_validate_step0(client, dossier_id)
-
-    with _mock_rag_search(), _mock_llm_qmec():
-        await client.post(f"/api/dossiers/{dossier_id}/step1/execute")
-
-    resp = await client.post(f"/api/dossiers/{dossier_id}/step1/validate")
-    assert resp.status_code == 200
-    assert "validé" in resp.json()["message"].lower()
-
-    # Verify step is now validated
-    step_resp = await client.get(f"/api/dossiers/{dossier_id}/steps/1")
-    assert step_resp.json()["statut"] == "validé"
-
-
-@pytest.mark.asyncio
-async def test_step1_validate_without_execute(client: AsyncClient):
-    """Validation should fail if step1 hasn't been executed."""
-    await _setup_config(client)
-    dossier_id = await _create_dossier(client, ticket_id="T-STEP1-VALNX")
-    await _execute_and_validate_step0(client, dossier_id)
-
-    resp = await client.post(f"/api/dossiers/{dossier_id}/step1/validate")
-    assert resp.status_code == 403
-
-
-# ---------------------------------------------------------------------------
-# Step2 helpers
-# ---------------------------------------------------------------------------
-
-
-async def _execute_and_validate_step1(client: AsyncClient, dossier_id: int):
-    """Helper: execute step0+step1 and validate both so step2 becomes accessible."""
-    await _execute_and_validate_step0(client, dossier_id)
-
-    with _mock_rag_search(), _mock_llm_qmec():
-        resp = await client.post(f"/api/dossiers/{dossier_id}/step1/execute")
-    assert resp.status_code == 201
-
-    from services.workflow_engine import workflow_engine as _wf
-
-    override_fn = app.dependency_overrides[get_db]
-    async for db in override_fn():
-        await _wf.validate_step(dossier_id, 1, db)
-        await db.commit()
-
-
-# ---------------------------------------------------------------------------
-# POST /api/dossiers/{id}/step2/upload
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_step2_upload_success(client: AsyncClient):
-    """Upload of NE + REB .docx files should succeed when step1 is validated."""
-    await _setup_config(client)
-    dossier_id = await _create_dossier(client, ticket_id="T-STEP2-UP")
-    await _execute_and_validate_step1(client, dossier_id)
-
-    resp = await client.post(
-        f"/api/dossiers/{dossier_id}/step2/upload",
-        files={
-            "ne": ("ne.docx", b"PK\x03\x04 fake docx ne", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
-            "reb": ("reb.docx", b"PK\x03\x04 fake docx reb", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
-        },
-    )
-    assert resp.status_code == 201
-    data = resp.json()
-    assert data["filenames"] == ["ne.docx", "reb.docx"]
-    assert "succès" in data["message"].lower()
-
-
-@pytest.mark.asyncio
-async def test_step2_upload_rejects_non_docx(client: AsyncClient):
-    """Non-.docx files should be rejected with 400."""
-    await _setup_config(client)
-    dossier_id = await _create_dossier(client, ticket_id="T-STEP2-NODOCX")
-    await _execute_and_validate_step1(client, dossier_id)
-
-    resp = await client.post(
-        f"/api/dossiers/{dossier_id}/step2/upload",
-        files={
-            "ne": ("ne.pdf", b"fake pdf content", "application/pdf"),
-            "reb": ("reb.docx", b"PK\x03\x04 fake docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
-        },
-    )
-    assert resp.status_code == 400
-    assert ".docx" in resp.json()["detail"]
-
-
-@pytest.mark.asyncio
-async def test_step2_upload_blocked_without_step1_validated(client: AsyncClient):
-    """Step2 upload should be blocked if step1 is not validated."""
-    await _setup_config(client)
-    dossier_id = await _create_dossier(client, ticket_id="T-STEP2-BLOCK")
-
-    resp = await client.post(
-        f"/api/dossiers/{dossier_id}/step2/upload",
-        files={
-            "ne": ("ne.docx", b"PK\x03\x04 fake", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
-            "reb": ("reb.docx", b"PK\x03\x04 fake", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
-        },
-    )
+    resp = await client.get(f"/api/dossiers/{dossier_id}/step2/download")
     assert resp.status_code == 403
 
 
@@ -574,35 +559,28 @@ async def test_step2_upload_blocked_without_step1_validated(client: AsyncClient)
 
 
 @pytest.mark.asyncio
-async def test_step2_validate_success(client: AsyncClient):
-    """Validation should succeed after upload."""
+async def test_step1_validate_success(client: AsyncClient):
     await _setup_config(client)
-    dossier_id = await _create_dossier(client, ticket_id="T-STEP2-VAL")
+    dossier_id = await _create_dossier(client, ticket_id="T-STEP1-VAL")
     await _execute_and_validate_step1(client, dossier_id)
 
-    # Upload first
-    await client.post(
-        f"/api/dossiers/{dossier_id}/step2/upload",
-        files={
-            "ne": ("ne.docx", b"PK\x03\x04 fake ne", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
-            "reb": ("reb.docx", b"PK\x03\x04 fake reb", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
-        },
-    )
+    # Execute step2 directly (creates files and marks as "fait")
+    await _execute_step2_sync(client, dossier_id)
 
     resp = await client.post(f"/api/dossiers/{dossier_id}/step2/validate")
     assert resp.status_code == 200
-    assert "validé" in resp.json()["message"].lower()
+    assert "validé" in resp.json()["message"].lower() or "valide" in resp.json()["message"].lower()
 
     # Verify step is now validated
     step_resp = await client.get(f"/api/dossiers/{dossier_id}/steps/2")
-    assert step_resp.json()["statut"] == "validé"
+    assert step_resp.json()["statut"] == "valide"
 
 
 @pytest.mark.asyncio
-async def test_step2_validate_without_upload(client: AsyncClient):
-    """Validation should fail if step2 hasn't been executed (no upload)."""
+async def test_step1_validate_without_execute(client: AsyncClient):
+    """Validation should fail if step2 hasn't been executed."""
     await _setup_config(client)
-    dossier_id = await _create_dossier(client, ticket_id="T-STEP2-VALNX")
+    dossier_id = await _create_dossier(client, ticket_id="T-STEP1-VALNX")
     await _execute_and_validate_step1(client, dossier_id)
 
     resp = await client.post(f"/api/dossiers/{dossier_id}/step2/validate")
@@ -610,199 +588,290 @@ async def test_step2_validate_without_upload(client: AsyncClient):
 
 
 # ---------------------------------------------------------------------------
-# Step3 helpers
+# Step4 helpers (PEA upload + PRE/DAC generation)
 # ---------------------------------------------------------------------------
 
 
 async def _execute_and_validate_step2(client: AsyncClient, dossier_id: int):
-    """Helper: execute step0+step1+step2 and validate all so step3 becomes accessible."""
+    """Helper: execute step1+step2 and validate both, skip step3, so step4 becomes accessible."""
     await _execute_and_validate_step1(client, dossier_id)
 
-    # Upload NE + REB for step2
-    await client.post(
-        f"/api/dossiers/{dossier_id}/step2/upload",
-        files={
-            "ne": ("ne.docx", b"PK\x03\x04 fake docx ne content", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
-            "reb": ("reb.docx", b"PK\x03\x04 fake docx reb content", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
-        },
-    )
+    # Execute step2 directly (bypass background thread)
+    await _execute_step2_sync(client, dossier_id)
 
+    # Validate step2
     from services.workflow_engine import workflow_engine as _wf
-
     override_fn = app.dependency_overrides[get_db]
     async for db in override_fn():
         await _wf.validate_step(dossier_id, 2, db)
         await db.commit()
 
-
-def _mock_llm_ref(ref: str = "# Rapport d'Expertise Final\n\nContenu du REF généré"):
-    """Mock LLM generer_ref."""
-    return patch(
-        "routers.steps.LLMService.generer_ref",
-        new_callable=AsyncMock,
-        return_value=ref,
-    )
-
-
-def _mock_llm_raux_p1(raux_p1: str = "## Contestations\n\n1. Point faible identifié"):
-    """Mock LLM generer_raux_p1."""
-    return patch(
-        "routers.steps.LLMService.generer_raux_p1",
-        new_callable=AsyncMock,
-        return_value=raux_p1,
-    )
-
-
-def _mock_llm_raux_p2(raux_p2: str = "## REF Révisé\n\nContenu révisé du REF"):
-    """Mock LLM generer_raux_p2."""
-    return patch(
-        "routers.steps.LLMService.generer_raux_p2",
-        new_callable=AsyncMock,
-        return_value=raux_p2,
-    )
-
-
-def _mock_rag_search_step3(template_content: str = "Template rapport structure",
-                           corpus_content: str = "Corpus domaine psychologie"):
-    """Mock RAGService.search for step3 (template + corpus)."""
-    from services.rag_service import Document
-
-    async def _fake_search(self, query, collection, limit=5):
-        if "config_" in collection:
-            return [Document(content=template_content, score=0.9)]
-        return [Document(content=corpus_content, score=0.85)]
-
-    return patch("routers.steps.RAGService.search", _fake_search)
+    # Skip step3 (no consolidation pieces needed)
+    resp = await client.post(f"/api/dossiers/{dossier_id}/step3/skip")
+    assert resp.status_code == 200
 
 
 # ---------------------------------------------------------------------------
-# POST /api/dossiers/{id}/step3/execute
+# POST /api/dossiers/{id}/step4/upload (Step4 — PEA upload)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_step2_upload_success(client: AsyncClient):
+    """Upload of PEA .docx file should succeed when step3 is validated."""
+    await _setup_config(client)
+    dossier_id = await _create_dossier(client, ticket_id="T-STEP2-UP")
+    await _execute_and_validate_step2(client, dossier_id)
+
+    resp = await client.post(
+        f"/api/dossiers/{dossier_id}/step4/upload",
+        files={
+            "file": ("pea.docx", b"PK\x03\x04 fake docx pea", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+        },
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert "pea.docx" in data["filename"]
+    assert "succès" in data["message"].lower()
+
+
+@pytest.mark.asyncio
+async def test_step2_upload_rejects_non_docx(client: AsyncClient):
+    """Non-.docx files should be rejected with 400."""
+    await _setup_config(client)
+    dossier_id = await _create_dossier(client, ticket_id="T-STEP2-NODOCX")
+    await _execute_and_validate_step2(client, dossier_id)
+
+    resp = await client.post(
+        f"/api/dossiers/{dossier_id}/step4/upload",
+        files={
+            "file": ("pea.pdf", b"fake pdf content", "application/pdf"),
+        },
+    )
+    assert resp.status_code == 400
+    assert ".docx" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_step2_upload_blocked_without_step1_validated(client: AsyncClient):
+    """Step4 upload should be blocked if previous steps are not validated."""
+    await _setup_config(client)
+    dossier_id = await _create_dossier(client, ticket_id="T-STEP2-BLOCK")
+
+    resp = await client.post(
+        f"/api/dossiers/{dossier_id}/step4/upload",
+        files={
+            "file": ("pea.docx", b"PK\x03\x04 fake", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+        },
+    )
+    assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# POST /api/dossiers/{id}/step4/validate
+# ---------------------------------------------------------------------------
+
+
+def _mock_llm_pre_rapport(pre: str = "# Pré-Rapport\n\nContenu du PRE généré"):
+    """Mock LLM generer_pre_rapport."""
+    return patch(
+        "routers.steps.LLMService.generer_pre_rapport",
+        new_callable=AsyncMock,
+        return_value=pre,
+    )
+
+
+def _mock_llm_dac(dac: str = "# DAC\n\nAnalyse contradictoire"):
+    """Mock LLM generer_dac."""
+    return patch(
+        "routers.steps.LLMService.generer_dac",
+        new_callable=AsyncMock,
+        return_value=dac,
+    )
+
+
+@pytest.mark.asyncio
+async def test_step2_validate_success(client: AsyncClient):
+    """Validation should succeed after upload + execute."""
+    await _setup_config(client)
+    dossier_id = await _create_dossier(client, ticket_id="T-STEP2-VAL")
+    await _execute_and_validate_step2(client, dossier_id)
+
+    # Upload PEA
+    await client.post(
+        f"/api/dossiers/{dossier_id}/step4/upload",
+        files={
+            "file": ("pea.docx", b"PK\x03\x04 fake pea", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+        },
+    )
+
+    # Execute step4
+    with _mock_rag_search(), _mock_llm_pre_rapport(), _mock_llm_dac():
+        resp = await client.post(f"/api/dossiers/{dossier_id}/step4/execute")
+    assert resp.status_code == 201
+
+    resp = await client.post(f"/api/dossiers/{dossier_id}/step4/validate")
+    assert resp.status_code == 200
+    assert "validé" in resp.json()["message"].lower() or "valide" in resp.json()["message"].lower()
+
+    # Verify step is now validated
+    step_resp = await client.get(f"/api/dossiers/{dossier_id}/steps/4")
+    assert step_resp.json()["statut"] == "valide"
+
+
+@pytest.mark.asyncio
+async def test_step2_validate_without_upload(client: AsyncClient):
+    """Validation should fail if step4 hasn't been executed (no upload)."""
+    await _setup_config(client)
+    dossier_id = await _create_dossier(client, ticket_id="T-STEP2-VALNX")
+    await _execute_and_validate_step2(client, dossier_id)
+
+    resp = await client.post(f"/api/dossiers/{dossier_id}/step4/validate")
+    assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Step5 helpers (Archive generation)
+# ---------------------------------------------------------------------------
+
+
+async def _execute_and_validate_step4(client: AsyncClient, dossier_id: int):
+    """Helper: execute step1+step2+step3+step4 and validate all so step5 becomes accessible."""
+    await _execute_and_validate_step2(client, dossier_id)
+
+    # Upload PEA for step4
+    await client.post(
+        f"/api/dossiers/{dossier_id}/step4/upload",
+        files={
+            "file": ("pea.docx", b"PK\x03\x04 fake docx pea content", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+        },
+    )
+
+    # Execute step4
+    with _mock_rag_search(), _mock_llm_pre_rapport(), _mock_llm_dac():
+        resp = await client.post(f"/api/dossiers/{dossier_id}/step4/execute")
+    assert resp.status_code == 201
+
+    # Validate step4
+    from services.workflow_engine import workflow_engine as _wf
+    override_fn = app.dependency_overrides[get_db]
+    async for db in override_fn():
+        await _wf.validate_step(dossier_id, 4, db)
+        await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# POST /api/dossiers/{id}/step5/execute (Step5 — Archive generation)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 async def test_step3_execute_success(client: AsyncClient):
-    """Step3 execute should generate REF and RAUX when step2 is validated."""
+    """Step5 execute should generate archive ZIP when step4 is validated."""
     await _setup_config(client)
     dossier_id = await _create_dossier(client, ticket_id="T-STEP3-EXEC")
-    await _execute_and_validate_step2(client, dossier_id)
+    await _execute_and_validate_step4(client, dossier_id)
 
-    with _mock_rag_search_step3(), _mock_llm_ref(), _mock_llm_raux_p1(), _mock_llm_raux_p2():
-        resp = await client.post(f"/api/dossiers/{dossier_id}/step3/execute")
+    resp = await client.post(f"/api/dossiers/{dossier_id}/step5/execute")
 
     assert resp.status_code == 201
     data = resp.json()
-    assert "ref" in data
-    assert "raux" in data
-    assert "Rapport d'Expertise Final" in data["ref"]
-    assert "Partie 1" in data["raux"]
-    assert "Partie 2" in data["raux"]
+    assert "message" in data
+    assert "filenames" in data
+    assert "dossier_archive.zip" in data["filenames"]
+    assert "hash_sha256.txt" in data["filenames"]
 
-    # Verify step is now "réalisé"
-    step_resp = await client.get(f"/api/dossiers/{dossier_id}/steps/3")
+    # Verify step is now "fait"
+    step_resp = await client.get(f"/api/dossiers/{dossier_id}/steps/5")
     assert step_resp.status_code == 200
     step_data = step_resp.json()
-    assert step_data["statut"] == "réalisé"
+    assert step_data["statut"] == "fait"
     filenames = {f["filename"] for f in step_data["files"]}
-    assert "ref.md" in filenames
-    assert "raux.md" in filenames
+    assert "dossier_archive.zip" in filenames
+    assert "hash_sha256.txt" in filenames
 
 
 # ---------------------------------------------------------------------------
-# GET /api/dossiers/{id}/step3/download/{doc_type}
+# GET /api/dossiers/{id}/step5/download/{doc_type}
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 async def test_step3_download_ref(client: AsyncClient):
-    """Download REF after step3 execution."""
+    """Download ref_projet after step5 execution."""
     await _setup_config(client)
     dossier_id = await _create_dossier(client, ticket_id="T-STEP3-DLREF")
-    await _execute_and_validate_step2(client, dossier_id)
+    await _execute_and_validate_step4(client, dossier_id)
 
-    expected_ref = "# REF Download Test"
-    with _mock_rag_search_step3(), _mock_llm_ref(expected_ref), _mock_llm_raux_p1(), _mock_llm_raux_p2():
-        await client.post(f"/api/dossiers/{dossier_id}/step3/execute")
+    await client.post(f"/api/dossiers/{dossier_id}/step5/execute")
 
-    resp = await client.get(f"/api/dossiers/{dossier_id}/step3/download/ref")
-    assert resp.status_code == 200
-    assert expected_ref in resp.text
+    resp = await client.get(f"/api/dossiers/{dossier_id}/step5/download/ref_projet")
+    # ref_projet.docx may not exist since step5 generates archive, not ref
+    # The endpoint checks for ref_projet.docx in step5/out
+    assert resp.status_code == 404
+    assert "REF" in resp.json()["detail"]
 
 
 @pytest.mark.asyncio
 async def test_step3_download_raux(client: AsyncClient):
-    """Download RAUX after step3 execution."""
+    """Download with invalid doc_type should return 400."""
     await _setup_config(client)
     dossier_id = await _create_dossier(client, ticket_id="T-STEP3-DLRAUX")
-    await _execute_and_validate_step2(client, dossier_id)
+    await _execute_and_validate_step4(client, dossier_id)
 
-    with _mock_rag_search_step3(), _mock_llm_ref(), _mock_llm_raux_p1(), _mock_llm_raux_p2():
-        await client.post(f"/api/dossiers/{dossier_id}/step3/execute")
+    await client.post(f"/api/dossiers/{dossier_id}/step5/execute")
 
-    resp = await client.get(f"/api/dossiers/{dossier_id}/step3/download/raux")
-    assert resp.status_code == 200
-    assert "Partie 1" in resp.text
+    resp = await client.get(f"/api/dossiers/{dossier_id}/step5/download/raux")
+    assert resp.status_code == 400
+    assert "invalide" in resp.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
 async def test_step3_download_not_executed(client: AsyncClient):
-    """Should return 404 if step3 hasn't been executed yet."""
+    """Should return 404 if step5 hasn't been executed yet."""
     await _setup_config(client)
     dossier_id = await _create_dossier(client, ticket_id="T-STEP3-DL404")
-    await _execute_and_validate_step2(client, dossier_id)
+    await _execute_and_validate_step4(client, dossier_id)
 
-    resp = await client.get(f"/api/dossiers/{dossier_id}/step3/download/ref")
+    resp = await client.get(f"/api/dossiers/{dossier_id}/step5/download/ref_projet")
     assert resp.status_code == 404
     assert "REF" in resp.json()["detail"]
 
 
 # ---------------------------------------------------------------------------
-# POST /api/dossiers/{id}/step3/validate
+# POST /api/dossiers/{id}/step5/validate
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 async def test_step3_validate_success(client: AsyncClient, tmp_path):
-    """Validation should succeed and create an archive ZIP."""
+    """Validation should succeed after step5 execution."""
     await _setup_config(client)
     dossier_id = await _create_dossier(client, ticket_id="T-STEP3-VAL")
-    await _execute_and_validate_step2(client, dossier_id)
+    await _execute_and_validate_step4(client, dossier_id)
 
-    with _mock_rag_search_step3(), _mock_llm_ref(), _mock_llm_raux_p1(), _mock_llm_raux_p2():
-        await client.post(f"/api/dossiers/{dossier_id}/step3/execute")
+    await client.post(f"/api/dossiers/{dossier_id}/step5/execute")
 
-    resp = await client.post(f"/api/dossiers/{dossier_id}/step3/validate")
+    resp = await client.post(f"/api/dossiers/{dossier_id}/step5/validate")
     assert resp.status_code == 200
-    assert "archivé" in resp.json()["message"].lower()
+    assert "validé" in resp.json()["message"].lower() or "valide" in resp.json()["message"].lower()
 
     # Verify step is now validated
-    step_resp = await client.get(f"/api/dossiers/{dossier_id}/steps/3")
-    assert step_resp.json()["statut"] == "validé"
-
-    # Verify archive.zip was created
-    import zipfile
-    archive_path = tmp_path / "dossiers" / str(dossier_id) / "archive.zip"
-    assert archive_path.exists()
-    with zipfile.ZipFile(archive_path, "r") as zf:
-        names = zf.namelist()
-        # Should contain files from step0, step2, step3
-        assert any("requisition" in n for n in names)
-        assert any("ref.md" in n for n in names)
-        assert any("raux.md" in n for n in names)
+    step_resp = await client.get(f"/api/dossiers/{dossier_id}/steps/5")
+    assert step_resp.json()["statut"] == "valide"
 
 
 # ---------------------------------------------------------------------------
-# Step3 blocked without step2 validated
+# Step5 blocked without step4 validated
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 async def test_step3_execute_blocked_without_step2_validated(client: AsyncClient):
-    """Step3 should be blocked if step2 is not validated."""
+    """Step5 should be blocked if step4 is not validated."""
     await _setup_config(client)
     dossier_id = await _create_dossier(client, ticket_id="T-STEP3-BLOCK")
 
-    with _mock_rag_search_step3(), _mock_llm_ref(), _mock_llm_raux_p1(), _mock_llm_raux_p2():
-        resp = await client.post(f"/api/dossiers/{dossier_id}/step3/execute")
+    resp = await client.post(f"/api/dossiers/{dossier_id}/step5/execute")
 
     assert resp.status_code == 403

@@ -62,15 +62,15 @@ export default function StepViewPage() {
     }
   }, [fetchStep, stepNumber]);
 
-  // Poll when step is "en_cours" to detect completion
+  // Poll when step is "en_cours" to detect completion and update progress
   useEffect(() => {
     if (step?.statut !== "en_cours") return;
     const interval = setInterval(async () => {
       try {
         const stepData = await dossiersApi.getStep(dossierId, stepNumber);
+        setStep(stepData);
         if (stepData.statut !== "en_cours") {
-          setStep(stepData);
-          // Also refresh dossier
+          // Also refresh dossier when completed
           const dossierData = await dossiersApi.get(dossierId);
           setDossier(dossierData);
         }
@@ -98,14 +98,8 @@ export default function StepViewPage() {
           await step1Api.validate(dossierId);
           await fetchStep();
         } else if (step?.statut === "initial") {
-          // Vérifier qu'il y a au moins un fichier d'entrée uploadé
-          const hasInputFiles = step.files?.some(f => f.file_type === "pdf_scan" || f.file_type === "complementary");
-          if (!hasInputFiles) {
-            setError("Importez d'abord l'ordonnance (PDF) dans la section « Fichiers d'entrée ».");
-            return;
-          }
           // Mettre à jour l'UI immédiatement pour afficher le sablier
-          setStep((prev) => prev ? { ...prev, statut: "en_cours" } : prev);
+          setStep((prev) => prev ? { ...prev, statut: "en_cours", executed_at: new Date().toISOString(), progress_current: null, progress_total: null, progress_message: null } : prev);
           // Lancer l'extraction en fire-and-forget — le polling détectera la fin
           step1Api.execute(dossierId).then(() => fetchStep()).catch((err) => {
             setError(getErrorMessage(err, "Erreur lors de l'exécution."));
@@ -113,21 +107,43 @@ export default function StepViewPage() {
           });
         }
       } else if (stepNumber === 2) {
-        setStep((prev) => prev ? { ...prev, statut: "en_cours" } : prev);
-        step2Api.execute(dossierId).then(() => fetchStep()).catch((err) => {
-          setError(getErrorMessage(err, "Erreur lors de l'exécution."));
-          fetchStep();
-        });
+        if (step?.statut === "fait") {
+          await step2Api.validate(dossierId);
+          await fetchStep();
+        } else if (step?.statut === "initial") {
+          setStep((prev) => prev ? { ...prev, statut: "en_cours", executed_at: new Date().toISOString(), progress_current: null, progress_total: null, progress_message: null } : prev);
+          step2Api.execute(dossierId).then(() => fetchStep()).catch((err) => {
+            setError(getErrorMessage(err, "Erreur lors de l'exécution."));
+            fetchStep();
+          });
+        }
       } else if (stepNumber === 3) {
-        setStep((prev) => prev ? { ...prev, statut: "en_cours" } : prev);
-        step3Api.execute(dossierId).then(() => fetchStep()).catch((err) => {
-          setError(getErrorMessage(err, "Erreur lors de l'exécution."));
-          fetchStep();
-        });
+        if (step?.statut === "fait") {
+          await step3Api.validate(dossierId);
+          await fetchStep();
+        } else if (step?.statut === "initial") {
+          setStep((prev) => prev ? { ...prev, statut: "en_cours", executed_at: new Date().toISOString(), progress_current: null, progress_total: null, progress_message: null } : prev);
+          step3Api.execute(dossierId).then(() => fetchStep()).catch((err) => {
+            setError(getErrorMessage(err, "Erreur lors de l'exécution."));
+            fetchStep();
+          });
+        }
       } else if (stepNumber === 4) {
         if (step?.statut === "fait") {
           await step4Api.validate(dossierId);
           await fetchStep();
+        } else if (step?.statut === "initial") {
+          // Vérifier qu'un PEA est uploadé
+          const hasPea = step.files?.some(f => f.file_type === "pea" || f.file_type === "paa");
+          if (!hasPea) {
+            setError("Importez d'abord le PEA/PAA dans la section « Fichiers d'entrée ».");
+            return;
+          }
+          setStep((prev) => prev ? { ...prev, statut: "en_cours", executed_at: new Date().toISOString(), progress_current: null, progress_total: null, progress_message: null } : prev);
+          step4Api.execute(dossierId).then(() => fetchStep()).catch((err) => {
+            setError(getErrorMessage(err, "Erreur lors de l'exécution."));
+            fetchStep();
+          });
         }
       } else if (stepNumber === 5) {
         if (step?.statut === "fait") {
@@ -148,6 +164,26 @@ export default function StepViewPage() {
         setStep((prev) => prev ? { ...prev, statut: "initial" } : prev);
         await fetchStep();
       } catch { /* ignore */ }
+    }
+  }, [dossierId, stepNumber, fetchStep]);
+
+  const handleSkip = useCallback(async () => {
+    if (stepNumber !== 3) return;
+    try {
+      const token = localStorage.getItem("token");
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${API_URL}/api/dossiers/${dossierId}/step3/skip`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.detail || "Impossible de valider sans objet.");
+        return;
+      }
+      await fetchStep();
+    } catch {
+      setError("Erreur réseau lors de la validation sans objet.");
     }
   }, [dossierId, stepNumber, fetchStep]);
 
@@ -237,6 +273,7 @@ export default function StepViewPage() {
               isDossierClosed={isDossierClosed}
               onExecute={handleExecute}
               onCancel={handleCancel}
+              onSkip={stepNumber === 3 ? handleSkip : undefined}
               executionDuration={step.execution_duration_seconds}
             />
 

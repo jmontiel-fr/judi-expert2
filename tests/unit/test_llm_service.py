@@ -19,7 +19,7 @@ sys.path.insert(
 )
 
 from services.llm_service import (
-    LLM_MODEL,
+    ActiveProfile,
     LLMConnectionError,
     LLMService,
     LLMTimeoutError,
@@ -39,7 +39,7 @@ from services.llm_service import (
 @pytest.fixture
 def llm_service():
     """Instance de LLMService avec URL de test."""
-    return LLMService(base_url="http://test-llm:11434", model="test-model", timeout=10)
+    return LLMService(base_url="http://test-llm:11434", timeout=10)
 
 
 def _mock_chat_response(content: str) -> httpx.Response:
@@ -100,11 +100,9 @@ class TestConfiguration:
     def test_default_configuration(self):
         service = LLMService()
         assert service.base_url == "http://judi-llm:11434"
-        assert service.model == "mistral:7b-instruct-v0.3"
 
     def test_custom_configuration(self, llm_service):
         assert llm_service.base_url == "http://test-llm:11434"
-        assert llm_service.model == "test-model"
         assert llm_service.timeout == 10
 
     def test_trailing_slash_stripped(self):
@@ -200,7 +198,7 @@ class TestGenerate:
             await llm_service.generate("Mon prompt")
             payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1].get("json")
             assert payload["prompt"] == "Mon prompt"
-            assert payload["model"] == "test-model"
+            assert payload["model"] == ActiveProfile.get_model()
             assert payload["stream"] is False
 
     @pytest.mark.asyncio

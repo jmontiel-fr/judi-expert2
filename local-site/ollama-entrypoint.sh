@@ -9,7 +9,7 @@
 
 set -e
 
-MODEL="${LLM_MODEL:-mistral:7b-instruct-v0.3-q4_0}"
+MODEL="${LLM_MODEL:-qwen2.5:7b-instruct-q3_K_M}"
 AUTO_UPDATE="${LLM_AUTO_UPDATE:-false}"
 STATUS_FILE="/root/.ollama/update-status.json"
 

@@ -21,6 +21,13 @@ from models.local_config import LocalConfig
 from routers.auth import get_current_user
 from services.rag_service import RAGService
 from services.corpus_service import CorpusService
+from services.hardware_service import PROFILES, HardwareInfo, ProfileSelector
+from services.llm_service import (
+    ActiveProfile,
+    ModelDownloadManager,
+    ModelDownloadStatus,
+    get_all_step_durations,
+)
 from services.site_central_client import (
     SiteCentralClient,
     SiteCentralError,
@@ -36,6 +43,9 @@ logger = logging.getLogger(__name__)
 
 SITE_CENTRAL_URL: str = os.environ.get("SITE_CENTRAL_URL", "https://www.judi-expert.fr")
 CONFIG_DIR: str = os.environ.get("CONFIG_DIR", "data/config")
+
+# Module-level model download manager instance
+_download_manager = ModelDownloadManager()
 
 # ---------------------------------------------------------------------------
 # Pydantic schemas
@@ -124,6 +134,46 @@ def _ensure_config_dir() -> str:
 # ---------------------------------------------------------------------------
 
 router = APIRouter()
+
+
+# ---- 0. GET /rag-status — État du RAG local --------------------------------
+
+
+class RAGStatusResponse(BaseModel):
+    is_configured: bool
+    rag_built_at: Optional[str] = None
+    corpus_downloaded_at: Optional[str] = None
+    documents_count: int = 0
+
+
+@router.get("/rag-status", response_model=RAGStatusResponse)
+async def get_rag_status(
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retourne l'état du RAG local : dates de build/téléchargement, nombre de docs."""
+    config = await _get_config(db)
+
+    # Compter les documents indexés
+    doc_count = 0
+    if config.is_configured and config.rag_version is not None:
+        domaine = config.domaine
+        rag = RAGService()
+        try:
+            for coll_name in (f"config_{domaine}", f"corpus_{domaine}"):
+                docs = await rag.list_documents(coll_name)
+                doc_count += len(docs)
+        except Exception:
+            pass
+        finally:
+            await rag.close()
+
+    return RAGStatusResponse(
+        is_configured=config.is_configured,
+        rag_built_at=str(config.rag_built_at) if config.rag_built_at else None,
+        corpus_downloaded_at=str(config.corpus_downloaded_at) if config.corpus_downloaded_at else None,
+        documents_count=doc_count,
+    )
 
 
 # ---- 1. GET /domain -------------------------------------------------------
@@ -388,6 +438,112 @@ async def upload_template(
     return UploadResponse(message="Template Rapport uploadé avec succès", filename=safe_filename, doc_id=doc_id)
 
 
+# ---- 6b. GET /tpe/download — Télécharger le TPE installé --------------------
+
+@router.get("/tpe/download")
+async def download_tpe(
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Télécharge le fichier TPE actuellement installé."""
+    from fastapi.responses import FileResponse
+
+    config = await _get_config(db)
+    config_dir = _ensure_config_dir()
+
+    tpe_path = _find_existing_file(config_dir, "TPE_")
+    if not tpe_path:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Aucun TPE installé",
+        )
+
+    filename = os.path.basename(tpe_path)
+    ext = os.path.splitext(filename)[1].lower()
+    media_types = {".md": "text/markdown", ".tpl": "text/markdown", ".txt": "text/plain"}
+    media_type = media_types.get(ext, "application/octet-stream")
+
+    return FileResponse(path=tpe_path, filename=filename, media_type=media_type)
+
+
+# ---- 6c. GET /template/download — Télécharger le Template installé -----------
+
+@router.get("/template/download")
+async def download_template(
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Télécharge le fichier Template Rapport actuellement installé."""
+    from fastapi.responses import FileResponse
+
+    config = await _get_config(db)
+    config_dir = _ensure_config_dir()
+
+    template_path = _find_existing_file(config_dir, "template_")
+    if not template_path:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Aucun Template Rapport installé",
+        )
+
+    filename = os.path.basename(template_path)
+    return FileResponse(
+        path=template_path,
+        filename=filename,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+
+# ---- 6d. GET /tpe/info — Infos sur le TPE installé --------------------------
+
+@router.get("/tpe/info")
+async def get_tpe_info(
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retourne les infos du TPE installé (nom, taille) ou 404 si absent."""
+    config = await _get_config(db)
+    config_dir = _ensure_config_dir()
+
+    tpe_path = _find_existing_file(config_dir, "TPE_")
+    if not tpe_path:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Aucun TPE installé",
+        )
+
+    return {
+        "filename": os.path.basename(tpe_path),
+        "size": os.path.getsize(tpe_path),
+        "installed": True,
+    }
+
+
+# ---- 6e. GET /template/info — Infos sur le Template installé -----------------
+
+@router.get("/template/info")
+async def get_template_info(
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retourne les infos du Template installé (nom, taille) ou 404 si absent."""
+    config = await _get_config(db)
+    config_dir = _ensure_config_dir()
+
+    template_path = _find_existing_file(config_dir, "template_")
+    if not template_path:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Aucun Template Rapport installé",
+        )
+
+    return {
+        "filename": os.path.basename(template_path),
+        "size": os.path.getsize(template_path),
+        "installed": True,
+    }
+
+
 # ---- 7. GET /documents -----------------------------------------------------
 
 @router.get("/documents", response_model=DocumentsListResponse)
@@ -567,9 +723,8 @@ async def initialize_corpus(
                         fname = doc["filename"]
                         yield f"data: {json.dumps({'log': f'  ✕ Erreur : {fname} — {exc}'})}\n\n"
 
-            # Nettoyer les documents custom
-            if os.path.isdir(service.custom_dir):
-                shutil.rmtree(service.custom_dir)
+            # Note : les documents custom de l'expert sont conservés
+            # Seul le cache central est re-téléchargé
 
             # Télécharger les contenus pré-crawlés des URLs
             yield f"data: {json.dumps({'log': 'Téléchargement des contenus pré-crawlés (URLs)…'})}\n\n"
@@ -601,10 +756,15 @@ async def initialize_corpus(
         finally:
             await rag.close()
 
-        # Mettre à jour la config
-        config.rag_version = "default-1.0"
-        config.is_configured = True
-        await db.commit()
+        # Mettre à jour la config (re-fetch pour éviter les problèmes de session expirée)
+        from datetime import datetime, UTC
+        result = await db.execute(select(LocalConfig).limit(1))
+        config_fresh = result.scalar_one_or_none()
+        if config_fresh:
+            config_fresh.rag_version = "default-1.0"
+            config_fresh.is_configured = True
+            config_fresh.corpus_downloaded_at = datetime.now(UTC)
+            await db.commit()
 
         yield f"data: {json.dumps({'log': f'✔ Terminé — {indexed} documents indexés', 'done': True, 'indexed': indexed, 'errors': errors})}\n\n"
 
@@ -623,6 +783,17 @@ async def rebuild_corpus(
     service = CorpusService(config.domaine)
 
     result = await service.rebuild()
+
+    # Mettre à jour la date du dernier build
+    from datetime import datetime, UTC
+    config.rag_built_at = datetime.now(UTC)
+    config.is_configured = True
+    await db.commit()
+
+    # Construire un message détaillé avec les chunks par document
+    details = result.get("details", [])
+    detail_lines = [f"  • {d['filename']} ({d['source']}) — {d['chunks']} chunks, {d['chars']} chars" for d in details]
+    detail_msg = "\n".join(detail_lines) if detail_lines else ""
 
     return CorpusActionResponse(
         message=f"Corpus reconstruit — {result['indexed']} documents indexés",
@@ -821,3 +992,381 @@ async def get_central_urls(
         return {"urls": []}
     except SiteCentralError:
         return {"urls": []}
+
+
+# ---- POST /corpus/crawl-url — Pré-crawler une URL custom (local) ----------
+
+
+class CrawlUrlRequest(BaseModel):
+    url: str = Field(..., min_length=1, description="URL à pré-crawler")
+
+
+class CrawlUrlResponse(BaseModel):
+    message: str
+    filename: str
+    chars: int
+
+
+@router.post("/corpus/crawl-url", response_model=CrawlUrlResponse)
+async def crawl_custom_url(
+    body: CrawlUrlRequest,
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Pré-crawle une URL custom et stocke le contenu textuel dans le corpus.
+
+    Le texte extrait est sauvegardé dans le répertoire custom et sera
+    indexé au prochain "Build RAG".
+    """
+    import re
+    import hashlib
+
+    config = await _get_config(db)
+    service = CorpusService(config.domaine)
+    custom_dir = service._ensure_custom_dir()
+
+    url = body.url.strip()
+
+    # Télécharger le contenu
+    try:
+        async with httpx.AsyncClient(
+            timeout=30.0,
+            follow_redirects=True,
+            headers={"User-Agent": "JudiExpert-Crawler/1.0"},
+        ) as client:
+            resp = await client.get(url)
+            if resp.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"URL inaccessible (HTTP {resp.status_code})",
+                )
+
+            content_type = resp.headers.get("content-type", "")
+
+            # Si c'est un PDF, le stocker directement
+            if "pdf" in content_type or url.lower().endswith(".pdf"):
+                url_hash = hashlib.md5(url.encode()).hexdigest()[:8]
+                safe_name = re.sub(r'[^a-zA-Z0-9._-]', '_', url.split("/")[-1] or "document")[:50]
+                if not safe_name.endswith(".pdf"):
+                    safe_name += ".pdf"
+                filename = f"dl_{url_hash}_{safe_name}"
+                file_path = os.path.join(custom_dir, filename)
+                with open(file_path, "wb") as f:
+                    f.write(resp.content)
+                return CrawlUrlResponse(
+                    message=f"PDF téléchargé : {filename}",
+                    filename=filename,
+                    chars=len(resp.content),
+                )
+
+            # Sinon, extraire le texte HTML
+            if "html" in content_type:
+                text = _extract_text_from_html(resp.text)
+            else:
+                text = resp.text
+
+            if not text.strip():
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Contenu vide après extraction",
+                )
+
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Timeout lors du téléchargement de l'URL",
+        )
+    except httpx.ConnectError:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Impossible de se connecter à l'URL",
+        )
+
+    # Sauvegarder le texte extrait dans le corpus custom
+    url_hash = hashlib.md5(url.encode()).hexdigest()[:8]
+    domain_part = re.sub(r'https?://(www\.)?', '', url).split('/')[0]
+    safe_domain = re.sub(r'[^a-zA-Z0-9.-]', '_', domain_part)[:30]
+    filename = f"{safe_domain}_{url_hash}.url.txt"
+    file_path = os.path.join(custom_dir, filename)
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(text)
+
+    return CrawlUrlResponse(
+        message=f"URL pré-crawlée : {len(text)} caractères extraits",
+        filename=filename,
+        chars=len(text),
+    )
+
+
+def _extract_text_from_html(html: str) -> str:
+    """Extrait le texte principal d'une page HTML."""
+    import re as _re
+    text = _re.sub(r'<script[^>]*>.*?</script>', '', html, flags=_re.DOTALL | _re.IGNORECASE)
+    text = _re.sub(r'<style[^>]*>.*?</style>', '', text, flags=_re.DOTALL | _re.IGNORECASE)
+    text = _re.sub(r'<[^>]+>', ' ', text)
+    text = text.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
+    text = _re.sub(r'\s+', ' ', text).strip()
+    return text[:50000]
+
+
+# ---- GET /corpus/file-content/{filename} — Lire le contenu d'un fichier custom
+
+@router.get("/corpus/file-content/{filename}")
+async def get_corpus_file_content(
+    filename: str,
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retourne le contenu textuel d'un fichier du corpus custom.
+
+    Utile pour lire l'URL stockée dans un fichier .url.txt.
+    """
+    config = await _get_config(db)
+    service = CorpusService(config.domaine)
+
+    # Sécurité : empêcher la traversée de répertoire
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nom de fichier invalide",
+        )
+
+    file_path = os.path.join(service.custom_dir, filename)
+    if not os.path.isfile(file_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Fichier non trouvé",
+        )
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erreur de lecture du fichier",
+        )
+
+    return {"filename": filename, "content": content}
+
+
+# ---------------------------------------------------------------------------
+# Hardware Performance Tuning — Schemas & Endpoints
+# ---------------------------------------------------------------------------
+
+
+class HardwareInfoResponse(BaseModel):
+    """Detected hardware information response."""
+
+    cpu_model: str
+    cpu_freq_ghz: float
+    cpu_cores: int
+    ram_total_gb: float
+    gpu_name: str | None
+    gpu_vram_gb: float | None
+
+
+class ProfileResponse(BaseModel):
+    """Single performance profile response."""
+
+    name: str
+    display_name: str
+    ram_range: str
+    ctx_max: int
+    model: str
+    rag_chunks: int
+    tokens_per_sec: float
+    step_durations: dict[str, str]
+
+
+class PerformanceProfileResponse(BaseModel):
+    """Full performance profile response with hardware info."""
+
+    active_profile: ProfileResponse
+    is_override: bool
+    auto_detected_profile: str
+    all_profiles: list[ProfileResponse]
+    hardware_info: HardwareInfoResponse
+
+
+# ---- GET /hardware-info — Informations matérielles détectées ----------------
+
+
+@router.get("/hardware-info", response_model=HardwareInfoResponse)
+async def get_hardware_info(
+    _user: dict = Depends(get_current_user),
+):
+    """Return detected hardware information."""
+    hw = ActiveProfile.get_hardware_info()
+    if hw is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Hardware not yet detected",
+        )
+    return HardwareInfoResponse(
+        cpu_model=hw.cpu_model,
+        cpu_freq_ghz=hw.cpu_freq_ghz,
+        cpu_cores=hw.cpu_cores,
+        ram_total_gb=hw.ram_total_gb,
+        gpu_name=hw.gpu_name,
+        gpu_vram_gb=hw.gpu_vram_gb,
+    )
+
+
+# ---- GET /performance-profile — Profil actif + tous les profils -------------
+
+
+@router.get("/performance-profile", response_model=PerformanceProfileResponse)
+async def get_performance_profile(
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return active profile, all profiles, and hardware info."""
+    hw = ActiveProfile.get_hardware_info()
+    if hw is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Hardware not yet detected",
+        )
+
+    profile = ActiveProfile.get_profile()
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Performance profile not yet initialized",
+        )
+
+    # Determine if override is active
+    config = await _get_config(db)
+    is_override = config.performance_profile_override is not None
+
+    # Compute auto-detected profile name
+    selector = ProfileSelector()
+    auto_detected = selector.select(hw)
+
+    # Build active profile response with step durations
+    active_durations = get_all_step_durations(profile.tokens_per_sec)
+    active_profile_resp = ProfileResponse(
+        name=profile.name,
+        display_name=profile.display_name,
+        ram_range=profile.ram_range,
+        ctx_max=profile.ctx_max,
+        model=profile.model,
+        rag_chunks=profile.rag_chunks,
+        tokens_per_sec=profile.tokens_per_sec,
+        step_durations=active_durations,
+    )
+
+    # Build all profiles list with step durations
+    all_profiles: list[ProfileResponse] = []
+    for p in PROFILES.values():
+        # Compute tokens_per_sec for each profile using actual hardware
+        tps = selector.compute_tokens_per_sec(hw)
+        durations = get_all_step_durations(tps)
+        all_profiles.append(
+            ProfileResponse(
+                name=p.name,
+                display_name=p.display_name,
+                ram_range=p.ram_range,
+                ctx_max=p.ctx_max,
+                model=p.model,
+                rag_chunks=p.rag_chunks,
+                tokens_per_sec=tps,
+                step_durations=durations,
+            )
+        )
+
+    hardware_info_resp = HardwareInfoResponse(
+        cpu_model=hw.cpu_model,
+        cpu_freq_ghz=hw.cpu_freq_ghz,
+        cpu_cores=hw.cpu_cores,
+        ram_total_gb=hw.ram_total_gb,
+        gpu_name=hw.gpu_name,
+        gpu_vram_gb=hw.gpu_vram_gb,
+    )
+
+    return PerformanceProfileResponse(
+        active_profile=active_profile_resp,
+        is_override=is_override,
+        auto_detected_profile=auto_detected.name,
+        all_profiles=all_profiles,
+        hardware_info=hardware_info_resp,
+    )
+
+
+# ---- PUT /performance-profile/override — Override manuel du profil ----------
+
+
+class OverrideRequest(BaseModel):
+    """Request body for setting a manual profile override."""
+
+    profile_name: str | None = None  # None = revert to auto
+
+
+@router.put("/performance-profile/override")
+async def set_performance_override(
+    request: OverrideRequest,
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Apply a manual profile override or revert to auto.
+
+    Validates the profile name, persists the override to the database,
+    applies the new profile to ActiveProfile immediately, and triggers
+    a model download if the new profile requires a different model.
+    """
+    # 1. Validate profile name (if not None)
+    if request.profile_name is not None and request.profile_name not in PROFILES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Profil inconnu: {request.profile_name}",
+        )
+
+    # 2. Persist to DB
+    config = await _get_config(db)
+    config.performance_profile_override = request.profile_name
+    await db.commit()
+
+    # 3. Apply new profile
+    hw = ActiveProfile.get_hardware_info()
+    if hw is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Hardware not yet detected",
+        )
+
+    selector = ProfileSelector()
+    new_profile = selector.get_active_profile(hw, request.profile_name)
+    ActiveProfile.set(new_profile, hw)
+
+    # 4. Trigger model download if model changed
+    await _download_manager.check_and_pull_if_needed(new_profile.model)
+
+    return {"status": "ok", "active_profile": new_profile.name}
+
+
+# ---- GET /model-download-status — État du téléchargement de modèle ----------
+
+
+class ModelDownloadStatusResponse(BaseModel):
+    """Response for model download status."""
+
+    needed: bool
+    in_progress: bool
+    progress_percent: float | None = None
+    error: str | None = None
+
+
+@router.get("/model-download-status", response_model=ModelDownloadStatusResponse)
+async def get_model_download_status(
+    _user: dict = Depends(get_current_user),
+):
+    """Return current model download status."""
+    dl_status = _download_manager.get_status()
+    return ModelDownloadStatusResponse(
+        needed=dl_status.needed,
+        in_progress=dl_status.in_progress,
+        progress_percent=dl_status.progress_percent,
+        error=dl_status.error,
+    )

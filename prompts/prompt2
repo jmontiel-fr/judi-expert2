@@ -8,11 +8,11 @@ heure début, heure fin,
 accompagnant/e (oui/non), et si accompagant nom et qualité
 
 - biograhie etc ....
-pour chaque section  prévoir les champs @dires ....\à et @Analyse .... \@
+pour chaque section  prévoir les champs @dires .... @ et @Analyse .... @
 
 - une section finale "Conclusion" :
-reprenant les questions sous forme @question n\n et injecte les @refrence ..\@
-pour reprednre les sections dires et @alayses relatives
+reprenant les questions sous forme @question n @ et injecte les @reference .. @
+pour reprendre les sections dires et @analyses relatives
 
 Elimine toutes les informations autres de formattage.
 

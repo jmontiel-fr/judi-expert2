@@ -4,6 +4,7 @@ import logging
 import os
 from pathlib import Path
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse, PlainTextResponse
 from sqlalchemy import select
@@ -165,6 +166,9 @@ async def get_contenu(domaine: str) -> list[ContenuItemResponse]:
     des ressources. Retourne une liste vide si le fichier n'existe pas.
     Cet endpoint ne nécessite pas d'authentification.
 
+    Chaque document de type 'document' est enrichi d'un champ 'downloaded'
+    indiquant si le fichier est présent sur disque.
+
     Args:
         domaine: Nom du domaine (ex: 'psychologie').
 
@@ -186,7 +190,19 @@ async def get_contenu(domaine: str) -> list[ContenuItemResponse]:
             detail="Erreur de lecture du corpus",
         )
 
-    return [ContenuItemResponse(**item) for item in items]
+    result = []
+    for item in items:
+        resp = ContenuItemResponse(**item)
+        # Vérifier si le fichier est présent sur disque (pour les documents)
+        if resp.type == "document":
+            file_path = _CORPUS_BASE_PATH / domaine / resp.nom
+            resp.downloaded = file_path.is_file()
+        elif resp.type == "template":
+            file_path = _CORPUS_BASE_PATH / domaine / resp.nom
+            resp.downloaded = file_path.is_file()
+        result.append(resp)
+
+    return result
 
 
 @router.get("/{domaine}/urls", response_model=list[UrlItemResponse])
@@ -266,6 +282,102 @@ async def download_corpus_file(domaine: str, filename: str) -> FileResponse:
         filename=download_name,
         media_type=media_type,
     )
+
+
+# ---------------------------------------------------------------------------
+# Auto-download — Téléchargement automatique des PDFs depuis download_url
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{domaine}/documents/download-all")
+async def download_all_documents(domaine: str):
+    """Tente le téléchargement automatique de tous les PDFs ayant un download_url.
+
+    Pour chaque document de type 'document' dans contenu.yaml qui possède un
+    champ download_url non vide, tente de télécharger le fichier et de le
+    stocker dans le répertoire documents/ du domaine.
+
+    Endpoint admin — à protéger en production.
+
+    Returns:
+        Résumé : nombre de fichiers téléchargés, déjà présents, en erreur.
+    """
+    _validate_domaine(domaine)
+
+    service = _get_corpus_service()
+    try:
+        items = service.load_contenu(domaine)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur de lecture du corpus : {e}",
+        )
+
+    downloaded = 0
+    already_present = 0
+    errors: list[str] = []
+    no_url = 0
+
+    documents_dir = _CORPUS_BASE_PATH / domaine / "documents"
+    documents_dir.mkdir(parents=True, exist_ok=True)
+
+    async with httpx.AsyncClient(
+        timeout=60.0,
+        follow_redirects=True,
+        headers={"User-Agent": "JudiExpert-Admin/1.0"},
+    ) as client:
+        for item in items:
+            if item.get("type") != "document":
+                continue
+
+            nom = item.get("nom", "")
+            download_url = item.get("download_url", "")
+
+            if not download_url:
+                no_url += 1
+                continue
+
+            # Vérifier si le fichier existe déjà
+            file_path = _CORPUS_BASE_PATH / domaine / nom
+            if file_path.is_file():
+                already_present += 1
+                continue
+
+            # Tenter le téléchargement
+            try:
+                resp = await client.get(download_url)
+                if resp.status_code != 200:
+                    errors.append(f"{nom}: HTTP {resp.status_code}")
+                    continue
+
+                # Vérifier que c'est bien un PDF
+                content_type = resp.headers.get("content-type", "")
+                if "pdf" not in content_type and not nom.endswith(".pdf"):
+                    errors.append(f"{nom}: contenu non-PDF ({content_type})")
+                    continue
+
+                # Sauvegarder
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                file_path.write_bytes(resp.content)
+                downloaded += 1
+                logger.info("Auto-download réussi : %s", nom)
+
+            except httpx.TimeoutException:
+                errors.append(f"{nom}: timeout")
+            except httpx.ConnectError:
+                errors.append(f"{nom}: connexion impossible")
+            except Exception as exc:
+                errors.append(f"{nom}: {type(exc).__name__}")
+
+    return {
+        "message": f"Téléchargement terminé — {downloaded} téléchargé(s), "
+                   f"{already_present} déjà présent(s), {no_url} sans URL, "
+                   f"{len(errors)} erreur(s)",
+        "downloaded": downloaded,
+        "already_present": already_present,
+        "no_url": no_url,
+        "errors": errors,
+    }
 
 
 # ---------------------------------------------------------------------------

@@ -314,7 +314,7 @@ export default function DossierDetailPage() {
                       </div>
                       <div className={styles.stepDates}>
                         {step.executed_at && (
-                          <span>Exécuté : {formatDateTime(step.executed_at)}</span>
+                          <span>Exécuté : {formatDateTime(step.executed_at)}{step.execution_duration_seconds != null && step.execution_duration_seconds > 0 ? ` — Durée : ${Math.floor(step.execution_duration_seconds / 60)}min ${Math.floor(step.execution_duration_seconds % 60).toString().padStart(2, "0")}s` : ""}</span>
                         )}
                         {step.validated_at && (
                           <span>Validé : {formatDateTime(step.validated_at)}</span>
@@ -381,13 +381,22 @@ export default function DossierDetailPage() {
                     {resetError && resettingStep === null && (
                       <p className={styles.resetError} role="alert">{resetError}</p>
                     )}
-                    <FileList
-                      dossierId={dossier.id}
-                      stepNumber={step.step_number}
-                      files={step.files ?? []}
-                      isLocked={step.statut === "valide"}
-                      showReplaceButton={false}
-                    />
+                    {step.files && step.files.length > 0 && (
+                      <details className={styles.filesCollapsable}>
+                        <summary style={{ cursor: "pointer", fontSize: "0.8rem", color: "#2563eb", marginTop: 8 }}>
+                          📎 {step.files.length} fichier{step.files.length > 1 ? "s" : ""}
+                        </summary>
+                        <div style={{ marginTop: 8 }}>
+                          <FileList
+                            dossierId={dossier.id}
+                            stepNumber={step.step_number}
+                            files={step.files}
+                            isLocked={step.statut === "valide"}
+                            showReplaceButton={false}
+                          />
+                        </div>
+                      </details>
+                    )}
                   </div>
                 );
               })}

@@ -5,14 +5,12 @@ const nextConfig = {
   // Standalone output pour le déploiement Docker optimisé
   output: "standalone",
 
-  // Proxy des appels API vers le backend FastAPI
-  // Utilise NEXT_PUBLIC_API_URL si défini, sinon http://localhost:8000
+  // Proxy des appels API vers le backend FastAPI (côté serveur)
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     return [
       {
         source: "/api/:path*",
-        destination: `${apiUrl}/api/:path*`,
+        destination: "http://judi-web-backend:8000/api/:path*",
       },
     ];
   },

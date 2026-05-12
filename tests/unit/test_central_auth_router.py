@@ -275,15 +275,17 @@ async def test_login_wrong_password_uniform_error(client: AsyncClient):
     """Exigence 14.3 — message uniforme pour mot de passe incorrect."""
     from botocore.exceptions import ClientError
 
-    with (
-        patch.object(_central_auth_mod, "captcha_service") as mock_cap,
-        patch.object(_central_auth_mod, "cognito_service") as mock_cog,
-    ):
-        mock_cap.verify_captcha = AsyncMock(return_value=True)
-        mock_cog.login_user.side_effect = ClientError(
+    def _raise_not_authorized(**kwargs):
+        raise ClientError(
             {"Error": {"Code": "NotAuthorizedException", "Message": "Incorrect password"}},
             "InitiateAuth",
         )
+
+    with (
+        patch.object(_central_auth_mod, "captcha_service") as mock_cap,
+        patch.object(_central_auth_mod.cognito_service, "login_user", side_effect=_raise_not_authorized),
+    ):
+        mock_cap.verify_captcha = AsyncMock(return_value=True)
         resp = await client.post("/api/auth/login", json={
             "email": "expert@example.com",
             "password": "wrong",
@@ -299,15 +301,17 @@ async def test_login_wrong_email_uniform_error(client: AsyncClient):
     """Exigence 14.3 — message uniforme pour email incorrect."""
     from botocore.exceptions import ClientError
 
-    with (
-        patch.object(_central_auth_mod, "captcha_service") as mock_cap,
-        patch.object(_central_auth_mod, "cognito_service") as mock_cog,
-    ):
-        mock_cap.verify_captcha = AsyncMock(return_value=True)
-        mock_cog.login_user.side_effect = ClientError(
+    def _raise_user_not_found(**kwargs):
+        raise ClientError(
             {"Error": {"Code": "UserNotFoundException", "Message": "User not found"}},
             "InitiateAuth",
         )
+
+    with (
+        patch.object(_central_auth_mod, "captcha_service") as mock_cap,
+        patch.object(_central_auth_mod.cognito_service, "login_user", side_effect=_raise_user_not_found),
+    ):
+        mock_cap.verify_captcha = AsyncMock(return_value=True)
         resp = await client.post("/api/auth/login", json={
             "email": "unknown@example.com",
             "password": "SecureP@ss1",

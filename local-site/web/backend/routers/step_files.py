@@ -152,6 +152,44 @@ async def view_file(
     )
 
 
+# ---- DELETE /{dossier_id}/steps/{step_number}/files/{file_id} ------------
+
+@router.delete(
+    "/{dossier_id}/steps/{step_number}/files/{file_id}",
+    status_code=status.HTTP_200_OK,
+)
+async def delete_file(
+    dossier_id: int,
+    step_number: int,
+    file_id: int,
+    db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(get_current_user),
+):
+    """Supprime un fichier d'entrée d'une étape.
+
+    Supprime l'enregistrement en base et le fichier sur le disque.
+    L'étape ne doit pas être verrouillée (validée).
+    """
+    # 1. Vérifier que l'étape n'est pas verrouillée
+    await workflow_engine.require_step_not_validated(dossier_id, step_number, db)
+
+    # 2. Charger le StepFile
+    step_file = await _get_step_file(file_id, db)
+
+    # 3. Supprimer le fichier sur le disque
+    if os.path.isfile(step_file.file_path):
+        try:
+            os.remove(step_file.file_path)
+        except OSError as exc:
+            logger.warning("Impossible de supprimer le fichier %s : %s", step_file.file_path, exc)
+
+    # 4. Supprimer l'enregistrement en base
+    await db.delete(step_file)
+    await db.commit()
+
+    return {"message": f"Fichier '{step_file.filename}' supprimé"}
+
+
 # ---- POST /{dossier_id}/steps/{step_number}/files/{file_id}/replace -----
 
 @router.post(
