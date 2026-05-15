@@ -1,0 +1,48 @@
+Intègre le paiement stripe à la gestion comptable 
+telle que définie dans 
+github.com/jmontiel.fr/itechsource/docs/compta-appli-dev-guide.md
+
+L'appli (judi-expert) doit passer en metadata les informations
+tel que décrite dans le guide.
+
+- appli : judi-expert
+- service : ticket-expertise
+- type : B2B ou B2C selon profil de l'utilisateur
+- prix en € HT (B2B) ou € TTC (B2C)
+- domaine expertise
+- autres data pour établir la facture
+par l'application compta qui extrait les paramètres nécessaires
+dans les metadata transactions :
+Si utilisateur B2B (entreprise)
+-> type B2B
+-> adresse entreprise 
+-> email facturation
+-> nom, prénom expert 
+-> SIRET
+-> RCS
+
+Si expert à titre individuel (B2C)
+-> nom/prénom expert
+-> adresse 
+
+Configurer Récuper la shared-library.
+La configurér et modifier l'application appel paiement 
+avec les paramètres ci-dessdus.
+
+Sur l'affichae des ticket ajouter un bouton 're-crédietr' pour effectuer un remboursement stripe.
+
+Pour l'isntant il n' y a pas d'abonnement mais en 
+prévision d'évolution mettre en place ce qui suit.
+
+Créer le cron journalier de récupération 
+incident paiement abonnement : au premier rejet 
+envoyer mail de demande de régularisation avant 
+5 jours. 
+Si au bout de 5 jours le règlement n'est pas 
+régularisé bloquer l'abonnement et envoyer un 
+message de suspension abonnement immédiat.
+
+Si l'utilisarteur clos son abonnement :
+envoyer un email de terminaison d'abonnement 
+en fin de mois. Terminer les prélèvemenst sur Stripe.
+

@@ -1,0 +1,35 @@
+En fait tous les experts doivent être marqué 
+B2B dans les metadata stripe.
+
+A l'enregistrement : 
+nom
+prénom
+email
+entreprise (si définie)
+adresse-entreprise
+email-facturation 
+SIRET (si existant sinon "non attribué")
+
+Avec Note :
+Le SIRET permet l’émission de factures professionnelles complètes.
+
+
+Au paiement :  passer ces information en metadata
++ information achat 
+(prix, date, achat, service, abonnement, recurrence)
+
+Ensuite côté facture :
+date achat
+description : application - service
+nom/prénom expert
+adresse,
+email client
+SIRET (reseigné ou "non attribué")
+prix HT, TVA et TTC
+
+Instructions:
+- corrige formulaire et dB enregistrement
+- update code 
+-> profil
+-> paiement
+-> tests
