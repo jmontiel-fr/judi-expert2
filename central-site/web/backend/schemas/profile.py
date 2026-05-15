@@ -1,9 +1,22 @@
 """Schémas Pydantic pour la gestion du profil expert."""
 
+import re
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, EmailStr, field_validator
+
+
+# --- Regex patterns ---
+# SIRET : exactement 14 chiffres
+SIRET_PATTERN = re.compile(r"^\d{14}$")
+
+
+def validate_siret(value: str) -> str:
+    """Valide qu'un SIRET contient exactement 14 chiffres."""
+    if not SIRET_PATTERN.match(value):
+        raise ValueError("Le SIRET doit contenir exactement 14 chiffres")
+    return value
 
 
 class ProfileResponse(BaseModel):
@@ -20,6 +33,11 @@ class ProfileResponse(BaseModel):
     domaine: str
     accept_newsletter: bool
     created_at: datetime
+    # Champs facturation
+    entreprise: Optional[str] = None
+    company_address: Optional[str] = None
+    billing_email: Optional[str] = None
+    siret: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -32,6 +50,11 @@ class ProfileUpdateRequest(BaseModel):
     adresse: Optional[str] = None
     domaine: Optional[str] = None
     accept_newsletter: Optional[bool] = None
+    # Champs facturation
+    entreprise: Optional[str] = None
+    company_address: Optional[str] = None
+    billing_email: Optional[EmailStr] = None
+    siret: Optional[str] = None
 
     @field_validator("nom", "prenom", "adresse", "domaine")
     @classmethod
@@ -39,6 +62,14 @@ class ProfileUpdateRequest(BaseModel):
         if v is not None and not v.strip():
             raise ValueError("Ce champ ne peut pas être vide")
         return v.strip() if v else v
+
+    @field_validator("siret")
+    @classmethod
+    def validate_siret_field(cls, v: Optional[str]) -> Optional[str]:
+        """Valide le format SIRET si fourni."""
+        if v is not None and v.strip():
+            return validate_siret(v.strip())
+        return v
 
 
 class ChangePasswordRequest(BaseModel):

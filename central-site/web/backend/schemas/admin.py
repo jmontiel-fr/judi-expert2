@@ -20,6 +20,23 @@ class ExpertListResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AdminTicketResponse(BaseModel):
+    """Détails d'un ticket pour la liste d'administration."""
+
+    id: int
+    ticket_code: str
+    domaine: str
+    statut: str
+    montant: Decimal
+    stripe_payment_id: str
+    created_at: datetime
+    expert_email: str
+    expert_nom: str
+    expert_prenom: str
+
+    model_config = {"from_attributes": True}
+
+
 class MonthStats(BaseModel):
     """Statistiques d'un mois passé."""
 

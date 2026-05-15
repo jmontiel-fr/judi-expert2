@@ -316,7 +316,7 @@ Création (ticket valide)
 </thead>
 <tbody>
 <tr><td>Dossier</td><td>Dossier d'expertise</td><td>Unité de travail regroupant les 5 étapes d'une expertise judiciaire</td></tr>
-<tr><td>MEC</td><td>Mis(e) En Cause</td><td>Personne évaluée en expertise psychologique. Sujet de l'expertise désigné par la juridiction.</td></tr>
+<tr><td>PEX</td><td>Personne Expertisée</td><td>Personne évaluée en expertise (plaignant ou mis en cause). Sujet de l'expertise désigné par la juridiction. Remplace l'ancien terme MEC (Mis en Cause).</td></tr>
 <tr><td>QT</td><td>Questions du Tribunal</td><td>Questions posées par la juridiction auxquelles l'expert doit répondre, extraites de la demande et stockées comme <code>question_1</code>…<code>question_n</code> dans <code>placeholders.csv</code></td></tr>
 <tr><td>TPE</td><td>Template de Plan d'Entretien</td><td>Partie du TRE (après <code>@debut_tpe@</code>) définissant la structure des entretiens</td></tr>
 <tr><td>TPA</td><td>Template de Plan d'Analyse</td><td>Partie du TRE (après <code>@debut_tpe@</code>) définissant la structure des analyses sur pièces</td></tr>
@@ -443,8 +443,11 @@ Les annotations sont des instructions de génération interprétées par le mote
 <tr><td><code>@debut_tpe</code></td><td><code>@debut_tpe@</code></td><td>—</td><td>Marqueur structurel : début de la zone PE/PA (extraction au Step 2)</td></tr>
 <tr><td><code>@/custom</code></td><td><code>@/custom contenu@</code></td><td><strong>Custom :</strong> contenu reformulé</td><td>Annotation personnalisée — reformulation LLM avec le préfixe choisi par l'expert</td></tr>
 <tr><td><code>@remplir</code></td><td><code>@remplir description : texte@</code></td><td>texte (partie après le <code>:</code>)</td><td>Texte à substituer au Step 4. Seule la partie après le <code>:</code> est conservée dans le PRE — la description avant le <code>:</code> sert d'indication à l'expert.</td></tr>
+<tr><td><code>@resume</code></td><td><code>@resume @reference annotation_xxx, @reference annotation_yyy, ...@</code></td><td>Résumé des sections citées</td><td>Concatène les contenus des annotations référencées et génère un résumé via LLM. Résolu au Step 4 <strong>après</strong> la reformulation des annotations citées.</td></tr>
 </tbody>
 </table>
+
+> **Note** : Toutes les annotations peuvent contenir des placeholders `<<placeholder>>`. La résolution des placeholders se fait **après** toutes les substitutions d'annotations (reformulation, @resume, etc.).
 
 ### Principe de fonctionnement
 
@@ -479,17 +482,24 @@ TRE (en-tête, avant @debut_tpe@)
     ▼
 Document reconstitué complet
     │
-    ├─ Passe 1 : substitution des <<placeholders>>
-    │            (valeurs depuis placeholders.csv du Step 1)
+    ├─ Passe 1 : validation syntaxique des annotations
+    │            et vérification des <<placeholders>> contre placeholders.csv
     │
-    ├─ Passe 2 : résolution @question n@ et @reference / @cite
-    │            (depuis placeholders.csv + contenus déjà extraits)
-    │
-    ├─ Passe 3 : reformulation LLM des annotations
-    │            @dires → "Dires : ..." (reformulé)
-    │            @analyse → "Analyse : ..." (reformulé)
+    ├─ Passe 2 : reformulation LLM des annotations
+    │            @dires → "Dires : ..." (reformulé en français professionnel)
+    │            @analyse → "Analyse : ..." (reformulé en français professionnel)
     │            @verbatim → "«...»" (préservé tel quel)
     │            @/custom → "Custom : ..." (reformulé)
+    │
+    ├─ Passe 3 : résolution @resume (après reformulation des annotations citées)
+    │            concaténation des sections référencées → résumé LLM
+    │
+    ├─ Passe 4 : résolution @question n@ et @reference / @cite
+    │            (depuis placeholders.csv + contenus déjà reformulés)
+    │
+    ├─ Passe 5 : substitution des <<placeholders>>
+    │            (valeurs depuis placeholders.csv du Step 1)
+    │            Note : les placeholders dans les annotations sont résolus ici
     │
     ▼
 pre.docx (Pré-Rapport d'Expertise)
@@ -628,7 +638,7 @@ question_2;Évaluer le retentissement psychologique des faits
 question_3;Déterminer si un suivi thérapeutique est nécessaire
 ```
 
-#### Liste des placeholders de réquisition/ordonnance
+#### Liste des placeholders du TRE
 
 <table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%;">
 <thead>
@@ -637,26 +647,39 @@ question_3;Déterminer si un suivi thérapeutique est nécessaire
 </tr>
 </thead>
 <tbody>
+<tr><td colspan="3" style="background-color: #e8f5e9; font-weight: bold;">Expertise</td></tr>
+<tr><td><code>&lt;&lt;titre_expertise&gt;&gt;</code></td><td>Intitulé de l'expertise (ex: « Expertise psychologique »)</td><td>Demande</td></tr>
+<tr><td><code>&lt;&lt;objet_mission&gt;&gt;</code></td><td>Objet de la mission d'expertise</td><td>Demande</td></tr>
+<tr><td><code>&lt;&lt;date_mission&gt;&gt;</code></td><td>Date de la mission d'expertise</td><td>Demande</td></tr>
+<tr><td><code>&lt;&lt;pieces_auxiliaires&gt;&gt;</code></td><td>Liste des pièces consultées par l'expert</td><td>Demande / Expert</td></tr>
+<tr><td><code>&lt;&lt;reference_dossier&gt;&gt;</code></td><td>Numéro de référence du dossier (RG)</td><td>Demande</td></tr>
+<tr><td colspan="3" style="background-color: #e8f5e9; font-weight: bold;">Requérant / Magistrat</td></tr>
+<tr><td><code>&lt;&lt;requerant_prenom&gt;&gt;</code></td><td>Prénom du requérant</td><td>Demande</td></tr>
+<tr><td><code>&lt;&lt;requerant_nom&gt;&gt;</code></td><td>Nom du requérant</td><td>Demande</td></tr>
+<tr><td><code>&lt;&lt;requerant_titre&gt;&gt;</code></td><td>Titre/qualité du requérant (ex: Substitut du procureur)</td><td>Demande</td></tr>
+<tr><td><code>&lt;&lt;requerant_ville&gt;&gt;</code></td><td>Ville du requérant</td><td>Demande</td></tr>
+<tr><td><code>&lt;&lt;nom_tribunal&gt;&gt;</code></td><td>Nom complet du tribunal</td><td>Demande</td></tr>
+<tr><td><code>&lt;&lt;ville_tribunal&gt;&gt;</code></td><td>Ville du tribunal</td><td>Demande</td></tr>
+<tr><td><code>&lt;&lt;nom_magistrat&gt;&gt;</code></td><td>Nom du magistrat ayant ordonné l'expertise</td><td>Demande</td></tr>
+<tr><td colspan="3" style="background-color: #e8f5e9; font-weight: bold;">Questions du tribunal</td></tr>
+<tr><td><code>&lt;&lt;question_1&gt;&gt;</code> … <code>&lt;&lt;question_n&gt;&gt;</code></td><td>Questions du tribunal (numérotées)</td><td>Demande (extraction LLM)</td></tr>
+<tr><td colspan="3" style="background-color: #e8f5e9; font-weight: bold;">Personne expertisée (PEX)</td></tr>
+<tr><td><code>&lt;&lt;genre_pex&gt;&gt;</code></td><td>Genre de la personne expertisée (Monsieur ou Madame)</td><td>Demande</td></tr>
+<tr><td><code>&lt;&lt;nom_pex&gt;&gt;</code></td><td>Nom de la personne expertisée</td><td>Demande</td></tr>
+<tr><td><code>&lt;&lt;prenom_pex&gt;&gt;</code></td><td>Prénom de la personne expertisée</td><td>Demande</td></tr>
+<tr><td><code>&lt;&lt;age_pex&gt;&gt;</code></td><td>Âge de la personne expertisée</td><td>Demande (calculé)</td></tr>
+<tr><td><code>&lt;&lt;date_naissance_pex&gt;&gt;</code></td><td>Date de naissance de la personne expertisée</td><td>Demande</td></tr>
+<tr><td><code>&lt;&lt;ville_naissance_pex&gt;&gt;</code></td><td>Ville de naissance de la personne expertisée</td><td>Demande</td></tr>
+<tr><td><code>&lt;&lt;CP_ville_naissance_pex&gt;&gt;</code></td><td>Code postal de la ville de naissance</td><td>Demande</td></tr>
+<tr><td colspan="3" style="background-color: #e8f5e9; font-weight: bold;">Expert</td></tr>
+<tr><td><code>&lt;&lt;genre_expert&gt;&gt;</code></td><td>Genre de l'expert (Monsieur ou Madame)</td><td>Configuration locale</td></tr>
 <tr><td><code>&lt;&lt;nom_expert&gt;&gt;</code></td><td>Nom de famille de l'expert</td><td>Configuration locale</td></tr>
 <tr><td><code>&lt;&lt;prenom_expert&gt;&gt;</code></td><td>Prénom de l'expert</td><td>Configuration locale</td></tr>
 <tr><td><code>&lt;&lt;titre_expert&gt;&gt;</code></td><td>Titre professionnel de l'expert</td><td>Configuration locale</td></tr>
-<tr><td><code>&lt;&lt;date_mission&gt;&gt;</code></td><td>Date de la mission d'expertise</td><td>Demande</td></tr>
-<tr><td><code>&lt;&lt;tribunal&gt;&gt;</code></td><td>Nom complet du tribunal</td><td>Demande</td></tr>
-<tr><td><code>&lt;&lt;reference_dossier&gt;&gt;</code></td><td>Numéro de référence du dossier (RG)</td><td>Demande</td></tr>
-<tr><td><code>&lt;&lt;nom_expertise&gt;&gt;</code></td><td>Intitulé de l'expertise</td><td>Demande</td></tr>
-<tr><td><code>&lt;&lt;nom_mec&gt;&gt;</code></td><td>Nom du MEC (personne évaluée)</td><td>Demande</td></tr>
-<tr><td><code>&lt;&lt;prenom_mec&gt;&gt;</code></td><td>Prénom du MEC</td><td>Demande</td></tr>
-<tr><td><code>&lt;&lt;nom_requerant&gt;&gt;</code></td><td>Nom du requérant</td><td>Demande</td></tr>
-<tr><td><code>&lt;&lt;prenom_requerant&gt;&gt;</code></td><td>Prénom du requérant</td><td>Demande</td></tr>
-<tr><td><code>&lt;&lt;titre_requerant&gt;&gt;</code></td><td>Titre/qualité du requérant (ex: Officier de Police Judiciaire, Magistrat)</td><td>Demande</td></tr>
-<tr><td><code>&lt;&lt;objet_mission&gt;&gt;</code></td><td>Objet de la mission d'expertise</td><td>Demande</td></tr>
-<tr><td><code>&lt;&lt;date_ordonnance&gt;&gt;</code></td><td>Date de l'ordonnance</td><td>Demande</td></tr>
-<tr><td><code>&lt;&lt;juridiction&gt;&gt;</code></td><td>Type de juridiction</td><td>Demande</td></tr>
-<tr><td><code>&lt;&lt;ville_juridiction&gt;&gt;</code></td><td>Ville de la juridiction</td><td>Demande</td></tr>
-<tr><td><code>&lt;&lt;magistrat&gt;&gt;</code></td><td>Nom du magistrat ayant ordonné l'expertise</td><td>Demande</td></tr>
-<tr><td><code>&lt;&lt;question_1&gt;&gt;</code> … <code>&lt;&lt;question_n&gt;&gt;</code></td><td>Questions du tribunal (numérotées)</td><td>Demande (extraction LLM)</td></tr>
+<tr><td><code>&lt;&lt;date_rapport&gt;&gt;</code></td><td>Date de rédaction du rapport</td><td>Automatique (date du Step 4)</td></tr>
 </tbody>
 </table>
 
+> **Note** : Le terme **PEX** (Personne Expertisée) remplace l'ancien terme MEC (Mis en Cause) pour couvrir les cas où la personne expertisée est le plaignant et non le mis en cause.
 
 > **Note** : cette liste est extensible. L'expert peut ajouter des placeholders personnalisés dans son `tre.docx` et renseigner les valeurs correspondantes dans le CSV.

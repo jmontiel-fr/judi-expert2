@@ -112,3 +112,13 @@ resource "aws_route53_record" "apex" {
     evaluate_target_health = false
   }
 }
+
+# --- Cron Abonnement (EventBridge + Lambda) ---
+module "cron" {
+  source = "./modules/cron"
+
+  project_name = var.project_name
+  environment  = var.environment
+  aws_region   = var.aws_region
+  api_base_url = "https://origin.${var.domain_name}:8000"
+}

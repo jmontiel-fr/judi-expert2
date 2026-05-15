@@ -372,7 +372,7 @@ async def step1_execute(
     logger.info("[Step1] Dossier %d — Phase 2/5 : Structuration ordonnance (LLM)…", dossier_id)
     step = await _get_step(dossier_id, 1, db)
     step.progress_current = 2
-    step.progress_message = "Structuration en Markdown (LLM)"
+    step.progress_message = "Structuration en Markdown ⏳ LLM"
     await db.commit()
     llm = LLMService()
     try:
@@ -425,7 +425,7 @@ async def step1_execute(
     logger.info("[Step1] Dossier %d — Phase 3/5 : Extraction des questions (LLM)…", dossier_id)
     step = await _get_step(dossier_id, 1, db)
     step.progress_current = 3
-    step.progress_message = "Extraction des questions (LLM)"
+    step.progress_message = "Extraction des questions ⏳ LLM"
     await db.commit()
     try:
         questions_md = await llm.extraire_questions(markdown)
@@ -451,7 +451,7 @@ async def step1_execute(
     logger.info("[Step1] Dossier %d — Phase 4/5 : Extraction des placeholders (LLM)…", dossier_id)
     step = await _get_step(dossier_id, 1, db)
     step.progress_current = 4
-    step.progress_message = "Extraction des placeholders (LLM)"
+    step.progress_message = "Extraction des placeholders ⏳ LLM"
     await db.commit()
     try:
         placeholders_csv = await llm.extraire_placeholders(markdown)
@@ -467,16 +467,36 @@ async def step1_execute(
         if placeholders_csv.endswith("```"):
             placeholders_csv = placeholders_csv[:-3].strip()
 
+    # Réparer les lignes collées (le LLM oublie parfois le retour à la ligne)
+    # Pattern : "valeurnom_placeholder;" → séparer en deux lignes
+    if placeholders_csv:
+        import re as _re_csv
+        # Détecter "texte_sans_newlineNOM_CONNU;valeur" et insérer un \n avant
+        _KNOWN_KEYS = (
+            "titre_expertise", "objet_mission", "date_mission",
+            "reference_dossier", "pieces_auxiliaires",
+            "requerant_prenom", "requerant_nom", "requerant_titre", "requerant_ville",
+            "nom_tribunal", "ville_tribunal", "nom_magistrat",
+            "genre_pex", "nom_pex", "prenom_pex", "age_pex",
+            "date_naissance_pex", "ville_naissance_pex", "CP_ville_naissance_pex",
+            "genre_expert", "nom_expert", "prenom_expert", "titre_expert",
+            "date_rapport", "question_",
+        )
+        for known_key in _KNOWN_KEYS:
+            # Remplacer "texteKEY;" par "texte\nKEY;" quand KEY n'est pas en début de ligne
+            pattern = _re_csv.compile(r"([^\n])(" + _re_csv.escape(known_key) + r"[^;]*;)")
+            placeholders_csv = pattern.sub(r"\1\n\2", placeholders_csv)
+
     # Filtrer : ne conserver que les placeholders de réquisition standards
     # (définis dans glossaire-workflow) et uniquement s'ils sont valorisés
     _PLACEHOLDERS_REQUISITION_STANDARDS = {
-        "nom_expert", "prenom_expert", "titre_expert",
-        "date_mission", "tribunal", "reference_dossier",
-        "nom_expertise", "nom_mec", "prenom_mec",
-        "nom_requerant", "prenom_requerant", "titre_requerant",
-        "objet_mission",
-        "date_ordonnance", "juridiction", "ville_juridiction",
-        "magistrat",
+        "titre_expertise", "objet_mission", "date_mission",
+        "reference_dossier",
+        "requerant_prenom", "requerant_nom", "requerant_titre", "requerant_ville",
+        "nom_tribunal", "ville_tribunal", "nom_magistrat",
+        "genre_pex", "nom_pex", "prenom_pex",
+        "date_naissance_pex", "ville_naissance_pex",
+        "genre_expert", "nom_expert", "prenom_expert", "titre_expert",
     }
 
     filtered_lines = ["nom_placeholder;valeur"]
@@ -491,6 +511,9 @@ async def step1_execute(
                 value = parts[1].strip()
                 # Nettoyer les retours à la ligne dans les valeurs
                 value = value.replace("\n", " ").replace("\r", " ").strip()
+                # Ignorer les valeurs "..." (placeholder non rempli par le LLM)
+                if value == "..." or value == "…":
+                    continue
                 # Ne garder que les standards ET valorisés
                 if key in _PLACEHOLDERS_REQUISITION_STANDARDS and value:
                     filtered_lines.append(f"{key};{value}")
@@ -976,7 +999,7 @@ async def step2_execute(
     # 5. Marquer le step comme "en_cours"
     step = await workflow_engine.start_step(dossier_id, 2, db)
     step.progress_current = 1
-    step.progress_total = 4
+    step.progress_total = 3
     step.progress_message = "Validation syntaxique du TRE"
     await db.commit()
 
@@ -1025,70 +1048,49 @@ async def step2_execute(
     # Vérifier les placeholders du TRE contre ceux définis
     tre_placeholder_names = {p.name for p in parse_result.placeholders}
     undefined_placeholders = tre_placeholder_names - defined_placeholders
-    # Exclure les placeholders qui seront remplis par les annotations (dires_*, analyse_*, etc.)
+    # Exclure les placeholders qui seront remplis par d'autres sources :
+    # - annotations (dires_*, analyse_*, verbatim_*)
+    # - placeholders de configuration locale (genre_expert, nom_expert, prenom_expert, titre_expert)
+    # - placeholders calculés automatiquement (date_rapport, age_pex)
+    # - questions (question_*)
+    _AUTO_FILLED = {"genre_expert", "nom_expert", "prenom_expert", "titre_expert",
+                    "date_rapport", "age_pex", "pieces_auxiliaires"}
     undefined_placeholders = {
         p for p in undefined_placeholders
-        if not any(p.startswith(prefix) for prefix in ("dires_", "analyse_", "verbatim_"))
+        if not any(p.startswith(prefix) for prefix in ("dires_", "analyse_", "verbatim_", "question_"))
+        and p not in _AUTO_FILLED
     }
 
+    placeholder_warning = ""
     if undefined_placeholders:
-        warning_msg = (
+        placeholder_warning = (
             f"Attention : {len(undefined_placeholders)} placeholder(s) du TRE "
             f"non défini(s) dans placeholders.csv : {', '.join(sorted(undefined_placeholders))}. "
-            f"Ils seront remplacés par '[À compléter]' au Step 4."
+            f"Ils seront remplacés par '[nom_placeholder]' au Step 4."
         )
-        logger.warning("[Step2] Dossier %d — %s", dossier_id, warning_msg)
+        logger.warning("[Step2] Dossier %d — %s", dossier_id, placeholder_warning)
 
-    # 9. Charger les questions depuis placeholders.csv du Step 1
+    # 9. Copier le TRE complet en sortie (l'expert l'annotera directement)
     step = await _get_step(dossier_id, 2, db)
     step.progress_current = 2
-    step.progress_message = "Extraction du Plan d'Entretien depuis le TRE"
+    step.progress_message = "Vérification des <<placeholders>> contre placeholders.csv"
     await db.commit()
 
-    questions: dict[str, str] = {}
-    if os.path.isfile(placeholders_path):
-        with open(placeholders_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("nom_placeholder"):
-                    continue
-                parts = line.split(";", 1)
-                if len(parts) == 2 and parts[0].strip().startswith("question_"):
-                    questions[parts[0].strip()] = parts[1].strip()
+    # (La vérification des placeholders est déjà faite ci-dessus — étape 2 = juste le message)
 
-    logger.info(
-        "[Step2] Dossier %d — %d questions extraites pour le PE",
-        dossier_id, len(questions),
-    )
-
-    # 9. Extraire le PE depuis le TRE
+    # 10. Sauvegarder le TRE complet en sortie
     step = await _get_step(dossier_id, 2, db)
     step.progress_current = 3
-    step.progress_message = "Intégration des questions en conclusion"
-    await db.commit()
-
-    try:
-        pe_bytes = parser.extract_pe(tre_local, questions)
-    except ValueError as exc:
-        await workflow_engine.fail_step(dossier_id, 2, db)
-        await db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exc),
-        )
-
-    # 10. Sauvegarder le PE
-    step = await _get_step(dossier_id, 2, db)
-    step.progress_current = 4
-    step.progress_message = "Sauvegarde du Plan d'Entretien"
+    step.progress_message = "Copie du TRE complet en sortie"
     await db.commit()
 
     step2_out = _step_out(dossier_name, 2)
     os.makedirs(step2_out, exist_ok=True)
 
-    pe_docx_path = os.path.join(step2_out, "pe.docx")
-    with open(pe_docx_path, "wb") as f:
-        f.write(pe_bytes)
+    # Copier le TRE complet (pas d'extraction PE — l'expert annote le TRE directement)
+    import shutil as _shutil
+    tre_out_path = os.path.join(step2_out, "tre.docx")
+    _shutil.copy2(tre_local, tre_out_path)
 
     # 11. Créer les StepFile en base
     step = await _get_step(dossier_id, 2, db)
@@ -1096,12 +1098,13 @@ async def step2_execute(
         await db.delete(old_file)
     await db.flush()
 
+    tre_size = os.path.getsize(tre_out_path)
     db.add(StepFile(
         step_id=step.id,
-        filename="pe.docx",
-        file_path=pe_docx_path,
+        filename="tre.docx",
+        file_path=tre_out_path,
         file_type="plan_entretien_docx",
-        file_size=len(pe_bytes),
+        file_size=tre_size,
     ))
 
     # 12. Marquer step2 comme "réalisé"
@@ -1112,9 +1115,9 @@ async def step2_execute(
     step.progress_message = None
     await db.commit()
 
-    logger.info("[Step2] Dossier %d — PE extrait avec succès", dossier_id)
+    logger.info("[Step2] Dossier %d — TRE validé et copié avec succès", dossier_id)
 
-    return QmecResponse(qmec="")
+    return QmecResponse(qmec=placeholder_warning)
 
 
 
@@ -1400,21 +1403,27 @@ async def step4_execute(
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Génération du PRE (Pré-Rapport) + DAC (Analyse Contradictoire).
+    """Génération du PRE (Pré-Rapport d'Expertise).
+
+    Approche : find/replace dans le .docx du PEA.
+    Le PEA est une copie du TRE annotée par l'expert. On travaille directement
+    dessus pour préserver styles, table des matières, numérotation, etc.
 
     Flow :
-    1. Charger placeholders.csv du Step 1 (placeholders de réquisition valorisés)
-    2. Parser le PEA → extraire @dires_xxx / @analyse_xxx / @verbatim_xxx
-    3. Consolider les deux sources de placeholders
-    4. Charger le TRE → détecter tous les <<placeholder>> attendus
-    5. Check : vérifier que chaque placeholder du TRE a une valeur
-    6. Substituer mécaniquement tous les <<placeholder>> dans le TRE
-    7. LLM : ajustement rédactionnel → pre.docx
-    8. LLM : analyse contradictoire → dac.docx
+    1. Validation : parser le PEA, vérifier annotations et placeholders
+    2. Reformulation LLM des @dires et @analyse
+    3. Résolution des @resume (concaténation + résumé LLM)
+    4. Résolution @question, @reference, @cite
+    5. Substitution in-place dans le .docx : annotations → texte reformulé,
+       <<placeholders>> → valeurs, @remplir → texte après ":"
 
     Valide : Exigences 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8
     """
     import re as re_module
+    import shutil
+
+    from docx import Document as DocxDocument
+    from services.tre_parser import TREParser
 
     # 1. Vérifier l'accès au step4
     await workflow_engine.require_step_access(dossier_id, 4, db)
@@ -1423,14 +1432,14 @@ async def step4_execute(
     await workflow_engine.start_step(dossier_id, 4, db)
     step = await _get_step(dossier_id, 4, db)
     step.progress_current = 1
-    step.progress_total = 6
-    step.progress_message = "Chargement des données"
+    step.progress_total = 5
+    step.progress_message = "Validation syntaxique des annotations et placeholders"
     await db.commit()
 
     # 2. Résoudre le nom du dossier pour les chemins
     dossier_name = await _get_dossier_name(dossier_id, db)
 
-    # 3. Lire le PEA déjà uploadé via /step4/upload
+    # 3. Vérifier que le PEA existe
     in_dir = _step_in(dossier_name, 4)
     pea_path = os.path.join(in_dir, "pea.docx")
     if not os.path.isfile(pea_path):
@@ -1441,26 +1450,16 @@ async def step4_execute(
             detail="PEA/PAA non trouvé — importez d'abord le fichier dans la section Fichiers d'entrée",
         )
 
-    with open(pea_path, "rb") as f:
-        pea_content_bytes = f.read()
-
     # 4. Créer le répertoire de sortie
     out_dir = _step_out(dossier_name, 4)
     os.makedirs(out_dir, exist_ok=True)
+    pre_path = os.path.join(out_dir, "pre.docx")
 
-    # 5. Récupérer le domaine depuis LocalConfig
-    result = await db.execute(select(LocalConfig).limit(1))
-    config = result.scalar_one_or_none()
-    if config is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Configuration initiale non effectuée",
-        )
-    domaine = config.domaine
+    # 5. Copier le PEA → pre.docx (document de travail)
+    # Le PEA est maintenant le TRE complet annoté par l'expert (plus besoin de recoller l'en-tête)
+    shutil.copy2(pea_path, pre_path)
 
-    # ──────────────────────────────────────────────────────────────────────
-    # ÉTAPE 1/7 : Charger les placeholders de réquisition (Step 1)
-    # ──────────────────────────────────────────────────────────────────────
+    # 5. Charger les placeholders de réquisition (Step 1)
     placeholders_csv_path = os.path.join(
         _step_out(dossier_name, 1), "placeholders.csv"
     )
@@ -1475,28 +1474,56 @@ async def step4_execute(
                 if len(parts) == 2 and parts[1].strip():
                     placeholders[parts[0].strip()] = parts[1].strip()
         logger.info(
-            "[Step4] Dossier %d — %d placeholders de réquisition chargés",
+            "[Step4] Dossier %d — %d placeholders chargés",
             dossier_id, len(placeholders),
         )
-    else:
-        logger.warning(
-            "[Step4] Dossier %d — placeholders.csv non trouvé", dossier_id
+
+    # 5b. Générer les alias pour couvrir les anciennes conventions de nommage
+    # Le TRE peut encore utiliser les anciens noms (mec, tribunal, etc.)
+    _ALIAS_MAP = {
+        # Nouveaux noms → anciens noms (pour TRE pas encore mis à jour)
+        "nom_pex": ["nom_mec", "mec_nom"],
+        "prenom_pex": ["prenom_mec", "mec_prenom"],
+        "genre_pex": ["genre_mec", "mec_genre"],
+        "date_naissance_pex": ["date_naissance_mec"],
+        "ville_naissance_pex": ["ville_naissance_mec"],
+        "nom_expert": ["expert_nom"],
+        "prenom_expert": ["expert_prenom"],
+        "titre_expert": ["expert_titre"],
+        "genre_expert": ["expert_genre"],
+        "titre_expertise": ["nom_expertise", "expertise_nom"],
+        "objet_mission": ["mission_objet"],
+        "nom_tribunal": ["tribunal", "tribunal_nom"],
+        "ville_tribunal": ["ville_juridiction", "requerant_ville"],
+        "nom_magistrat": ["magistrat"],
+        "requerant_nom": ["nom_requerant"],
+        "requerant_prenom": ["prenom_requerant"],
+        "requerant_titre": ["titre_requerant"],
+    }
+    # Pour chaque placeholder connu, générer les alias
+    aliases_to_add: dict[str, str] = {}
+    for canonical, alias_list in _ALIAS_MAP.items():
+        if canonical in placeholders:
+            for alias in alias_list:
+                if alias not in placeholders:
+                    aliases_to_add[alias] = placeholders[canonical]
+        else:
+            # Chercher si un alias existe et créer le canonical
+            for alias in alias_list:
+                if alias in placeholders:
+                    aliases_to_add[canonical] = placeholders[alias]
+                    break
+    placeholders.update(aliases_to_add)
+    if aliases_to_add:
+        logger.info(
+            "[Step4] Dossier %d — %d alias de placeholders ajoutés",
+            dossier_id, len(aliases_to_add),
         )
 
-    # ──────────────────────────────────────────────────────────────────────
-    # ÉTAPE 2/7 : Parser le PEA avec TREParser (annotations structurées)
-    # ──────────────────────────────────────────────────────────────────────
-    step = await _get_step(dossier_id, 4, db)
-    step.progress_current = 2
-    step.progress_message = "Extraction des annotations du PEA"
-    await db.commit()
-
-    from services.tre_parser import TREParser
-    from services.annotation_formatter import AnnotationFormatter
-
+    # 6. Parser le PEA pour extraire les annotations
     parser = TREParser()
     try:
-        pea_parse_result = parser.parse(pea_path)
+        pea_parse_result = parser.parse(pre_path)
     except Exception as exc:
         logger.error("[Step4] Erreur parsing PEA : %s", exc)
         await workflow_engine.fail_step(dossier_id, 4, db)
@@ -1506,187 +1533,478 @@ async def step4_execute(
             detail=f"Erreur lors du parsing du PEA : {exc}",
         )
 
-    # Extraire les annotations par type
-    annotations_dires: list[tuple[str, str]] = []  # (suffix, content)
+    # Classer les annotations par type — utiliser un index séquentiel pour gérer les doublons
+    annotations_dires: list[tuple[str, str]] = []  # (full_key, content)
     annotations_analyse: list[tuple[str, str]] = []
     annotations_verbatim: list[tuple[str, str]] = []
-    annotations_custom: list[tuple[str, str]] = []
-    annotations_reference: list[tuple[str, str]] = []
-    annotations_cite: list[tuple[str, str]] = []
-    annotations_remplir: list[tuple[str, str]] = []  # (suffix, content après ":")
 
     for annot in pea_parse_result.annotations:
         if annot.type == "debut_tpe":
             continue
-        elif annot.type == "remplir":
-            # Convention : @remplir description : texte@ → on ne garde que la partie après ":"
-            if ":" in annot.content:
-                text_after_colon = annot.content.split(":", 1)[1].strip()
-            else:
-                text_after_colon = annot.content.strip()
-            annotations_remplir.append((annot.suffix, text_after_colon))
-        elif annot.type == "dires":
-            annotations_dires.append((annot.suffix, annot.content))
+        full_key = f"{annot.type}_{annot.suffix}" if annot.suffix else annot.type
+        if annot.type == "dires":
+            annotations_dires.append((full_key, annot.content))
         elif annot.type == "analyse":
-            annotations_analyse.append((annot.suffix, annot.content))
+            annotations_analyse.append((full_key, annot.content))
         elif annot.type == "verbatim":
-            annotations_verbatim.append((annot.suffix, annot.content))
-        elif annot.type == "reference":
-            annotations_reference.append((annot.suffix, annot.content))
-        elif annot.type == "cite":
-            annotations_cite.append((annot.suffix, annot.content))
-        elif annot.is_custom:
-            annotations_custom.append((annot.type, annot.content))
+            annotations_verbatim.append((full_key, annot.content))
 
     logger.info(
-        "[Step4] Dossier %d — Annotations extraites : %d dires, %d analyse, "
-        "%d verbatim, %d remplir, %d custom, %d reference, %d cite",
+        "[Step4] Dossier %d — Annotations : %d dires, %d analyse, %d verbatim",
         dossier_id, len(annotations_dires), len(annotations_analyse),
-        len(annotations_verbatim), len(annotations_remplir),
-        len(annotations_custom),
-        len(annotations_reference), len(annotations_cite),
+        len(annotations_verbatim),
     )
 
     # ──────────────────────────────────────────────────────────────────────
-    # ÉTAPE 3/7 : Charger le TRE et extraire l'en-tête
+    # ÉTAPE 2/5 : Reformulation LLM des @dires et @analyse (batch)
     # ──────────────────────────────────────────────────────────────────────
     step = await _get_step(dossier_id, 4, db)
-    step.progress_current = 3
-    step.progress_message = "Reconstitution du rapport depuis le TRE"
-    await db.commit()
-
-    # Charger le TRE depuis step2/in/tre.docx (figé au Step 2)
-    tre_path_local = os.path.join(_step_in(dossier_name, 2), "tre.docx")
-    if not os.path.isfile(tre_path_local):
-        # Fallback : résolution par priorité
-        from services.file_paths import tre_path as resolve_tre_path
-        tre_path_local = resolve_tre_path(dossier_name, domaine)
-        if tre_path_local is None:
-            logger.warning("[Step4] Dossier %d — TRE non trouvé, génération sans en-tête", dossier_id)
-            tre_path_local = None
-
-    # Extraire l'en-tête du TRE (partie avant @debut_tpe@)
-    header_text = ""
-    if tre_path_local and os.path.isfile(tre_path_local):
-        try:
-            from docx import Document as DocxDocument
-            tre_doc = DocxDocument(tre_path_local)
-            # Trouver @debut_tpe@ et extraire le texte avant
-            header_paragraphs = []
-            for para in tre_doc.paragraphs:
-                if parser.DEBUT_TPE_RE.match(para.text):
-                    break
-                header_paragraphs.append(para.text)
-            header_text = "\n".join(header_paragraphs)
-        except Exception as exc:
-            logger.warning("[Step4] Erreur extraction en-tête TRE : %s", exc)
-
-    # ──────────────────────────────────────────────────────────────────────
-    # ÉTAPE 4/7 : Reformulation LLM des annotations @dires et @analyse
-    # ──────────────────────────────────────────────────────────────────────
-    step = await _get_step(dossier_id, 4, db)
-    step.progress_current = 4
-    step.progress_message = "Reformulation des annotations (LLM)"
+    step.progress_current = 2
+    step.progress_message = f"Reformulation @dires (batch {len(annotations_dires)}) ⏳ LLM"
     await db.commit()
 
     llm = LLMService()
-    formatter = AnnotationFormatter()
 
-    # Reformuler les @dires
-    formatted_dires: dict[str, str] = {}
-    for suffix, content in annotations_dires:
-        try:
-            reformulated = await llm.reformuler_dires(content)
-            formatted_dires[suffix] = formatter.format_dires(reformulated)
-        except Exception as exc:
-            logger.warning("[Step4] Erreur reformulation dires_%s : %s", suffix, exc)
-            formatted_dires[suffix] = formatter.format_dires(content)
+    # Reformuler tous les @dires en un seul appel LLM
+    reformulated_dires: list[str] = []
+    if annotations_dires:
+        non_empty_dires = [(k, c) for k, c in annotations_dires if c.strip()]
+        if non_empty_dires:
+            try:
+                reformulated_dires = await llm.reformuler_dires_batch(non_empty_dires)
+            except Exception as exc:
+                logger.warning("[Step4] Erreur batch reformulation dires : %s — fallback séquentiel", exc)
+                # Fallback séquentiel si le batch échoue
+                reformulated_dires = []
+                for key, content in non_empty_dires:
+                    try:
+                        reformulated_dires.append(await llm.reformuler_dires(content))
+                    except Exception:
+                        reformulated_dires.append(content)
+        # Réinsérer les vides aux bonnes positions
+        full_dires: list[str] = []
+        non_empty_idx = 0
+        for key, content in annotations_dires:
+            if content.strip():
+                full_dires.append(reformulated_dires[non_empty_idx] if non_empty_idx < len(reformulated_dires) else content)
+                non_empty_idx += 1
+            else:
+                full_dires.append("")
+        reformulated_dires = full_dires
 
-    # Reformuler les @analyse
-    formatted_analyse: dict[str, str] = {}
-    for suffix, content in annotations_analyse:
-        try:
-            reformulated = await llm.reformuler_analyse(content)
-            formatted_analyse[suffix] = formatter.format_analyse(reformulated)
-        except Exception as exc:
-            logger.warning("[Step4] Erreur reformulation analyse_%s : %s", suffix, exc)
-            formatted_analyse[suffix] = formatter.format_analyse(content)
+    # Reformuler tous les @analyse en un seul appel LLM
+    step = await _get_step(dossier_id, 4, db)
+    step.progress_message = f"Reformulation @analyse (batch {len(annotations_analyse)}) ⏳ LLM"
+    await db.commit()
 
-    # Formater les @verbatim (pas de LLM)
-    formatted_verbatim: dict[str, str] = {}
-    for suffix, content in annotations_verbatim:
-        formatted_verbatim[suffix] = formatter.format_verbatim(content)
+    reformulated_analyse: list[str] = []
+    if annotations_analyse:
+        non_empty_analyse = [(k, c) for k, c in annotations_analyse if c.strip()]
+        if non_empty_analyse:
+            try:
+                reformulated_analyse = await llm.reformuler_analyse_batch(non_empty_analyse)
+            except Exception as exc:
+                logger.warning("[Step4] Erreur batch reformulation analyse : %s — fallback séquentiel", exc)
+                reformulated_analyse = []
+                for key, content in non_empty_analyse:
+                    try:
+                        reformulated_analyse.append(await llm.reformuler_analyse(content))
+                    except Exception:
+                        reformulated_analyse.append(content)
+        # Réinsérer les vides aux bonnes positions
+        full_analyse: list[str] = []
+        non_empty_idx = 0
+        for key, content in annotations_analyse:
+            if content.strip():
+                full_analyse.append(reformulated_analyse[non_empty_idx] if non_empty_idx < len(reformulated_analyse) else content)
+                non_empty_idx += 1
+            else:
+                full_analyse.append("")
+        reformulated_analyse = full_analyse
 
-    # Formater les annotations personnalisées
-    formatted_custom: list[str] = []
-    for annot_type, content in annotations_custom:
-        formatted_custom.append(formatter.format_custom(annot_type, content))
+    # Construire un dictionnaire clé → texte reformulé (pour @resume et @cite)
+    reformulated_by_key: dict[str, str] = {}
+    for i, (key, _) in enumerate(annotations_dires):
+        if i < len(reformulated_dires) and reformulated_dires[i]:
+            reformulated_by_key[key] = reformulated_dires[i]
+    for i, (key, _) in enumerate(annotations_analyse):
+        if i < len(reformulated_analyse) and reformulated_analyse[i]:
+            reformulated_by_key[key] = reformulated_analyse[i]
 
     # ──────────────────────────────────────────────────────────────────────
-    # ÉTAPE 5/7 : Substitution des placeholders et assemblage du PRE
+    # ÉTAPE 3/5 : Résolution des @resume ⏳ LLM
+    # ──────────────────────────────────────────────────────────────────────
+    # @resume concatène les sections référencées et génère un résumé LLM
+    # Format : @resume dires_section_7.1 dires_section_7.2 ...@
+    # On parse les clés, on concatène les textes reformulés, on résume via LLM
+
+    # Collecter les @resume depuis le parsing
+    annotations_resume: list[tuple[str, str]] = []
+    for annot in pea_parse_result.annotations:
+        if annot.type == "resume":
+            full_key = f"resume_{annot.suffix}" if annot.suffix else "resume"
+            annotations_resume.append((full_key, annot.content))
+
+    step = await _get_step(dossier_id, 4, db)
+    step.progress_current = 3
+    step.progress_message = f"Résolution des @resume {len(annotations_resume)} ⏳ LLM"
+    await db.commit()
+
+    # Résoudre chaque @resume
+    resolved_resumes: list[str] = []
+    for i, (key, content) in enumerate(annotations_resume):
+        # Parser les clés référencées (séparées par espaces ou virgules)
+        ref_keys = [k.strip().strip(",") for k in content.split() if k.strip().strip(",")]
+        # Concaténer les textes reformulés des sections citées
+        concat_parts = []
+        for ref_key in ref_keys:
+            if ref_key in reformulated_by_key:
+                concat_parts.append(reformulated_by_key[ref_key])
+            else:
+                concat_parts.append(f"[Section {ref_key} non trouvée]")
+
+        if concat_parts:
+            concat_text = "\n\n".join(concat_parts)
+            # Résumer via LLM
+            try:
+                summary = await llm.chat(
+                    [{"role": "user", "content": concat_text}],
+                    system_prompt=(
+                        "Tu es un assistant spécialisé en rédaction de rapports d'expertise judiciaire.\n"
+                        "Résume le texte suivant de manière concise et professionnelle, "
+                        "en conservant les éléments cliniques essentiels.\n"
+                        "Réponds uniquement avec le résumé, sans commentaire."
+                    ),
+                )
+                resolved_resumes.append(summary)
+            except Exception as exc:
+                logger.warning("[Step4] Erreur résumé @resume %s : %s", key, exc)
+                resolved_resumes.append(concat_text)  # fallback : concaténation sans résumé
+        else:
+            resolved_resumes.append("[Aucune section référencée trouvée]")
+
+        # Mise à jour progression
+        step = await _get_step(dossier_id, 4, db)
+        step.progress_message = f"Résolution @resume {i + 1}/{len(annotations_resume)} ⏳ LLM"
+        await db.commit()
+
+    # ──────────────────────────────────────────────────────────────────────
+    # ÉTAPE 4/5 : Résolution @question, @reference, @cite
+    # ──────────────────────────────────────────────────────────────────────
+    step = await _get_step(dossier_id, 4, db)
+    step.progress_current = 4
+    step.progress_message = "Résolution @question, @reference, @cite"
+    await db.commit()
+
+    # ──────────────────────────────────────────────────────────────────────
+    # ÉTAPE 5/5 : Reconstitution du document et substitution in-place
     # ──────────────────────────────────────────────────────────────────────
     step = await _get_step(dossier_id, 4, db)
     step.progress_current = 5
-    step.progress_message = "Assemblage du Pré-Rapport (PRE)"
+    step.progress_message = "Reconstitution et substitution dans le document Word"
     await db.commit()
 
-    # Construire le contenu du PRE
-    pre_sections: list[str] = []
+    # --- Stratégie ---
+    # Le document pre.docx est maintenant reconstitué : en-tête TRE + contenu PEA.
+    # On parcourt les paragraphes pour :
+    # 1. Identifier les blocs d'annotations multi-paragraphes (début @type ... fin @)
+    # 2. Remplacer chaque bloc par le texte reformulé
+    # 3. Substituer les <<placeholders>> dans tout le document
 
-    # En-tête du TRE (substitution des placeholders)
-    if header_text:
-        header_filled = header_text
-        for key, value in placeholders.items():
-            header_filled = header_filled.replace(f"<<{key}>>", value)
-        pre_sections.append(header_filled)
+    doc = DocxDocument(pre_path)
+    paragraphs = doc.paragraphs
 
-    # Corps : annotations reformulées
-    for suffix, text in formatted_dires.items():
-        pre_sections.append(f"\n### {suffix.replace('_', ' ').title()}\n\n{text}")
-        if suffix in formatted_analyse:
-            pre_sections.append(f"\n{formatted_analyse[suffix]}")
-        if suffix in formatted_verbatim:
-            pre_sections.append(f"\n{formatted_verbatim[suffix]}")
+    # Regex patterns
+    placeholder_re = re_module.compile(r"<<(\w+)>>")
+    debut_tpe_re = re_module.compile(r"^\s*@debut_tpe@\s*$")
+    # Annotation complète sur une ligne : @type contenu@ (greedy sur le type, lazy sur le contenu)
+    # Le type peut contenir des underscores et des points (ex: dires_3.1.2)
+    annotation_full_re = re_module.compile(
+        r"^\s*@(\w+(?:_[\w.]+)*)\s+(.*?)\s*@\s*$", re_module.DOTALL
+    )
+    # Ouverture d'annotation au début d'un paragraphe : @type_suffix suivi de texte (pas de @ fermant)
+    annotation_open_re = re_module.compile(r"^\s*@(\w+(?:_[\w.]+)*)\s+(.*)")
+    # Fermeture : le paragraphe se termine par un @ isolé (pas précédé d'un autre @)
+    annotation_close_suffix = re_module.compile(r"^(.*?)\s*@\s*$", re_module.DOTALL)
 
-    # Annotations analyse sans dires correspondant
-    for suffix, text in formatted_analyse.items():
-        if suffix not in formatted_dires:
-            pre_sections.append(f"\n### {suffix.replace('_', ' ').title()}\n\n{text}")
+    # Compteurs séquentiels pour les annotations reformulées
+    dires_idx = 0
+    analyse_idx = 0
+    resume_idx = 0
 
-    # Annotations personnalisées
-    for text in formatted_custom:
-        pre_sections.append(f"\n{text}")
+    def _get_replacement(annot_type: str, content: str) -> str:
+        """Retourne le texte de remplacement pour une annotation."""
+        nonlocal dires_idx, analyse_idx, resume_idx
 
-    # Annotations @remplir (texte substitué directement, pas de reformulation LLM)
-    for suffix, text in annotations_remplir:
-        pre_sections.append(f"\n{text}")
+        if annot_type.startswith("dires"):
+            if dires_idx < len(reformulated_dires) and reformulated_dires[dires_idx]:
+                result = f"Dires :\n{reformulated_dires[dires_idx]}"
+            else:
+                result = f"Dires :\n{content}" if content.strip() else ""
+            dires_idx += 1
+            return result
+        elif annot_type.startswith("analyse"):
+            if analyse_idx < len(reformulated_analyse) and reformulated_analyse[analyse_idx]:
+                result = f"Analyse :\n{reformulated_analyse[analyse_idx]}"
+            else:
+                result = f"Analyse :\n{content}" if content.strip() else ""
+            analyse_idx += 1
+            return result
+        elif annot_type.startswith("verbatim"):
+            return f"\u00ab {content} \u00bb" if content.strip() else ""
+        elif annot_type.startswith("remplir"):
+            # @remplir description : texte@ → garder seulement après ":"
+            if ":" in content:
+                return content.split(":", 1)[1].strip()
+            return content.strip()
+        elif annot_type == "question":
+            # @question N@ → substituer depuis placeholders
+            q_num = content.strip()
+            q_key = f"question_{q_num}"
+            return placeholders.get(q_key, f"[Question {q_num} non trouvée]")
+        elif annot_type.startswith("resume"):
+            # @resume refs@ → texte résumé (résolu à l'étape 3)
+            if resume_idx < len(resolved_resumes):
+                result = resolved_resumes[resume_idx]
+                resume_idx += 1
+                return result
+            return "[Résumé non résolu]"
+        elif annot_type.startswith("reference"):
+            return f"(cf. {content})"
+        elif annot_type.startswith("cite"):
+            # @cite dires_section_6.1@ → insérer le contenu reformulé de la section
+            ref_key = content.strip()
+            if ref_key in reformulated_by_key:
+                return reformulated_by_key[ref_key]
+            return f"[Citation {ref_key} non trouvée]"
+        elif annot_type == "debut_tpe":
+            return ""
+        else:
+            # Annotation personnalisée ou inconnue — garder le contenu
+            return content.strip() if content.strip() else ""
 
-    pre_content = "\n".join(pre_sections)
+    def _replace_paragraph_text(paragraph, new_text: str) -> None:
+        """Remplace le texte d'un paragraphe en préservant le style du paragraphe.
 
-    # Substituer les placeholders restants dans le PRE
-    for key, value in placeholders.items():
-        pre_content = pre_content.replace(f"<<{key}>>", value)
+        Stratégie : concaténer tout le texte existant des runs, puis remplacer.
+        On garde le premier run avec le nouveau texte et on vide les autres.
+        Cela préserve le style du paragraphe (Heading, Normal, etc.) et le
+        formatage de base du premier run.
+        """
+        runs = paragraph.runs
+        if not runs:
+            # Pas de runs — créer le texte directement
+            if new_text:
+                paragraph.add_run(new_text)
+            return
+        # Mettre le nouveau texte dans le premier run, vider les autres
+        runs[0].text = new_text
+        for run in runs[1:]:
+            run.text = ""
 
-    # Remplacer les placeholders non résolus
-    import re as re_module
-    missing_placeholders = set(re_module.findall(r"<<(\w+)>>", pre_content))
-    if missing_placeholders:
-        logger.warning(
-            "[Step4] Dossier %d — %d placeholders non valorisés : %s",
-            dossier_id, len(missing_placeholders),
-            ", ".join(sorted(missing_placeholders)),
+    def _clear_paragraph(paragraph) -> None:
+        """Vide un paragraphe."""
+        _replace_paragraph_text(paragraph, "")
+
+    # --- Passe 1 : traiter les annotations (single-line et multi-paragraphes) ---
+    i = 0
+    while i < len(paragraphs):
+        text = paragraphs[i].text
+        if not text or not text.strip():
+            i += 1
+            continue
+
+        # 1. Supprimer @debut_tpe@
+        if debut_tpe_re.match(text):
+            _clear_paragraph(paragraphs[i])
+            i += 1
+            continue
+
+        # 2. Annotation complète sur une seule ligne : @type_suffix contenu@
+        full_match = annotation_full_re.match(text)
+        if full_match:
+            annot_type = full_match.group(1)
+            content = full_match.group(2).strip()
+            replacement = _get_replacement(annot_type, content)
+            _replace_paragraph_text(paragraphs[i], replacement)
+            i += 1
+            continue
+
+        # 3. Ouverture d'annotation multi-paragraphe : @type_suffix contenu...
+        open_match = annotation_open_re.match(text)
+        if open_match:
+            annot_type = open_match.group(1)
+            first_content = open_match.group(2)
+
+            # Vérifier si la fermeture est dans ce même paragraphe (cas rare avec texte avant)
+            # Non — on cherche la fermeture dans les paragraphes suivants
+            content_parts = [first_content]
+            close_found = False
+            j = i + 1
+            while j < len(paragraphs):
+                p_text = paragraphs[j].text
+                close_match = annotation_close_suffix.match(p_text)
+                if close_match:
+                    content_parts.append(close_match.group(1))
+                    close_found = True
+                    break
+                else:
+                    content_parts.append(p_text)
+                j += 1
+
+            if close_found:
+                full_content = "\n".join(content_parts).strip()
+                replacement = _get_replacement(annot_type, full_content)
+                _replace_paragraph_text(paragraphs[i], replacement)
+                # Vider les paragraphes intermédiaires et de fermeture
+                for k in range(i + 1, j + 1):
+                    _clear_paragraph(paragraphs[k])
+                i = j + 1
+                continue
+            else:
+                # Pas de fermeture trouvée — laisser tel quel (annotation mal formée)
+                logger.warning(
+                    "[Step4] Annotation @%s non fermée au paragraphe %d",
+                    annot_type, i,
+                )
+                i += 1
+                continue
+
+        # 4. Pas une annotation — passer au suivant
+        i += 1
+
+    # --- Passe 2 : substituer les <<placeholders>> dans tous les paragraphes ---
+    def _substitute_placeholders_in_para(paragraph) -> None:
+        """Remplace les <<placeholder>> par leurs valeurs dans un paragraphe."""
+        text = paragraph.text
+        if not text or "<<" not in text:
+            return
+        new_text = placeholder_re.sub(
+            lambda m: placeholders.get(m.group(1), f"[{m.group(1)}]"),
+            text,
         )
-    pre_content = re_module.sub(r"<<\w+>>", "[À compléter]", pre_content)
+        if new_text != text:
+            _replace_paragraph_text(paragraph, new_text)
+
+    for paragraph in paragraphs:
+        _substitute_placeholders_in_para(paragraph)
+
+    # Aussi traiter les tableaux
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    _substitute_placeholders_in_para(paragraph)
+
+    # Aussi traiter les en-têtes et pieds de page
+    for section in doc.sections:
+        for header in [section.header, section.first_page_header, section.even_page_header]:
+            if header:
+                for paragraph in header.paragraphs:
+                    _substitute_placeholders_in_para(paragraph)
+        for footer in [section.footer, section.first_page_footer, section.even_page_footer]:
+            if footer:
+                for paragraph in footer.paragraphs:
+                    _substitute_placeholders_in_para(paragraph)
+
+    # Sauvegarder le .docx modifié
+    doc.save(pre_path)
 
     # ──────────────────────────────────────────────────────────────────────
-    # ÉTAPE 6/7 : Génération du DAC (Document d'Analyse Contradictoire)
+    # Sauvegarde en base
     # ──────────────────────────────────────────────────────────────────────
+
     step = await _get_step(dossier_id, 4, db)
-    step.progress_current = 6
-    step.progress_message = "Génération du Document d'Analyse Contradictoire (DAC)"
+
+    # Supprimer les anciens fichiers PRE (ré-exécution) mais garder le PEA et le DAC
+    for old_file in list(step.files):
+        if old_file.file_type == "re_projet":
+            await db.delete(old_file)
+    await db.flush()
+
+    pre_size = os.path.getsize(pre_path)
+    db.add(StepFile(
+        step_id=step.id,
+        filename="pre.docx",
+        file_path=pre_path,
+        file_type="re_projet",
+        file_size=pre_size,
+    ))
+
+    # Marquer step4 comme "fait"
+    await workflow_engine.execute_step(dossier_id, 4, db)
+    step = await _get_step(dossier_id, 4, db)
+    step.progress_current = None
+    step.progress_total = None
+    step.progress_message = None
     await db.commit()
 
-    # Récupérer le contexte RAG du domaine pour l'analyse contradictoire
+    logger.info("[Step4] Dossier %d — PRE généré avec succès (%d octets)", dossier_id, pre_size)
+
+    return Step2UploadResponse(
+        message="PRE généré avec succès",
+        filenames=["pre.docx"],
+    )
+
+
+# ---- Step4 : POST /api/dossiers/{id}/step4/generate-dac -----------------
+
+@router.post(
+    "/{dossier_id}/step4/generate-dac",
+    response_model=Step2UploadResponse,
+)
+async def step4_generate_dac(
+    dossier_id: int,
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Génération optionnelle du DAC (Document d'Analyse Contradictoire).
+
+    Peut être lancé après la génération du PRE. Utilise le PRE existant
+    et le PEA pour produire une analyse contradictoire via LLM + RAG.
+    """
+
+    # 1. Vérifier l'accès au step4
+    await workflow_engine.require_step_access(dossier_id, 4, db)
+
+    # 2. Résoudre le nom du dossier
+    dossier_name = await _get_dossier_name(dossier_id, db)
+    out_dir = _step_out(dossier_name, 4)
+    in_dir = _step_in(dossier_name, 4)
+
+    # 3. Vérifier que le PRE existe
+    pre_path = os.path.join(out_dir, "pre.docx")
+    if not os.path.isfile(pre_path):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le PRE n'a pas encore été généré — lancez d'abord l'opération principale",
+        )
+
+    # 4. Lire le PRE (texte brut pour le DAC)
+    from docx import Document as DocxDocument
+    pre_doc = DocxDocument(pre_path)
+    pre_content = "\n".join(p.text for p in pre_doc.paragraphs if p.text.strip())
+
+    # 5. Lire le PEA (texte brut)
+    pea_path = os.path.join(in_dir, "pea.docx")
+    pea_text = ""
+    if os.path.isfile(pea_path):
+        with open(pea_path, "rb") as f:
+            pea_text = f.read().decode("utf-8", errors="replace")
+
+    # 6. Mettre à jour la progression
+    step = await _get_step(dossier_id, 4, db)
+    step.progress_current = 1
+    step.progress_total = 1
+    step.progress_message = "Génération du DAC ⏳ LLM"
+    await db.commit()
+
+    # 7. Récupérer le domaine
+    result = await db.execute(select(LocalConfig).limit(1))
+    config = result.scalar_one_or_none()
+    domaine = config.domaine if config else "psychologie"
+
+    # 8. Récupérer le contexte RAG
     rag = RAGService()
     rag_context = ""
     try:
@@ -1699,57 +2017,37 @@ async def step4_execute(
             rag_context = "\n\n".join(doc.content for doc in rag_docs)
     except Exception as exc:
         logger.warning(
-            "[Step4] Dossier %d — Contexte RAG pour DAC indisponible : %s",
+            "[Step4/DAC] Dossier %d — Contexte RAG indisponible : %s",
             dossier_id, exc,
         )
 
-    # Lire le texte brut du PEA pour le DAC
-    pea_text = pea_content_bytes.decode("utf-8", errors="replace")
-
+    # 9. Générer le DAC via LLM
+    llm = LLMService()
     try:
         dac_content = await llm.generer_dac(pea_text, pre_content, rag_context)
     except Exception as exc:
         logger.error("Erreur LLM lors de la génération du DAC : %s", exc)
-        await workflow_engine.fail_step(dossier_id, 4, db)
+        step = await _get_step(dossier_id, 4, db)
+        step.progress_current = None
+        step.progress_total = None
+        step.progress_message = None
         await db.commit()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Service LLM indisponible — essayez de redémarrer le conteneur judi-llm",
         )
 
-    # ──────────────────────────────────────────────────────────────────────
-    # ÉTAPE 7/7 : Sauvegarde des fichiers de sortie
-    # ──────────────────────────────────────────────────────────────────────
-    step = await _get_step(dossier_id, 4, db)
-    step.progress_current = 7
-    step.progress_message = "Sauvegarde des fichiers"
-    await db.commit()
-
-    step = await _get_step(dossier_id, 4, db)
-
-    # Supprimer les anciens fichiers de sortie (ré-exécution) mais garder le PEA
-    for old_file in list(step.files):
-        if old_file.file_type in ("re_projet", "re_projet_auxiliaire"):
-            await db.delete(old_file)
-    await db.flush()
-
-    # Sauvegarder le PRE (pre.docx)
-    pre_path = os.path.join(out_dir, "pre.docx")
-    _save_markdown_as_docx(pre_content, pre_path, "Pré-Rapport d'Expertise")
-
-    pre_size = os.path.getsize(pre_path)
-    db.add(StepFile(
-        step_id=step.id,
-        filename="pre.docx",
-        file_path=pre_path,
-        file_type="re_projet",
-        file_size=pre_size,
-    ))
-    await db.commit()
-
-    # Sauvegarder le DAC (dac.docx)
+    # 10. Sauvegarder le DAC
+    os.makedirs(out_dir, exist_ok=True)
     dac_path = os.path.join(out_dir, "dac.docx")
     _save_markdown_as_docx(dac_content, dac_path, "Document d'Analyse Contradictoire")
+
+    # Supprimer l'ancien DAC en base s'il existe
+    step = await _get_step(dossier_id, 4, db)
+    for old_file in list(step.files):
+        if old_file.file_type == "re_projet_auxiliaire":
+            await db.delete(old_file)
+    await db.flush()
 
     dac_size = os.path.getsize(dac_path)
     db.add(StepFile(
@@ -1760,17 +2058,16 @@ async def step4_execute(
         file_size=dac_size,
     ))
 
-    # Marquer step4 comme "fait"
-    await workflow_engine.execute_step(dossier_id, 4, db)
-    step = await _get_step(dossier_id, 4, db)
     step.progress_current = None
     step.progress_total = None
     step.progress_message = None
     await db.commit()
 
+    logger.info("[Step4/DAC] Dossier %d — DAC généré avec succès", dossier_id)
+
     return Step2UploadResponse(
-        message="PRE et DAC générés avec succès",
-        filenames=["pre.docx", "dac.docx"],
+        message="DAC généré avec succès",
+        filenames=["dac.docx"],
     )
 
 

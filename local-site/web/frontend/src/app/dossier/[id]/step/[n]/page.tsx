@@ -133,12 +133,6 @@ export default function StepViewPage() {
           await step4Api.validate(dossierId);
           await fetchStep();
         } else if (step?.statut === "initial") {
-          // Vérifier qu'un PEA est uploadé
-          const hasPea = step.files?.some(f => f.file_type === "pea" || f.file_type === "paa");
-          if (!hasPea) {
-            setError("Importez d'abord le PEA/PAA dans la section « Fichiers d'entrée ».");
-            return;
-          }
           setStep((prev) => prev ? { ...prev, statut: "en_cours", executed_at: new Date().toISOString(), progress_current: null, progress_total: null, progress_message: null } : prev);
           step4Api.execute(dossierId).then(() => fetchStep()).catch((err) => {
             setError(getErrorMessage(err, "Erreur lors de l'exécution."));
@@ -274,6 +268,7 @@ export default function StepViewPage() {
               onExecute={handleExecute}
               onCancel={handleCancel}
               onSkip={stepNumber === 3 ? handleSkip : undefined}
+              onRefresh={fetchStep}
               executionDuration={step.execution_duration_seconds}
             />
 

@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey, Numeric, String, func
+from sqlalchemy import DateTime, ForeignKey, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -29,5 +29,13 @@ class Ticket(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     expires_at: Mapped[Optional[datetime]] = mapped_column()
     used_at: Mapped[Optional[datetime]] = mapped_column()
+
+    # Remboursement
+    refunded_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True
+    )
+    stripe_refund_id: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True
+    )
 
     expert: Mapped["Expert"] = relationship(back_populates="tickets")

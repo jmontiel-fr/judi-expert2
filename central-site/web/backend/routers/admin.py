@@ -5,6 +5,7 @@ import os
 from datetime import datetime, timezone
 from decimal import Decimal
 
+import stripe
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +17,7 @@ from models.ticket import Ticket
 from models.ticket_config import TicketConfig
 from routers.profile import get_current_expert
 from schemas.news import NewsCreate, NewsListItem, NewsResponse, NewsUpdate
-from schemas.admin import ExpertListResponse, MonthStats, TicketStatsResponse
+from schemas.admin import AdminTicketResponse, ExpertListResponse, MonthStats, TicketStatsResponse
 from schemas.tickets import TicketConfigUpdate, TicketPriceResponse
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,35 @@ async def list_experts(
     )
     experts = result.scalars().all()
     return experts
+
+
+@router.get("/tickets", response_model=list[AdminTicketResponse])
+async def list_tickets(
+    _admin: Expert = Depends(get_admin_expert),
+    db: AsyncSession = Depends(get_db),
+):
+    """Liste tous les tickets (admin uniquement)."""
+    result = await db.execute(
+        select(Ticket, Expert.email, Expert.nom, Expert.prenom)
+        .join(Expert, Ticket.expert_id == Expert.id)
+        .order_by(Ticket.created_at.desc())
+    )
+    rows = result.all()
+    return [
+        AdminTicketResponse(
+            id=ticket.id,
+            ticket_code=ticket.ticket_code,
+            domaine=ticket.domaine,
+            statut=ticket.statut,
+            montant=ticket.montant,
+            stripe_payment_id=ticket.stripe_payment_id,
+            created_at=ticket.created_at,
+            expert_email=email,
+            expert_nom=nom,
+            expert_prenom=prenom,
+        )
+        for ticket, email, nom, prenom in rows
+    ]
 
 
 @router.get("/stats/tickets", response_model=TicketStatsResponse)
@@ -300,3 +330,91 @@ async def admin_delete_news(
 
     await db.delete(news)
     await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Admin — Ticket refund (Re-créditer)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/tickets/{ticket_id}/refund")
+async def admin_refund_ticket(
+    ticket_id: int,
+    _admin: Expert = Depends(get_admin_expert),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    """Rembourse un ticket via Stripe (admin uniquement).
+
+    Vérifie que le ticket est actif avec un stripe_payment_id valide,
+    puis initie un remboursement complet via l'API Stripe.
+
+    Args:
+        ticket_id: Identifiant du ticket à rembourser.
+
+    Returns:
+        Message de confirmation avec la date de remboursement.
+
+    Raises:
+        HTTPException(404): Ticket introuvable.
+        HTTPException(400): Ticket non remboursable (statut invalide ou
+            stripe_payment_id manquant/pending).
+        HTTPException(502): Erreur lors de l'appel à l'API Stripe.
+    """
+    # --- Charger le ticket ---
+    result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
+    ticket = result.scalar_one_or_none()
+    if not ticket:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket introuvable",
+        )
+
+    # --- Vérifier l'éligibilité au remboursement ---
+    if ticket.statut != "actif":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Ticket non remboursable (statut: {ticket.statut})",
+        )
+
+    if (
+        not ticket.stripe_payment_id
+        or ticket.stripe_payment_id.startswith("pending-")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Ticket non remboursable (paiement non finalisé)",
+        )
+
+    # --- Appeler Stripe pour le remboursement ---
+    try:
+        refund = stripe.Refund.create(
+            payment_intent=ticket.stripe_payment_id,
+        )
+    except stripe.error.StripeError as exc:
+        logger.error(
+            "Erreur Stripe lors du remboursement du ticket %s: %s",
+            ticket_id,
+            exc,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Erreur Stripe: {exc.user_message or str(exc)}",
+        ) from exc
+
+    # --- Mettre à jour le ticket ---
+    ticket.statut = "rembourse"
+    ticket.refunded_at = datetime.now(timezone.utc)
+    ticket.stripe_refund_id = refund.id
+
+    await db.commit()
+
+    logger.info(
+        "Ticket %s remboursé avec succès (refund_id=%s)",
+        ticket_id,
+        refund.id,
+    )
+
+    return {
+        "message": "Remboursement effectué",
+        "refunded_at": ticket.refunded_at.isoformat(),
+    }

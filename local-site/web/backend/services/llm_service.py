@@ -122,15 +122,18 @@ PROMPT_EXTRACTION_QUESTIONS: str = (
     "Ta tâche est d'extraire UNIQUEMENT les questions d'expertise numérotées posées à l'expert.\n\n"
     "IMPORTANT — Distinction entre objet de mission et questions :\n"
     "- L'OBJET DE MISSION est le chapeau introductif (ex: « Réaliser une expertise psychologique sur... »). "
-    "NE PAS l'inclure comme question.\n"
-    "- Les QUESTIONS sont les points numérotés que l'expert doit traiter "
+    "C'est une phrase générale qui décrit la mission. NE PAS l'inclure comme question.\n"
+    "- Les QUESTIONS sont les points NUMÉROTÉS que l'expert doit traiter. "
+    "Elles commencent par un numéro (1., 2., 3., a., b., c.) et décrivent une action précise "
     "(ex: « 1. Relever les aspects de la personnalité... », « 2. Analyser les circonstances... »).\n\n"
-    "Règles :\n"
-    "1. Extrais UNIQUEMENT les questions numérotées (pas le chapeau introductif).\n"
-    "2. Numérote-les Q1, Q2, Q3, etc. dans l'ordre où elles apparaissent.\n"
-    "3. Conserve le texte exact de chaque question.\n"
-    "4. Chaque point numéroté dans l'ordonnance = une question distincte.\n"
-    "5. N'invente aucune question qui ne figure pas dans le texte.\n\n"
+    "Règles STRICTES :\n"
+    "1. NE PAS inclure le chapeau introductif comme question — même s'il contient des verbes d'action.\n"
+    "2. Extrais UNIQUEMENT les points numérotés qui suivent le chapeau.\n"
+    "3. Numérote-les Q1, Q2, Q3, etc. dans l'ordre où ils apparaissent.\n"
+    "4. Conserve le texte exact de chaque question.\n"
+    "5. Chaque point numéroté dans l'ordonnance = une question distincte.\n"
+    "6. N'invente aucune question qui ne figure pas dans le texte.\n"
+    "7. Si le texte dit « a. ... b. ... c. ... » ce sont des sous-questions d'une même question.\n\n"
     "Format de sortie (Markdown) :\n"
     "```\n"
     "# Questions du Tribunal\n\n"
@@ -146,34 +149,59 @@ PROMPT_EXTRACTION_PLACEHOLDERS: str = (
     "Tu es un assistant juridique spécialisé dans l'analyse d'ordonnances judiciaires françaises.\n\n"
     "Tu reçois le texte structuré d'une ordonnance de commission d'expert. "
     "Ta tâche est d'extraire les informations factuelles pour remplir les champs d'un rapport d'expertise.\n\n"
+    "DÉFINITIONS DES RÔLES (IMPORTANT) :\n"
+    "- REQUÉRANT : la personne qui DEMANDE l'expertise (souvent un officier de police judiciaire, "
+    "un magistrat, ou un procureur). C'est celui qui « requiert » l'expert.\n"
+    "- PEX (Personne Expertisée) : la personne SUR QUI porte l'expertise (victime, plaignant, "
+    "ou mis en cause). C'est le sujet de l'évaluation psychologique.\n"
+    "- EXPERT : le psychologue/psychiatre désigné pour réaliser l'expertise.\n"
+    "- MAGISTRAT : le juge ou procureur qui autorise/ordonne la réquisition.\n\n"
     "Extrais les informations suivantes si elles sont présentes dans le texte. "
     "Si une information n'est pas trouvée, laisse la valeur vide.\n\n"
     "Format de sortie STRICT (CSV avec séparateur point-virgule, une ligne par champ) :\n"
     "```\n"
     "nom_placeholder;valeur\n"
+    "titre_expertise;...\n"
+    "objet_mission;...\n"
+    "date_mission;...\n"
+    "reference_dossier;...\n"
+    "requerant_prenom;...\n"
+    "requerant_nom;...\n"
+    "requerant_titre;...\n"
+    "requerant_ville;...\n"
+    "nom_tribunal;...\n"
+    "ville_tribunal;...\n"
+    "nom_magistrat;...\n"
+    "genre_pex;...\n"
+    "nom_pex;...\n"
+    "prenom_pex;...\n"
+    "date_naissance_pex;...\n"
+    "ville_naissance_pex;...\n"
+    "genre_expert;...\n"
     "nom_expert;...\n"
     "prenom_expert;...\n"
     "titre_expert;...\n"
-    "date_mission;...\n"
-    "tribunal;...\n"
-    "reference_dossier;...\n"
-    "nom_expertise;...\n"
-    "nom_mec;...\n"
-    "prenom_mec;...\n"
-    "nom_requerant;...\n"
-    "prenom_requerant;...\n"
-    "titre_requerant;...\n"
-    "objet_mission;...\n"
-    "date_ordonnance;...\n"
-    "juridiction;...\n"
-    "ville_juridiction;...\n"
-    "magistrat;...\n"
     "```\n\n"
     "Règles :\n"
-    "1. Utilise EXACTEMENT les noms de champs ci-dessus (pas de modification).\n"
-    "2. Les dates doivent être au format JJ/MM/AAAA.\n"
+    "1. Utilise EXACTEMENT les noms de champs ci-dessus.\n"
+    "2. Les dates au format JJ/MM/AAAA.\n"
     "3. N'invente aucune information absente du texte — laisse le champ vide.\n"
-    "4. La première ligne doit être l'en-tête : nom_placeholder;valeur\n\n"
+    "4. genre_pex et genre_expert : « Monsieur » ou « Madame » (pas « Homme » ni « Femme »).\n"
+    "5. Le REQUÉRANT est celui qui demande/requiert l'expertise (souvent OPJ ou magistrat), "
+    "PAS la victime/plaignant.\n"
+    "6. La PEX est la personne évaluée (victime, plaignant ou mis en cause), "
+    "PAS l'expert ni le requérant.\n"
+    "7. L'EXPERT est le psychologue/psychiatre désigné pour faire l'expertise.\n"
+    "8. objet_mission : le chapeau introductif de la mission (ex: « Réaliser une expertise "
+    "psychologique... »). NE PAS y inclure les questions numérotées.\n\n"
+    "EXEMPLE de distinction requérant / magistrat :\n"
+    "Dans « Requis par Adjudant Adrien DUCHET-CLARKS, OPJ en résidence à Angers, "
+    "sous l'autorité de M. Roxy ARCHIE-MONTIEL, Substitut du procureur » :\n"
+    "- requerant_prenom = Adrien\n"
+    "- requerant_nom = DUCHET-CLARKS\n"
+    "- requerant_titre = Adjudant, Officier de Police Judiciaire\n"
+    "- requerant_ville = Angers\n"
+    "- nom_magistrat = M. Roxy ARCHIE-MONTIEL - Substitut du procureur\n\n"
     "Réponds UNIQUEMENT avec le CSV, sans commentaire ni bloc de code."
 )
 
@@ -1288,6 +1316,42 @@ class LLMService:
         messages = [{"role": "user", "content": texte_abrege}]
         return await self.chat(messages, system_prompt=PROMPT_REFORMULATION_DIRES)
 
+    async def reformuler_dires_batch(self, annotations: list[tuple[str, str]]) -> list[str]:
+        """Reformule un lot d'annotations @dires en un seul appel LLM.
+
+        Args:
+            annotations: Liste de (clé, contenu) pour chaque @dires.
+
+        Returns:
+            Liste des textes reformulés, dans le même ordre.
+        """
+        if not annotations:
+            return []
+
+        # Construire le prompt batch avec numérotation
+        blocks = []
+        for i, (key, content) in enumerate(annotations, 1):
+            if content.strip():
+                blocks.append(f"[{i}]\n{content.strip()}")
+            else:
+                blocks.append(f"[{i}]\n(vide)")
+
+        batch_content = "\n\n".join(blocks)
+        messages = [{"role": "user", "content": batch_content}]
+        system_prompt = (
+            PROMPT_REFORMULATION_DIRES + "\n\n"
+            "IMPORTANT — FORMAT DE SORTIE :\n"
+            "Tu reçois plusieurs blocs numérotés [1], [2], etc.\n"
+            "Reformule CHAQUE bloc séparément et retourne le résultat avec la même numérotation.\n"
+            "Format attendu :\n"
+            "[1]\nTexte reformulé du bloc 1\n\n[2]\nTexte reformulé du bloc 2\n\n...\n"
+            "Si un bloc est marqué (vide), retourne [N]\n(vide)\n"
+            "Ne fusionne PAS les blocs entre eux. Conserve strictement la numérotation."
+        )
+        num_ctx = compute_num_ctx(batch_content, system_prompt, output_ratio=1.2)
+        raw_response = await self.chat(messages, system_prompt=system_prompt, num_ctx=num_ctx)
+        return self._parse_batch_response(raw_response, len(annotations))
+
     async def reformuler_analyse(self, texte_abrege: str) -> str:
         """Reformule des notes @analyse en texte rédigé professionnel.
 
@@ -1299,6 +1363,92 @@ class LLMService:
         """
         messages = [{"role": "user", "content": texte_abrege}]
         return await self.chat(messages, system_prompt=PROMPT_REFORMULATION_ANALYSE)
+
+    async def reformuler_analyse_batch(self, annotations: list[tuple[str, str]]) -> list[str]:
+        """Reformule un lot d'annotations @analyse en un seul appel LLM.
+
+        Args:
+            annotations: Liste de (clé, contenu) pour chaque @analyse.
+
+        Returns:
+            Liste des textes reformulés, dans le même ordre.
+        """
+        if not annotations:
+            return []
+
+        blocks = []
+        for i, (key, content) in enumerate(annotations, 1):
+            if content.strip():
+                blocks.append(f"[{i}]\n{content.strip()}")
+            else:
+                blocks.append(f"[{i}]\n(vide)")
+
+        batch_content = "\n\n".join(blocks)
+        messages = [{"role": "user", "content": batch_content}]
+        system_prompt = (
+            PROMPT_REFORMULATION_ANALYSE + "\n\n"
+            "IMPORTANT — FORMAT DE SORTIE :\n"
+            "Tu reçois plusieurs blocs numérotés [1], [2], etc.\n"
+            "Reformule CHAQUE bloc séparément et retourne le résultat avec la même numérotation.\n"
+            "Format attendu :\n"
+            "[1]\nTexte reformulé du bloc 1\n\n[2]\nTexte reformulé du bloc 2\n\n...\n"
+            "Si un bloc est marqué (vide), retourne [N]\n(vide)\n"
+            "Ne fusionne PAS les blocs entre eux. Conserve strictement la numérotation."
+        )
+        num_ctx = compute_num_ctx(batch_content, system_prompt, output_ratio=1.2)
+        raw_response = await self.chat(messages, system_prompt=system_prompt, num_ctx=num_ctx)
+        return self._parse_batch_response(raw_response, len(annotations))
+
+    def _parse_batch_response(self, response: str, expected_count: int) -> list[str]:
+        """Parse une réponse batch numérotée [1]...[N] en liste de textes.
+
+        Args:
+            response: Réponse brute du LLM avec blocs numérotés.
+            expected_count: Nombre de blocs attendus.
+
+        Returns:
+            Liste de textes extraits, un par bloc. Si le parsing échoue,
+            retourne la réponse complète pour chaque bloc (fallback).
+        """
+        import re as _re
+
+        # Pattern : [N] suivi du contenu jusqu'au prochain [N+1] ou fin
+        pattern = _re.compile(r"\[(\d+)\]\s*\n(.*?)(?=\n\[\d+\]|\Z)", _re.DOTALL)
+        matches = pattern.findall(response)
+
+        if not matches or len(matches) < expected_count // 2:
+            # Fallback : si le LLM n'a pas respecté le format, retourner le texte brut
+            # découpé approximativement
+            logger.warning(
+                "Batch LLM : format non respecté (%d blocs trouvés, %d attendus). Fallback.",
+                len(matches), expected_count,
+            )
+            # Essayer de découper par double saut de ligne
+            parts = response.strip().split("\n\n")
+            result = []
+            for i in range(expected_count):
+                if i < len(parts):
+                    # Nettoyer le numéro de bloc s'il est présent
+                    text = _re.sub(r"^\[\d+\]\s*", "", parts[i]).strip()
+                    result.append(text)
+                else:
+                    result.append("")
+            return result
+
+        # Construire le résultat indexé
+        result_map: dict[int, str] = {}
+        for num_str, content in matches:
+            idx = int(num_str)
+            text = content.strip()
+            if text == "(vide)":
+                text = ""
+            result_map[idx] = text
+
+        # Retourner dans l'ordre attendu
+        result = []
+        for i in range(1, expected_count + 1):
+            result.append(result_map.get(i, ""))
+        return result
 
     async def reviser_texte(self, texte: str) -> str:
         """Corrige le texte linguistiquement en préservant les verbatim.

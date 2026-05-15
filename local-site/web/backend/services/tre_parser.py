@@ -88,7 +88,7 @@ class TREParser:
 
     # Types d'annotations prédéfinis
     PREDEFINED_TYPES = frozenset(
-        {"dires", "analyse", "verbatim", "question", "reference", "cite", "debut_tpe", "remplir"}
+        {"dires", "analyse", "verbatim", "question", "reference", "cite", "debut_tpe", "remplir", "resume"}
     )
 
     # Patterns regex

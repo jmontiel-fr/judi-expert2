@@ -159,6 +159,11 @@ export interface Profile {
   domaine: string;
   accept_newsletter: boolean;
   created_at: string;
+  // Billing profile fields
+  entreprise: string | null;
+  company_address: string | null;
+  billing_email: string | null;
+  siret: string | null;
 }
 
 export interface ProfileUpdate {
@@ -180,6 +185,22 @@ export async function apiGetProfile(token: string): Promise<Profile> {
 }
 
 export async function apiUpdateProfile(token: string, data: ProfileUpdate): Promise<Profile> {
+  const res = await fetch(`${API_BASE}/api/profile`, {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res);
+}
+
+export interface BillingProfileData {
+  entreprise?: string | null;
+  company_address?: string | null;
+  billing_email?: string | null;
+  siret?: string | null;
+}
+
+export async function apiUpdateBillingProfile(token: string, data: BillingProfileData): Promise<Profile> {
   const res = await fetch(`${API_BASE}/api/profile`, {
     method: "PUT",
     headers: authHeaders(token),
@@ -260,6 +281,36 @@ export async function apiDeleteTicket(token: string, ticketId: number): Promise<
     headers: authHeaders(token),
   });
   await handleResponse(res);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Subscription                                                       */
+/* ------------------------------------------------------------------ */
+
+export interface SubscriptionStatus {
+  status: "active" | "blocked" | "terminating";
+  termination_date: string | null;
+  current_period_end: string | null;
+}
+
+export interface TerminationResult {
+  termination_date: string;
+  message: string;
+}
+
+export async function apiGetSubscriptionStatus(token: string): Promise<SubscriptionStatus> {
+  const res = await fetch(`${API_BASE}/api/subscription/status`, {
+    headers: authHeaders(token),
+  });
+  return handleResponse(res);
+}
+
+export async function apiTerminateSubscription(token: string): Promise<TerminationResult> {
+  const res = await fetch(`${API_BASE}/api/subscription/terminate`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+  return handleResponse(res);
 }
 
 /* ------------------------------------------------------------------ */
@@ -386,6 +437,39 @@ export async function apiUpdateAdminTicketConfig(
     method: "PUT",
     headers: authHeaders(token),
     body: JSON.stringify(data),
+  });
+  return handleResponse(res);
+}
+
+export interface RefundResult {
+  message: string;
+  refunded_at: string;
+}
+
+export async function apiRefundTicket(token: string, ticketId: number): Promise<RefundResult> {
+  const res = await fetch(`${API_BASE}/api/admin/tickets/${ticketId}/refund`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+  return handleResponse(res);
+}
+
+export interface AdminTicketItem {
+  id: number;
+  ticket_code: string;
+  domaine: string;
+  statut: string;
+  montant: number;
+  stripe_payment_id: string;
+  created_at: string;
+  expert_email: string;
+  expert_nom: string;
+  expert_prenom: string;
+}
+
+export async function apiAdminListTickets(token: string): Promise<AdminTicketItem[]> {
+  const res = await fetch(`${API_BASE}/api/admin/tickets`, {
+    headers: authHeaders(token),
   });
   return handleResponse(res);
 }

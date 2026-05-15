@@ -102,10 +102,16 @@ async def update_profile(
     current: tuple[Expert, str] = Depends(get_current_expert),
     db: AsyncSession = Depends(get_db),
 ):
-    """Met à jour le profil de l'expert connecté."""
+    """Met à jour le profil de l'expert connecté.
+
+    Tous les experts sont traités en B2B dans les métadonnées Stripe.
+    Les champs facturation (entreprise, company_address, billing_email, siret)
+    sont optionnels. Le SIRET sera affiché comme "non attribué" s'il n'est pas renseigné.
+    """
     expert, _ = current
 
     update_data = request.model_dump(exclude_unset=True)
+
     for field, value in update_data.items():
         setattr(expert, field, value)
 

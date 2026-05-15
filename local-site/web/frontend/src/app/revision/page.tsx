@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
-import { revisionApi, getErrorMessage, type TextRevisionResponse } from "@/lib/api";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { revisionApi, getErrorMessage } from "@/lib/api";
 import styles from "./revision.module.css";
 
 // ---------------------------------------------------------------------------
@@ -213,18 +213,114 @@ function TextInputCard({ onSubmit }: TextInputCardProps) {
 }
 
 // ---------------------------------------------------------------------------
+// TextInputCardWithSummarize Component — Réviser + Résumer
+// ---------------------------------------------------------------------------
+
+interface TextInputCardWithSummarizeProps {
+  onSubmitRevise: (text: string) => void;
+  onSubmitSummarize: (text: string) => void;
+  initialText?: string;
+}
+
+function TextInputCardWithSummarize({ onSubmitRevise, onSubmitSummarize, initialText = "" }: TextInputCardWithSummarizeProps) {
+  const [text, setText] = useState(initialText);
+  const maxChars = 100_000;
+
+  // Sync with initialText when it changes (transfer from output)
+  useState(() => { if (initialText) setText(initialText); });
+
+  const handleRevise = useCallback(() => {
+    const trimmed = text.trim();
+    if (trimmed.length > 0) onSubmitRevise(trimmed);
+  }, [text, onSubmitRevise]);
+
+  const handleSummarize = useCallback(() => {
+    const trimmed = text.trim();
+    if (trimmed.length > 0) onSubmitSummarize(trimmed);
+  }, [text, onSubmitSummarize]);
+
+  return (
+    <div
+      id="panel-text"
+      role="tabpanel"
+      aria-labelledby="tab-text"
+      className={styles.card}
+    >
+      <textarea
+        className={styles.textarea}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Collez ou saisissez votre texte ici…"
+        aria-label="Zone de saisie de texte"
+        maxLength={maxChars}
+        rows={10}
+      />
+      <div className={styles.charCount}>
+        {text.length.toLocaleString("fr-FR")} / {maxChars.toLocaleString("fr-FR")} caractères
+      </div>
+      <div className={styles.submitRow} style={{ gap: "12px", display: "flex", flexWrap: "wrap" }}>
+        <button
+          className={styles.btnPrimary}
+          onClick={handleRevise}
+          disabled={text.trim().length === 0}
+          type="button"
+        >
+          🚀 Réviser
+        </button>
+        <button
+          className={styles.btnPrimary}
+          onClick={handleSummarize}
+          disabled={text.trim().length === 0}
+          type="button"
+          style={{ backgroundColor: "#7c3aed" }}
+        >
+          📝 Résumer
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // ProgressCard Component
 // ---------------------------------------------------------------------------
 
-function ProgressCard() {
+function ProgressCard({ onCancel }: { onCancel: () => void }) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const start = Date.now();
+    const interval = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
+  const timeStr = mins > 0 ? `${mins}min ${secs.toString().padStart(2, "0")}s` : `${secs}s`;
+
   return (
     <div className={styles.card} role="status" aria-live="polite">
       <div className={styles.progressContent}>
         <div className={styles.spinner} aria-hidden="true" />
-        <p className={styles.progressText}>
-          Révision en cours… Le traitement peut prendre plusieurs minutes.
-        </p>
+        <div>
+          <p className={styles.progressText}>
+            Traitement en cours… ⏳ LLM — <strong>{timeStr}</strong>
+          </p>
+          <p style={{ fontSize: "0.8rem", color: "#6b7280", margin: "4px 0" }}>
+            La révision peut prendre plusieurs minutes selon la longueur du texte.
+          </p>
+        </div>
       </div>
+      <button
+        className={styles.btnSecondary}
+        onClick={onCancel}
+        type="button"
+        style={{ marginTop: "12px" }}
+      >
+        ✕ Annuler
+      </button>
     </div>
   );
 }
@@ -377,6 +473,7 @@ export default function RevisionPage() {
   const [downloadFilename, setDownloadFilename] = useState<string>("fichier-revu.docx");
   const [outputText, setOutputText] = useState<string | null>(null);
   const [outputFilename, setOutputFilename] = useState<string | null>(null);
+  const [inputText, setInputText] = useState<string>("");
 
   const handleFileUpload = useCallback(async (file: File) => {
     // Validate extension
@@ -394,30 +491,34 @@ export default function RevisionPage() {
       return;
     }
 
-    setStatus("processing");
-    setError(null);
-    setDownloadUrl(null);
-    setOutputText(null);
-    setOutputFilename(null);
-
+    // Extraire le texte du fichier et le mettre dans la zone de saisie
     try {
-      const result = await revisionApi.uploadFile(file);
-
-      if (result instanceof Blob) {
-        // .docx → create blob URL for download
-        const url = URL.createObjectURL(result);
-        setDownloadUrl(url);
-        setDownloadFilename("fichier-revu.docx");
+      if (ext === "docx") {
+        // Pour .docx : lire via le backend (extraction texte)
+        const formData = new FormData();
+        formData.append("file", file);
+        const token = localStorage.getItem("token");
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const res = await fetch(`${API_URL}/api/revision/extract-text`, {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: formData,
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.detail || "Erreur lors de l'extraction du texte");
+        }
+        const data = await res.json();
+        setInputText(data.text);
       } else {
-        // .txt/.md → display corrected text in OutputZone
-        const textResult = result as TextRevisionResponse;
-        setOutputText(textResult.corrected_text);
-        setOutputFilename(textResult.filename || null);
+        // .txt/.md : lire directement côté client
+        const text = await file.text();
+        setInputText(text);
       }
-
-      setStatus("done");
+      // Passer en mode texte pour afficher le contenu et les boutons d'action
+      setInputMode("text");
     } catch (err) {
-      setError(getErrorMessage(err, "Erreur lors de la révision du fichier."));
+      setError(err instanceof Error ? err.message : "Erreur lors du chargement du fichier.");
       setStatus("error");
     }
   }, []);
@@ -432,13 +533,42 @@ export default function RevisionPage() {
     try {
       const result = await revisionApi.submitText(text);
       setOutputText(result.corrected_text);
-      setOutputFilename(null); // No download for copy-paste text
+      setOutputFilename(null);
       setStatus("done");
     } catch (err) {
       setError(getErrorMessage(err, "Erreur lors de la révision du texte."));
       setStatus("error");
     }
   }, []);
+
+  const handleSummarize = useCallback(async (text: string) => {
+    setStatus("processing");
+    setError(null);
+    setDownloadUrl(null);
+    setOutputText(null);
+    setOutputFilename(null);
+
+    try {
+      const result = await revisionApi.summarize(text);
+      setOutputText(result.summary);
+      setOutputFilename(null);
+      setStatus("done");
+    } catch (err) {
+      setError(getErrorMessage(err, "Erreur lors du résumé."));
+      setStatus("error");
+    }
+  }, []);
+
+  const handleTransferToInput = useCallback(() => {
+    if (outputText) {
+      setInputText(outputText);
+      setInputMode("text");
+      setStatus("idle");
+      setOutputText(null);
+      setOutputFilename(null);
+      setDownloadUrl(null);
+    }
+  }, [outputText]);
 
   const handleRetry = useCallback(() => {
     // Clean up any existing blob URL
@@ -458,16 +588,15 @@ export default function RevisionPage() {
         await navigator.clipboard.writeText(outputText);
       } catch {
         // Fallback: some browsers block clipboard in non-secure contexts
-        // The OutputZone component handles the visual feedback
       }
     }
   }, [outputText]);
 
   return (
     <div className={styles.container}>
-      <h1 className={styles.title}>Révision documentaire</h1>
+      <h1 className={styles.title}>Révision & Résumé</h1>
       <p className={styles.subtitle}>
-        Soumettez un fichier ou du texte pour correction orthographique, grammaticale et amélioration de la lisibilité.
+        Soumettez un fichier ou du texte pour correction orthographique/grammaticale ou pour résumé.
       </p>
 
       <InputTabs
@@ -481,10 +610,14 @@ export default function RevisionPage() {
       )}
 
       {inputMode === "text" && status === "idle" && (
-        <TextInputCard onSubmit={handleTextSubmit} />
+        <TextInputCardWithSummarize
+          onSubmitRevise={handleTextSubmit}
+          onSubmitSummarize={handleSummarize}
+          initialText={inputText}
+        />
       )}
 
-      {status === "processing" && <ProgressCard />}
+      {status === "processing" && <ProgressCard onCancel={handleRetry} />}
 
       {status === "done" && downloadUrl && (
         <DownloadCard
@@ -499,25 +632,32 @@ export default function RevisionPage() {
       )}
 
       {status === "done" && outputText && (
-        <OutputZone
-          text={outputText}
-          filename={outputFilename}
-          onCopy={handleCopy}
-        />
-      )}
-
-      {/* Reset button when done with text output (no download card shown) */}
-      {status === "done" && outputText && !downloadUrl && (
-        <div className={styles.submitRow} style={{ marginTop: "16px" }}>
-          <button
-            className={styles.btnSecondary}
-            onClick={handleRetry}
-            type="button"
-            aria-label="Nouvelle révision"
-          >
-            🔄 Nouvelle révision
-          </button>
-        </div>
+        <>
+          <OutputZone
+            text={outputText}
+            filename={outputFilename}
+            onCopy={handleCopy}
+          />
+          <div className={styles.submitRow} style={{ marginTop: "12px", gap: "12px", display: "flex", flexWrap: "wrap" }}>
+            <button
+              className={styles.btnPrimary}
+              onClick={handleTransferToInput}
+              type="button"
+              aria-label="Transférer le résultat dans la zone d'entrée"
+              style={{ backgroundColor: "#7c3aed" }}
+            >
+              ⇒ Utiliser comme entrée
+            </button>
+            <button
+              className={styles.btnSecondary}
+              onClick={handleRetry}
+              type="button"
+              aria-label="Nouvelle opération"
+            >
+              🔄 Nouvelle opération
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

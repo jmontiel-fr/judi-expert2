@@ -144,17 +144,19 @@ async def purchase_ticket(
 
     try:
         session = stripe_service.create_checkout_session(
-            expert_id=expert.id,
-            expert_email=expert.email,
-            domaine=expert.domaine,
+            expert=expert,
             amount_cents=amount_cents,
             description=description,
             ticket_code=ticket_code,
         )
         return PurchaseResponse(checkout_url=session.url)
+    except HTTPException:
+        # HTTPException levée par stripe_service (422 ou 500) — nettoyage du ticket
+        await db.delete(ticket)
+        await db.commit()
+        raise
     except Exception as e:
-        logger.error("Erreur Stripe: %s", e)
-        # Supprimer le ticket en attente si Stripe échoue
+        logger.error("Erreur inattendue lors du paiement: %s", e)
         await db.delete(ticket)
         await db.commit()
         raise HTTPException(

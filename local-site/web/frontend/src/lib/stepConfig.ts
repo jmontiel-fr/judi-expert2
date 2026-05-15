@@ -48,18 +48,18 @@ export const STEP_CONFIG: Record<number, StepConfig> = {
     },
   },
   2: {
-    name: "Extraction PE depuis TRE",
+    name: "Validation et préparation du TRE",
     bannerText:
-      "Extraction du Plan d'Entretien (PE) depuis le TRE (Template de Rapport d'Expertise). Valide la syntaxe du TRE (annotations, placeholders), puis extrait la partie après @debut_tpe@ et intègre les questions en conclusion.",
-    buttonLabel: "Extraire le PE",
+      "Validation du TRE (Template de Rapport d'Expertise) : vérification syntaxique des annotations et des placeholders. Le TRE complet est figé pour ce dossier. L'expert l'annotera directement lors de l'entretien/analyse (étape E/A).",
+    buttonLabel: "Valider le TRE",
     inputFileTypes: ["tre", "markdown", "template_tpe", "template_tpa", "complementary_ocr"],
     outputFileTypes: ["plan_entretien", "plan_entretien_docx", "plan_analyse", "plan_analyse_docx", "courrier_diligence"],
     description: {
-      objectif: "Extraire le Plan d'Entretien (PE) depuis le TRE et y intégrer les questions du tribunal.",
-      entrees: ["tre.docx (Template de Rapport d'Expertise)", "placeholders.csv (questions et métadonnées du Step 1)"],
-      operation: "Validation syntaxique du TRE (annotations, placeholders) → Extraction du PE depuis @debut_tpe@ → Intégration des questions en conclusion.",
-      sorties: ["pe.docx (Plan d'Entretien extrait du TRE)"],
-      roleExpert: "Télécharger le PE, l'adapter si nécessaire, puis mener les entretiens (étape E/A hors application).",
+      objectif: "Valider la syntaxe du TRE, vérifier que les placeholders sont définis dans placeholders.csv, et figer la version du TRE pour ce dossier.",
+      entrees: ["tre.docx (uploadé ici ou depuis la Configuration)", "placeholders.csv (métadonnées et questions du Step 1)"],
+      operation: "1. Résolution du TRE (uploadé ou depuis config) — 2. Validation syntaxique des annotations (@dires, @analyse, @remplir, etc.) — 3. Vérification des <<placeholders>> contre placeholders.csv — 4. Copie du TRE complet en sortie (document de travail pour l'expert).",
+      sorties: ["tre.docx (TRE complet figé — à annoter par l'expert lors de l'étape E/A)"],
+      roleExpert: "Télécharger le TRE validé, l'annoter lors des entretiens/analyses (balises @dires, @analyse, @verbatim), puis l'importer au Step 4 comme PEA.",
     },
   },
   3: {
@@ -80,16 +80,16 @@ export const STEP_CONFIG: Record<number, StepConfig> = {
   4: {
     name: "Production pré-rapport",
     bannerText:
-      "Import du PEA (Plan d'Entretien Annoté) ou PAA (Plan d'Analyse Annoté) complété par l'expert avec les annotations balisées (@dires, @analyse, @verbatim, @question, @reference). Génération du Pré-Rapport (PRE) via le template TRE et substitution des placeholders. Génération du Document d'Analyse Contradictoire (DAC).",
-    buttonLabel: "Générer le pré-rapport",
+      "Import du PEA (TRE annoté par l'expert). Génération du PRE par substitution directe dans le document : reformulation LLM des @dires/@analyse, résolution des @resume/@question/@cite, substitution des <<placeholders>>. Le document conserve sa structure et ses styles. Le DAC (analyse contradictoire) peut être généré séparément.",
+    buttonLabel: "Générer le PRE",
     inputFileTypes: ["pea", "paa", "template_rapport", "place_holders", "diligence_ocr"],
-    outputFileTypes: ["pre_rapport", "dac"],
+    outputFileTypes: ["re_projet", "re_projet_auxiliaire"],
     description: {
-      objectif: "Produire le Pré-Rapport d'Expertise (PRE) et le Document d'Analyse Contradictoire (DAC).",
-      entrees: ["pea.docx ou paa.docx (plan annoté par l'expert avec balises @dires, @analyse, @question, @reference)", "tre.docx (template de rapport avec placeholders <<...>>)", "place_holders.csv (valeurs extraites au Step 1)", "Documents de diligence (Step 3, si existants)"],
-      operation: "Interprétation des annotations balisées → Substitution des placeholders dans le TRE (docxtpl) → Génération du PRE par le LLM → Génération du DAC (analyse contradictoire).",
-      sorties: ["pre.docx (Pré-Rapport d'Expertise)", "dac.docx (Document d'Analyse Contradictoire)"],
-      roleExpert: "Relire le PRE et le DAC, affiner les conclusions, puis ajuster le rapport pour produire le REF (rapport final) à importer au Step 5.",
+      objectif: "Produire le Pré-Rapport d'Expertise (PRE) par substitution in-place dans le TRE annoté. Optionnellement, générer le DAC.",
+      entrees: ["pea.docx (TRE annoté par l'expert avec balises @dires, @analyse, @verbatim, @question, @reference, @cite, @remplir)", "placeholders.csv (valeurs extraites au Step 1)"],
+      operation: "1. Validation syntaxique des annotations — 2. Reformulation LLM des @dires et @analyse ⏳ — 3. Résolution des @resume ⏳ — 4. Résolution des @question, @reference, @cite — 5. Substitution in-place dans le .docx (annotations → texte, <<placeholders>> → valeurs). Le document conserve sa structure, styles et table des matières. Optionnel : génération du DAC.",
+      sorties: ["pre.docx (Pré-Rapport d'Expertise)", "dac.docx (Document d'Analyse Contradictoire — optionnel)"],
+      roleExpert: "Relire le PRE, affiner les conclusions. Lancer le DAC si souhaité. Ajuster le rapport pour produire le REF à importer au Step 5.",
     },
   },
   5: {

@@ -15,6 +15,7 @@ import {
   apiAdminAddUrl,
   apiAdminChatbotStatus,
   apiAdminChatbotRefresh,
+  apiAdminListTickets,
   ApiError,
   type ExpertItem,
   type TicketStats,
@@ -24,7 +25,9 @@ import {
   type ContenuItem,
   type UrlItem,
   type ChatbotStatus,
+  type AdminTicketItem,
 } from "@/lib/api";
+import RefundButton from "@/components/RefundButton";
 import styles from "./admin.module.css";
 
 const DOMAINES = ["Tous", "psychologie", "psychiatrie", "medecine_legale", "batiment", "comptabilite"];
@@ -174,6 +177,106 @@ function TicketsConfigTab({ accessToken }: { accessToken: string | null }) {
         </div>
       )}
     </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  TicketsListSection                                                 */
+/* ------------------------------------------------------------------ */
+
+function TicketsListSection({ accessToken }: { accessToken: string | null }) {
+  const [tickets, setTickets] = useState<AdminTicketItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  const loadTickets = useCallback(async () => {
+    if (!accessToken) return;
+    setLoading(true);
+    try {
+      const data = await apiAdminListTickets(accessToken);
+      setTickets(data);
+    } catch {
+      /* ignore */
+    } finally {
+      setLoading(false);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    loadTickets();
+  }, [loadTickets]);
+
+  const filtered = tickets.filter((t) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      t.ticket_code.toLowerCase().includes(q) ||
+      t.expert_email.toLowerCase().includes(q) ||
+      t.expert_nom.toLowerCase().includes(q) ||
+      t.expert_prenom.toLowerCase().includes(q) ||
+      t.domaine.toLowerCase().includes(q) ||
+      t.statut.toLowerCase().includes(q)
+    );
+  });
+
+  if (loading) return <p className={styles.loading}>Chargement des tickets…</p>;
+
+  return (
+    <div className={styles.formSection} style={{ marginTop: 24 }}>
+      <h3 className={styles.sectionTitle}>Liste des tickets</h3>
+      <div className={styles.searchBar}>
+        <input
+          type="text"
+          className={styles.searchInput}
+          placeholder="Rechercher par code, email, nom, domaine ou statut…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label="Rechercher un ticket"
+        />
+        <span className={styles.searchCount}>{filtered.length} ticket(s)</span>
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className={styles.emptyState}>Aucun ticket trouvé.</p>
+      ) : (
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Expert</th>
+              <th>Domaine</th>
+              <th>Statut</th>
+              <th>Montant</th>
+              <th>Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((t) => (
+              <tr key={t.id}>
+                <td>{t.ticket_code}</td>
+                <td>{t.expert_prenom} {t.expert_nom}</td>
+                <td>{t.domaine}</td>
+                <td>{t.statut}</td>
+                <td>{formatEuro(t.montant)} €</td>
+                <td>{formatDate(t.created_at)}</td>
+                <td>
+                  <RefundButton
+                    ticket={{
+                      id: t.id,
+                      statut: t.statut,
+                      stripe_payment_id: t.stripe_payment_id,
+                    }}
+                    accessToken={accessToken!}
+                    onRefundSuccess={loadTickets}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
 
@@ -975,7 +1078,12 @@ export default function AdminPage() {
       ) : (
         <>
           {tab === "stats" && <StatsTab accessToken={accessToken} />}
-          {tab === "tickets" && <TicketsConfigTab accessToken={accessToken} />}
+          {tab === "tickets" && (
+            <>
+              <TicketsConfigTab accessToken={accessToken} />
+              <TicketsListSection accessToken={accessToken} />
+            </>
+          )}
           {tab === "experts" && <ExpertsTab experts={experts} />}
           {tab === "corpus" && <CorpusTab accessToken={accessToken} />}
           {tab === "chatbot" && <ChatbotTab accessToken={accessToken} />}

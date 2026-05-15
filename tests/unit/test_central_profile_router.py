@@ -246,3 +246,104 @@ async def test_get_profile_invalid_token(client: AsyncClient):
 async def test_get_profile_bad_bearer_format(client: AsyncClient):
     resp = await client.get("/api/profile", headers={"Authorization": "Basic abc"})
     assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# PUT /api/profile — Mise à jour profil facturation
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_update_profile_billing_fields(client: AsyncClient):
+    """Mise à jour des champs de facturation (entreprise, adresse, email, SIRET)."""
+    with patch.object(_central_profile_mod, "cognito_service") as mock_cs:
+        mock_cs.get_user.return_value = _mock_get_user_ok()
+        resp = await client.put(
+            "/api/profile",
+            headers=_auth_header(),
+            json={
+                "entreprise": "Cabinet Dupont",
+                "company_address": "10 avenue des Champs-Élysées, 75008 Paris",
+                "billing_email": "facturation@cabinet.fr",
+                "siret": "12345678901234",
+            },
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["entreprise"] == "Cabinet Dupont"
+    assert data["company_address"] == "10 avenue des Champs-Élysées, 75008 Paris"
+    assert data["billing_email"] == "facturation@cabinet.fr"
+    assert data["siret"] == "12345678901234"
+
+
+@pytest.mark.asyncio
+async def test_update_profile_billing_fields_optional(client: AsyncClient):
+    """Tous les champs facturation sont optionnels."""
+    with patch.object(_central_profile_mod, "cognito_service") as mock_cs:
+        mock_cs.get_user.return_value = _mock_get_user_ok()
+        resp = await client.put(
+            "/api/profile",
+            headers=_auth_header(),
+            json={
+                "entreprise": None,
+                "company_address": None,
+                "billing_email": None,
+                "siret": None,
+            },
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["entreprise"] is None
+    assert data["company_address"] is None
+    assert data["billing_email"] is None
+    assert data["siret"] is None
+
+
+@pytest.mark.asyncio
+async def test_update_profile_invalid_siret(client: AsyncClient):
+    """SIRET invalide (pas 14 chiffres) → 422."""
+    with patch.object(_central_profile_mod, "cognito_service") as mock_cs:
+        mock_cs.get_user.return_value = _mock_get_user_ok()
+        resp = await client.put(
+            "/api/profile",
+            headers=_auth_header(),
+            json={
+                "siret": "1234567890",  # Only 10 digits
+            },
+        )
+
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_profile_siret_optional_empty(client: AsyncClient):
+    """SIRET vide est accepté (sera affiché 'non attribué')."""
+    with patch.object(_central_profile_mod, "cognito_service") as mock_cs:
+        mock_cs.get_user.return_value = _mock_get_user_ok()
+        resp = await client.put(
+            "/api/profile",
+            headers=_auth_header(),
+            json={
+                "siret": None,
+            },
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["siret"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_profile_default_billing_fields_null(client: AsyncClient):
+    """Le profil par défaut a les champs facturation à null."""
+    with patch.object(_central_profile_mod, "cognito_service") as mock_cs:
+        mock_cs.get_user.return_value = _mock_get_user_ok()
+        resp = await client.get("/api/profile", headers=_auth_header())
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["entreprise"] is None
+    assert data["company_address"] is None
+    assert data["billing_email"] is None
+    assert data["siret"] is None

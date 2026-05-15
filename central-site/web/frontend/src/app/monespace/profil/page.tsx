@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiChangePassword, apiDeleteAccount, ApiError } from "@/lib/api";
+import { apiChangePassword, apiDeleteAccount, apiGetProfile, ApiError } from "@/lib/api";
+import ProfileBillingForm, { type BillingProfile } from "@/components/ProfileBillingForm";
 import styles from "./profil.module.css";
 
 export default function ProfilPage() {
@@ -19,6 +20,26 @@ export default function ProfilPage() {
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Billing profile state
+  const [billingData, setBillingData] = useState<BillingProfile | null>(null);
+
+  useEffect(() => {
+    if (accessToken) {
+      apiGetProfile(accessToken)
+        .then((profile) => {
+          setBillingData({
+            entreprise: profile.entreprise ?? null,
+            company_address: profile.company_address ?? null,
+            billing_email: profile.billing_email ?? null,
+            siret: profile.siret ?? null,
+          });
+        })
+        .catch(() => {
+          // Billing data fetch failed — form will not be shown
+        });
+    }
+  }, [accessToken]);
 
   async function handlePasswordSubmit(e: FormEvent) {
     e.preventDefault();
@@ -89,6 +110,14 @@ export default function ProfilPage() {
           <span className={styles.infoValue}>{user.domaine}</span>
         </div>
       </section>
+
+      {/* Billing Profile */}
+      {billingData && accessToken && (
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Profil de facturation</h2>
+          <ProfileBillingForm initialData={billingData} accessToken={accessToken} />
+        </section>
+      )}
 
       {/* Change Password */}
       <section className={styles.section}>

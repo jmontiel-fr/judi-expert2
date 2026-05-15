@@ -627,10 +627,20 @@ export const step3Api = {
 // ---------------------------------------------------------------------------
 
 export const step4Api = {
-  /** Lancer la génération du pré-rapport + DAC (PEA déjà uploadé) */
+  /** Lancer la génération du pré-rapport (PRE) */
   async execute(dossierId: string | number) {
     const res = await apiClient.post<{ message: string; filenames: string[] }>(
       `/api/dossiers/${dossierId}/step4/execute`,
+      {},
+      { timeout: 1_800_000 },
+    );
+    return res.data;
+  },
+
+  /** Lancer la génération optionnelle du DAC (analyse contradictoire) */
+  async generateDac(dossierId: string | number) {
+    const res = await apiClient.post<{ message: string; filenames: string[] }>(
+      `/api/dossiers/${dossierId}/step4/generate-dac`,
       {},
       { timeout: 1_800_000 },
     );
@@ -842,6 +852,19 @@ export const revisionApi = {
   async submitText(text: string): Promise<{ corrected_text: string }> {
     const res = await apiClient.post<{ corrected_text: string }>(
       "/api/revision/text",
+      { text },
+      { timeout: 1_800_000 },
+    );
+    return res.data;
+  },
+
+  /**
+   * Submit text for LLM-based summarization.
+   * Returns a concise summary.
+   */
+  async summarize(text: string): Promise<{ summary: string }> {
+    const res = await apiClient.post<{ summary: string }>(
+      "/api/revision/summarize",
       { text },
       { timeout: 1_800_000 },
     );

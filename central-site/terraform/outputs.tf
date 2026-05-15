@@ -42,3 +42,19 @@ output "route53_name_servers" {
   description = "Name servers to configure in Gandi"
   value       = module.dns.name_servers
 }
+
+# --- Cron Abonnement ---
+output "cron_lambda_function_name" {
+  description = "Nom de la Lambda cron abonnement"
+  value       = module.cron.lambda_function_name
+}
+
+output "cron_lambda_function_arn" {
+  description = "ARN de la Lambda cron abonnement"
+  value       = module.cron.lambda_function_arn
+}
+
+output "cron_secret_name" {
+  description = "Nom du secret Secrets Manager contenant le token cron"
+  value       = module.cron.cron_secret_name
+}

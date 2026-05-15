@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { STEP_CONFIG } from "@/lib/stepConfig";
 import type { StepDetail } from "@/lib/api";
+import { step4Api, getErrorMessage } from "@/lib/api";
 import StepProgressList from "./StepProgressList";
 import styles from "./OperationSection.module.css";
 
@@ -19,20 +20,20 @@ const PROGRESS_STEPS: Record<number, string[]> = {
     "Étape 5/5 — Sauvegarde des fichiers (demande.md, placeholders.csv)",
   ],
   2: [
-    "Étape 1/4 — Validation syntaxique du TRE (annotations, placeholders)",
-    "Étape 2/4 — Extraction du Plan d'Entretien depuis le TRE",
-    "Étape 3/4 — Intégration des questions en conclusion",
-    "Étape 4/4 — Sauvegarde du PE (.docx)",
+    "Étape 1/3 — Validation syntaxique du TRE (annotations, placeholders)",
+    "Étape 2/3 — Vérification des <<placeholders>> contre placeholders.csv",
+    "Étape 3/3 — Copie du TRE complet en sortie",
   ],
   3: [
     "Étape 1/2 — OCR (extraction du texte des pièces de diligence)",
     "Étape 2/2 — Mise en forme pour validation",
   ],
   4: [
-    "Étape 1/4 — Interprétation des annotations (@dires, @analyse, @question, @reference)",
-    "Étape 2/4 — Substitution des placeholders dans le TRE",
-    "Étape 3/4 — Génération du Pré-Rapport (PRE)",
-    "Étape 4/4 — Génération du Document d'Analyse Contradictoire (DAC)",
+    "Étape 1/5 — Validation syntaxique des annotations et placeholders",
+    "Étape 2/5 — Reformulation des @dires et @analyse ⏳ LLM",
+    "Étape 3/5 — Résolution des @resume ⏳ LLM",
+    "Étape 4/5 — Résolution @question, @reference, @cite",
+    "Étape 5/5 — Reconstitution (en-tête TRE + PEA) et substitution",
   ],
   5: [
     "Étape 1/3 — Import du Rapport Final (REF)",
@@ -54,6 +55,7 @@ interface OperationSectionProps {
   onExecute: () => Promise<void>;
   onCancel: () => Promise<void>;
   onSkip?: () => Promise<void>;
+  onRefresh?: () => Promise<void>;
   executionDuration?: number | null;
 }
 
@@ -81,6 +83,7 @@ export default function OperationSection({
   onExecute,
   onCancel,
   onSkip,
+  onRefresh,
   executionDuration,
 }: OperationSectionProps) {
   const config = STEP_CONFIG[stepNumber];
@@ -92,6 +95,33 @@ export default function OperationSection({
   const isInitial = step.statut === "initial";
   const showLockIndicator = isLocked || isDossierClosed;
   const progressSteps = PROGRESS_STEPS[stepNumber] ?? [];
+
+  // DAC generation state (Step 4 only)
+  const [dacGenerating, setDacGenerating] = useState(false);
+  const [dacError, setDacError] = useState("");
+  const [dacSuccess, setDacSuccess] = useState(false);
+
+  // Check if DAC already exists in output files
+  const hasDac = step.files?.some(f => f.file_type === "re_projet_auxiliaire") ?? false;
+  // Check if PRE exists (step 4 done)
+  const hasPre = step.files?.some(f => f.file_type === "re_projet") ?? false;
+  // Show DAC button when Step 4 is "fait" or "valide" and PRE exists
+  const showDacButton = stepNumber === 4 && hasPre && !dacGenerating && !isDossierClosed;
+
+  const handleGenerateDac = async () => {
+    setDacGenerating(true);
+    setDacError("");
+    setDacSuccess(false);
+    try {
+      await step4Api.generateDac(dossierId);
+      setDacSuccess(true);
+      if (onRefresh) await onRefresh();
+    } catch (err: unknown) {
+      setDacError(getErrorMessage(err, "Erreur lors de la génération du DAC."));
+    } finally {
+      setDacGenerating(false);
+    }
+  };
 
   // Chrono progressif pendant le traitement — calcule depuis executed_at
   const [elapsed, setElapsed] = useState(0);
@@ -222,6 +252,33 @@ export default function OperationSection({
           >
             Sans objet — Valider sans pièces
           </button>
+        )}
+
+        {/* Bouton "Générer le DAC" — Step 4 uniquement, après génération du PRE */}
+        {showDacButton && (
+          <button
+            type="button"
+            className={styles.btnPrimary}
+            onClick={handleGenerateDac}
+            style={{ backgroundColor: "#7c3aed" }}
+          >
+            {hasDac ? "♻ Regénérer le DAC" : "📄 Générer le DAC (optionnel)"}
+          </button>
+        )}
+        {dacGenerating && (
+          <p style={{ fontSize: "0.8rem", color: "#7c3aed", margin: "4px 0" }}>
+            ⏳ Génération du DAC en cours (LLM)…
+          </p>
+        )}
+        {dacError && (
+          <p style={{ fontSize: "0.8rem", color: "#dc2626", margin: "4px 0" }}>
+            {dacError}
+          </p>
+        )}
+        {dacSuccess && !dacError && (
+          <p style={{ fontSize: "0.8rem", color: "#16a34a", margin: "4px 0" }}>
+            ✓ DAC généré avec succès
+          </p>
         )}
       </div>
     </div>

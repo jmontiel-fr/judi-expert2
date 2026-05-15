@@ -9,6 +9,7 @@ import styles from "./monespace.module.css";
 const tabs = [
   { href: "/monespace/profil", label: "Profil" },
   { href: "/monespace/tickets", label: "Tickets" },
+  { href: "/monespace/abonnement", label: "Abonnement" },
 ];
 
 export default function MonEspaceLayout({

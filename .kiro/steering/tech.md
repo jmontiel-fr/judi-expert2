@@ -5,6 +5,7 @@
 - **Ne JAMAIS lancer les commandes en arrière-plan** (pas de `control_pwsh_process` / background process)
 - Toujours exécuter les commandes en **foreground** avec `execute_pwsh` et un `timeout` suffisant
 - Les **traces d'exécution doivent être visibles** dans la sortie (pas de `skipPruning: true` sauf si nécessaire pour debug)
+- **Ne JAMAIS utiliser `tail`, `head`, ou pipes pour masquer/tronquer la sortie des commandes** — toujours afficher la sortie complète
 - Pour les builds Docker longs, utiliser `timeout: 300000` (5 min) ou plus
 - **Pour le déploiement, utiliser UNIQUEMENT les scripts `scripts-dev/`** — jamais de commandes Docker directes (`docker compose build`, `docker compose up`, etc.)
 - Si un script ne couvre pas un besoin (ex: rebuild d'un seul service), **ajouter une option au script existant** plutôt que de lancer une commande directe

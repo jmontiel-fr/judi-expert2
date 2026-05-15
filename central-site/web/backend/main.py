@@ -103,10 +103,14 @@ app.include_router(news_router, prefix="/api/news", tags=["news"])
 from routers.chatbot import router as chatbot_router
 from routers.admin_chatbot import router as admin_chatbot_router
 from routers.version import router as version_router
+from routers.internal import router as internal_router
+from routers.subscription import router as subscription_router
 
 app.include_router(chatbot_router, prefix="/api/chatbot", tags=["chatbot"])
 app.include_router(admin_chatbot_router, prefix="/api/admin/chatbot", tags=["admin-chatbot"])
 app.include_router(version_router, prefix="/api", tags=["version"])
+app.include_router(internal_router, prefix="/api/internal", tags=["internal"])
+app.include_router(subscription_router, prefix="/api/subscription", tags=["subscription"])
 
 
 @app.get("/api/health", tags=["health"])
