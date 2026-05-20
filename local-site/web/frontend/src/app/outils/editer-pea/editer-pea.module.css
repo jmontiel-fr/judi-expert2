@@ -1,0 +1,454 @@
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.5rem 0;
+}
+
+.infoNote {
+  background: var(--color-bg-muted, #f0f4f8);
+  border: 1px solid var(--color-border, #d0d7de);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--color-text, #1f2328);
+}
+
+/* File selector */
+.fileSelector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 3rem 2rem;
+  border: 2px dashed var(--color-border, #d0d7de);
+  border-radius: 12px;
+  background: var(--color-bg-subtle, #f6f8fa);
+}
+
+.fileLabel {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--color-text-muted, #656d76);
+}
+
+.fileInput {
+  font-size: 0.9rem;
+}
+
+/* Loading */
+.loading {
+  text-align: center;
+  padding: 3rem;
+  color: var(--color-text-muted, #656d76);
+  font-size: 1rem;
+}
+
+/* Error */
+.errorBox {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.errorBox p {
+  color: #dc2626;
+  margin-bottom: 1rem;
+}
+
+.errorMsg {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  color: #dc2626;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.successMsg {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  color: #166534;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.warningBox {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.warningBox ul {
+  margin: 0.5rem 0 0 1.5rem;
+  padding: 0;
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg-muted, #f0f4f8);
+  border: 1px solid var(--color-border, #d0d7de);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.toolbarFilename {
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--color-text, #1f2328);
+}
+
+.toolbarActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Buttons */
+.btnPrimary {
+  padding: 0.5rem 1.25rem;
+  background: var(--color-primary, #2563eb);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: var(--color-primary-hover, #1d4ed8);
+}
+
+.btnPrimary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnSecondary {
+  padding: 0.5rem 1.25rem;
+  background: white;
+  color: var(--color-text, #1f2328);
+  border: 1px solid var(--color-border, #d0d7de);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btnSecondary:hover:not(:disabled) {
+  background: var(--color-bg-subtle, #f6f8fa);
+}
+
+.btnSecondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Palette */
+.palette {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: #fefce8;
+  border: 1px solid #fde047;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.paletteTitle {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #854d0e;
+}
+
+.paletteSelect {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--color-border, #d0d7de);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  background: white;
+}
+
+.btnPalette {
+  padding: 0.35rem 0.75rem;
+  background: #ca8a04;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btnPalette:hover {
+  background: #a16207;
+}
+
+/* Form container */
+.formContainer {
+  border: 1px solid var(--color-border, #d0d7de);
+  border-radius: 8px;
+  padding: 1.5rem;
+  background: white;
+}
+
+/* Headings */
+.heading {
+  margin: 1.25rem 0 0.5rem;
+  color: var(--color-text, #1f2328);
+}
+
+.headingNumber {
+  color: var(--color-text-muted, #656d76);
+  margin-right: 0.5rem;
+}
+
+/* Text blocks */
+.textBlock {
+  margin: 0.25rem 0;
+  line-height: 1.6;
+  color: var(--color-text, #1f2328);
+}
+
+.emptyPara {
+  height: 0.75rem;
+}
+
+/* Placeholders */
+.placeholder {
+  margin: 0.5rem 0;
+}
+
+.placeholderTag {
+  color: #dc2626;
+  font-weight: 700;
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+
+/* Annotations */
+.annotation {
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid #e5e7eb;
+  background: #fafafa;
+  border-radius: 0 6px 6px 0;
+}
+
+.annotationEditable {
+  border-left-color: #2563eb;
+  background: #eff6ff;
+}
+
+.annotationLabel {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #dc2626;
+  margin-bottom: 0.4rem;
+  font-family: monospace;
+}
+
+.annotationTextarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border, #d0d7de);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 60px;
+  font-family: inherit;
+}
+
+.annotationTextarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.annotationContent {
+  font-size: 0.9rem;
+  color: var(--color-text-muted, #656d76);
+  white-space: pre-wrap;
+}
+
+
+.annotationFieldName {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #1e40af;
+  margin-bottom: 0.3rem;
+  text-transform: capitalize;
+}
+
+
+.annotationInline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 1rem;
+}
+
+.annotationInline .annotationLabel {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+.annotationInput {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--color-border, #d0d7de);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.annotationInput:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+
+.inlinePara {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem;
+  margin: 0.25rem 0;
+  line-height: 1.8;
+}
+
+.textInline {
+  color: var(--color-text, #1f2328);
+}
+
+.annotationInlineWrap {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.annotationInlineWrap .annotationLabel {
+  font-size: 0.75rem;
+  margin-bottom: 0;
+}
+
+.annotationInlineWrap .annotationInput {
+  width: auto;
+  min-width: 120px;
+  max-width: 300px;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.85rem;
+}
+
+
+.paletteRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.paletteInput {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--color-border, #d0d7de);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  background: white;
+  min-width: 150px;
+  font-family: monospace;
+}
+
+.paletteInput:focus {
+  outline: none;
+  border-color: #ca8a04;
+}
+
+
+.annotationInlineRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0;
+  padding: 0.4rem 0.75rem;
+  border-left: 3px solid #2563eb;
+  background: #eff6ff;
+  border-radius: 0 4px 4px 0;
+}
+
+.annotationInlineRow .annotationLabel {
+  margin-bottom: 0;
+  white-space: nowrap;
+  font-size: 0.75rem;
+}
+
+.annotationInlineRow .annotationInput {
+  flex: 1;
+  min-width: 150px;
+}
+
+
+.annotationTag {
+  color: #dc2626;
+  font-weight: 700;
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+
+.paletteMultiSelect {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 0.4rem;
+  border: 1px solid var(--color-border, #d0d7de);
+  border-radius: 4px;
+  background: white;
+  flex: 1;
+}
+
+.paletteCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.paletteCheckbox input {
+  margin: 0;
+}
+
+.btnPalette:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

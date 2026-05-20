@@ -86,10 +86,10 @@ export default function Header() {
           </li>
           <li>
             <Link
-              href="/revision"
-              className={`${styles.link} ${pathname === "/revision" ? styles.active : ""}`}
+              href="/outils"
+              className={`${styles.link} ${pathname.startsWith("/outils") ? styles.active : ""}`}
             >
-              Révision
+              Outils
             </Link>
           </li>
           <li>

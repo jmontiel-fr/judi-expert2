@@ -49,6 +49,7 @@ export interface RegisterParams {
   code_postal: string;
   telephone: string;
   domaine: string;
+  captchaToken: string;
   acceptMentions: boolean;
   acceptCGU: boolean;
   acceptProtection: boolean;
@@ -222,6 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       code_postal: params.code_postal,
       telephone: params.telephone,
       domaine: params.domaine,
+      captcha_token: params.captchaToken,
       accept_mentions_legales: params.acceptMentions,
       accept_cgu: params.acceptCGU,
       accept_protection_donnees: params.acceptProtection,

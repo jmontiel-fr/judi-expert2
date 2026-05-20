@@ -86,7 +86,7 @@ async def client(session_factory):
 def _valid_register_payload(**overrides):
     """Retourne un payload d'inscription valide avec possibilité d'override."""
     base = {
-        "email": "expert@example.com",
+        "email": "expert@judi-expert.fr",
         "password": "SecureP@ss1",
         "nom": "Dupont",
         "prenom": "Jean",
@@ -95,6 +95,7 @@ def _valid_register_payload(**overrides):
         "code_postal": "75001",
         "telephone": "0612345678",
         "domaine": "psychologie",
+        "captcha_token": "test-captcha-token",
         "accept_mentions_legales": True,
         "accept_cgu": True,
         "accept_protection_donnees": True,

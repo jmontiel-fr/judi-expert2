@@ -145,7 +145,7 @@ app.add_middleware(
 )
 
 # --- Routers ---
-from routers import auth, chatbot, config, dossiers, revision, step_files, steps, tickets, version
+from routers import auth, chatbot, config, dossiers, pea_editor, revision, step_files, steps, tickets, version
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(config.router, prefix="/api/config", tags=["config"])
@@ -155,6 +155,7 @@ app.include_router(step_files.router, prefix="/api/dossiers", tags=["step_files"
 app.include_router(chatbot.router, prefix="/api/chatbot", tags=["chatbot"])
 app.include_router(tickets.router, prefix="/api/tickets", tags=["tickets"])
 app.include_router(revision.router, prefix="/api/revision", tags=["revision"])
+app.include_router(pea_editor.router, prefix="/api/pea-editor", tags=["pea_editor"])
 app.include_router(version.router, prefix="/api", tags=["version"])
 
 

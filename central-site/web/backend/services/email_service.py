@@ -1,7 +1,7 @@
-"""Service d'envoi d'emails via SMTP Gmail.
+"""Service d'envoi d'emails via SMTP.
 
-Utilise le même compte Gmail en dev et en prod.
 Configuration via variables d'environnement SMTP_*.
+SMTP Gandi (mail.gandi.net) en production.
 """
 
 import logging
@@ -13,11 +13,12 @@ from email.mime.text import MIMEText
 
 logger = logging.getLogger(__name__)
 
-SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+SMTP_HOST = os.environ.get("SMTP_HOST", "mail.gandi.net")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "Judi-Expert")
+SMTP_NOTIFICATION_TO = os.environ.get("SMTP_NOTIFICATION_TO", "contact@judi-expert.fr")
 
 IS_DEV = os.environ.get("APP_ENV", "production") == "development"
 
@@ -125,4 +126,40 @@ def send_ticket_email(
         body_text=body_text,
         attachment=ticket_file,
         attachment_filename=ticket_filename,
+    )
+
+
+def send_registration_notification(
+    expert_email: str,
+    nom: str,
+    prenom: str,
+    domaine: str,
+) -> None:
+    """Envoie une notification d'inscription à contact@judi-expert.fr.
+
+    Appelé après chaque inscription réussie en production.
+    Permet à l'administrateur d'être informé des nouvelles inscriptions.
+
+    Args:
+        expert_email: Email de l'expert inscrit.
+        nom: Nom de l'expert.
+        prenom: Prénom de l'expert.
+        domaine: Domaine d'expertise choisi.
+    """
+    subject = f"Nouvelle inscription — {prenom} {nom} ({domaine})"
+    body_text = (
+        f"Bonjour,\n\n"
+        f"Un nouvel expert vient de s'inscrire sur Judi-Expert.\n\n"
+        f"    Nom : {nom}\n"
+        f"    Prénom : {prenom}\n"
+        f"    Email : {expert_email}\n"
+        f"    Domaine : {domaine}\n\n"
+        f"Cordialement,\n"
+        f"Judi-Expert (notification automatique)"
+    )
+
+    _send_email(
+        to_email=SMTP_NOTIFICATION_TO,
+        subject=subject,
+        body_text=body_text,
     )

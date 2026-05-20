@@ -17,4 +17,5 @@ fastembed==0.4.2
 pyyaml==6.0.2
 
 # Compta_Library — bibliothèque partagée pour l'intégration comptable
-git+https://github.com/jmontiel.fr/itechsource
+# TODO: Ajouter quand le package sera publié (actuellement mode dégradé)
+# git+https://github.com/jmontiel-fr/gestion-comptable-stripe

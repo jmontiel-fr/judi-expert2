@@ -1753,7 +1753,13 @@ async def step4_execute(
         elif annot_type.startswith("verbatim"):
             return f"\u00ab {content} \u00bb" if content.strip() else ""
         elif annot_type.startswith("remplir"):
-            # @remplir description : texte@ → garder seulement après ":"
+            # Nouveau format :
+            # @remplir_champ texte@ → garder le texte tel quel
+            # @remplir_bloc : texte@ → garder le texte après ":"
+            if annot_type.startswith("remplir_bloc") and ":" in content:
+                return content.split(":", 1)[1].strip()
+            # Pour remplir_champ ou ancien format : garder le contenu
+            # Si contient ":" (ancien format), garder après ":"
             if ":" in content:
                 return content.split(":", 1)[1].strip()
             return content.strip()

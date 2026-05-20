@@ -122,3 +122,4 @@ module "cron" {
   aws_region   = var.aws_region
   api_base_url = "https://origin.${var.domain_name}:8000"
 }
+

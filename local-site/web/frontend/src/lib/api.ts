@@ -10,6 +10,7 @@
  */
 
 import axios, { AxiosError, type AxiosInstance } from "axios";
+import type { PEAParseResponse, PEASaveRequest, PEASaveResponse } from "@/types/pea";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -867,6 +868,40 @@ export const revisionApi = {
       "/api/revision/summarize",
       { text },
       { timeout: 1_800_000 },
+    );
+    return res.data;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// PEA Editor API — Parse & save PEA/TPE documents
+// ---------------------------------------------------------------------------
+
+export const peaEditorApi = {
+  /**
+   * Parse a .docx PEA/TPE document and return its structured blocks.
+   * Uses multipart/form-data to upload the file.
+   */
+  async parse(file: File): Promise<PEAParseResponse> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await apiClient.post<PEAParseResponse>(
+      "/api/pea-editor/parse",
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" }, timeout: 60_000 },
+    );
+    return res.data;
+  },
+
+  /**
+   * Save modified PEA blocks back to a .docx file in the work directory.
+   * Sends JSON payload with blocks, source file (base64), and output info.
+   */
+  async save(request: PEASaveRequest): Promise<PEASaveResponse> {
+    const res = await apiClient.post<PEASaveResponse>(
+      "/api/pea-editor/save",
+      request,
+      { timeout: 60_000 },
     );
     return res.data;
   },

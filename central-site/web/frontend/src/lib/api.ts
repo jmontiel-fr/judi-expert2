@@ -74,6 +74,7 @@ export interface RegisterPayload {
   code_postal: string;
   telephone: string;
   domaine: string;
+  captcha_token: string;
   accept_mentions_legales: boolean;
   accept_cgu: boolean;
   accept_protection_donnees: boolean;

@@ -70,12 +70,13 @@ services:
       ECR_REGISTRY: "local"
       AWS_REGION: "eu-west-3"
       SES_SENDER_EMAIL: "no-reply@localhost"
-      # SMTP Gmail — configurer avec un vrai compte pour tester les emails
-      SMTP_HOST: "smtp.gmail.com"
+      # SMTP Gandi — configurer SMTP_PASSWORD dans .env.dev (non versionné)
+      SMTP_HOST: "mail.gandi.net"
       SMTP_PORT: "587"
-      SMTP_USER: ""
-      SMTP_PASSWORD: ""
+      SMTP_USER: "admin@judi-expert.fr"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
       SMTP_FROM_NAME: "Judi-Expert"
+      SMTP_NOTIFICATION_TO: "contact@judi-expert.fr"
       QDRANT_URL: "http://qdrant:6333"
       DOCS_PATH: "/data/docs"
       MISTRAL_API_KEY: "${MISTRAL_API_KEY:-}"

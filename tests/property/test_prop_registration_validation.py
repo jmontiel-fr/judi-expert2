@@ -90,9 +90,9 @@ domaines = st.sampled_from([
     "comptabilite",
 ])
 
-# Emails valides
+# Emails valides (utiliser un domaine non-bloqué pour les tests)
 valid_emails = st.builds(
-    lambda local: f"{local}@example.com",
+    lambda local: f"{local}@test-expert.fr",
     st.text(
         alphabet=st.sampled_from("abcdefghijklmnopqrstuvwxyz0123456789"),
         min_size=3,
@@ -159,6 +159,7 @@ def test_valid_form_succeeds_regardless_of_newsletter(
         code_postal=code_postal,
         telephone=telephone,
         domaine=domaine,
+        captcha_token="test-captcha-token",
         accept_mentions_legales=True,
         accept_cgu=True,
         accept_protection_donnees=True,
@@ -225,6 +226,7 @@ def test_missing_required_field_fails(
         "code_postal": code_postal,
         "telephone": telephone,
         "domaine": domaine,
+        "captcha_token": "test-captcha-token",
         "accept_mentions_legales": True,
         "accept_cgu": True,
         "accept_protection_donnees": True,
@@ -285,6 +287,7 @@ def test_unchecked_required_checkbox_fails(
         "code_postal": code_postal,
         "telephone": telephone,
         "domaine": domaine,
+        "captcha_token": "test-captcha-token",
         "accept_mentions_legales": True,
         "accept_cgu": True,
         "accept_protection_donnees": True,
@@ -397,7 +400,7 @@ async def test_newsletter_does_not_affect_registration_via_api(
     """La case newsletter (True ou False) ne doit pas affecter le résultat
     de l'inscription quand tous les autres champs sont valides.
     Test via l'endpoint HTTP /api/auth/register."""
-    unique_email = f"{uuid4().hex[:12]}@example.com"
+    unique_email = f"{uuid4().hex[:12]}@test-expert.fr"
 
     transport = ASGITransport(app=test_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -413,6 +416,7 @@ async def test_newsletter_does_not_affect_registration_via_api(
                 "code_postal": code_postal,
                 "telephone": telephone,
                 "domaine": domaine,
+                "captcha_token": "test-captcha-token",
                 "accept_mentions_legales": True,
                 "accept_cgu": True,
                 "accept_protection_donnees": True,

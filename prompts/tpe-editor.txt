@@ -1,0 +1,85 @@
+Crée un assistant d'édition de PEA comme suit:
+
+Réorganise la page Révision en une page Outils avec en  
+sous-menu les pages suivantes
+
+1. 'Mettre en forme'- :
+reprend le contenu de la page actuelle Révision sans la 
+partie résumé, opérant 
+- soit sur un fichier de format .txt, .docx ou .md 
+il faut dans ce cas sélectionner le fichier en entrée 
+et un bouton permet de récupérer le ichier en sortie
+Les ficheirs produits sont à place dans 
+c:\judi-expert\<dossier>\travail sous le nom désiré.
+Un sablier tournant indique l'opération avec un chrono 
+pour me  mesurer la durée de traitement
+- soit avec une fenêtre entrée et une fenêtre sortie pour 
+du texte copier/coller
+
+2. 'Résumer'
+Propose comme la page 'Mise en forme' une opération sur fichier 
+de format .txt, .docx ou .md
+
+3. 'Editer PEA' :
+Note en haut de page : cette page permet de générer 
+un pea.docx à partir d'un tpe.docs ou d'un pea.docx
+en cours de préparation, en faisant apparaitres les 
+@annotations sous forme de champs de formulaires à compléter.
+Seules les contenu des annotations @remplir, @dire @analyse 
+@conclusion sont modifibales. Les autres parties de texte 
+notamment les placeholdres ne sont pas modifiables.
+sans modifier les textes 
+
+Process: 
+Choisir le tpe.docx ou le pea.docx.
+Affiche en formulaire avec le textexte hors annotations 
+en texte HTML  en conservant la numération des sections 
+mappése vers H1, ... Hn.
+Les placeholders sont afficvhés en rouge gras, le texte 
+hors annotation en texte normal sans autre formattage, 
+les titres de sections mappés en Hn avec leur numérotation x.x.x.x
+Le mapping suit l'ordre naturel (Titre Principal=H1, Titre1 = H2, etc ...)
+Les @annotations sont marquées en rouges gras et le contenu à remplir 
+est une zone de texte (type texte ou textarea de formulaire).
+
+En haut de la page un bouton enregistrer/annuler permet de
+sauvegarder le fichier pea.docx avec les champs introduits 
+dans les annotations.
+Les annotations apparaissent come suit :
+@annotatation section_x.x.x <...> :
+<textarea> ...........</texttarea>
+@
+
+Exemples:
+@remplir date_entretien JJ/MM/AAA :
+...
+@
+
+@dires section_x.x.x
+<textarea> ...........</texttarea>
+
+@conclusion@
+affiche en formulaite:
+
+@conclusion
+<textarea> ...........</texttarea>
+@
+avec une pallete 2 listes déoulate
+<Liste-annotations: cite, référence resume> 
+<liste déoroulate : @dires section_x;x;x ou @analyse_x.x.x> 
+et un bouton 'insérer'.
+
+Lorsque le pointeur est à une place en textearea, le bouton 
+insérer insère dans le textarea l'annotation choie en lsite 
+déroulante colonne 1 aevac en paramètre la sélection colonne 2.
+L'annotation insérer apparariat comme un bloc rouge non modifiable  en pointant dessus
+et en changeant la sélection colonnes 1 et 2 , l'action insérer 
+remplace l'annotation insére avec la nouvelle sélection.
+annotation
+
+Le ficheir pea.docx en sortie finale comprend :
+le texte du tpe.docx avec son style d'origine,
+- les palceholders <<...>>
+- les @annotation avec leur contenu
+
+

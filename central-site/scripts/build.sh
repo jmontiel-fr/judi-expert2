@@ -75,8 +75,19 @@ fi
 
 # ── Backend ────────────────────────────────────────────
 echo -e "${YELLOW}[1/2]${NC} Build de ${GREEN}central-backend${NC} (FastAPI)..."
+
+# Récupérer le token GitHub pour les dépendances privées
+GITHUB_TOKEN=""
+if command -v gh > /dev/null 2>&1; then
+  GITHUB_TOKEN=$(gh auth token 2>/dev/null || echo "")
+fi
+if [ -z "$GITHUB_TOKEN" ] && [ -n "${GH_TOKEN:-}" ]; then
+  GITHUB_TOKEN="$GH_TOKEN"
+fi
+
 docker build \
   -t "${BACKEND_IMAGE}:${TAG}" \
+  --build-arg GITHUB_TOKEN="${GITHUB_TOKEN}" \
   -f "$AWS_DIR/web/backend/Dockerfile" \
   "$AWS_DIR/web/backend"
 echo -e "${GREEN}  ✔ Backend built: ${BACKEND_IMAGE}:${TAG}${NC}"

@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from models.expert import Expert
 from schemas.auth import AuthResponse, LoginRequest, LogoutRequest, RegisterRequest
-from services import captcha_service, cognito_service
+from services import captcha_service, cognito_service, email_service
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +35,17 @@ async def register(
     """Inscription d'un nouvel expert via Cognito.
 
     Valide les champs obligatoires et les cases à cocher,
-    puis crée le compte dans Cognito et en base de données.
+    vérifie le captcha, puis crée le compte dans Cognito et en base de données.
     """
+    # Vérification du captcha (bypass en mode dev)
+    if not IS_DEV:
+        captcha_valid = await captcha_service.verify_captcha(request.captcha_token)
+        if not captcha_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Captcha invalide",
+            )
+
     try:
         if IS_DEV:
             # Mode développement : bypass Cognito, inscription directe en BD
@@ -102,6 +111,17 @@ async def register(
         )
         db.add(expert)
         await db.commit()
+
+        # Notification d'inscription à l'administrateur
+        try:
+            email_service.send_registration_notification(
+                expert_email=request.email,
+                nom=request.nom,
+                prenom=request.prenom,
+                domaine=request.domaine,
+            )
+        except Exception as e:
+            logger.warning("Échec envoi notification inscription: %s", e)
 
         return {
             "message": "Inscription réussie",

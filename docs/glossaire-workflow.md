@@ -442,7 +442,7 @@ Les annotations sont des instructions de génération interprétées par le mote
 <tr><td><code>@cite</code></td><td><code>@cite @dires_x.y.z@</code></td><td>citation section X.Y.Z — titre … texte</td><td>Insère une citation du contenu de la section référencée</td></tr>
 <tr><td><code>@debut_tpe</code></td><td><code>@debut_tpe@</code></td><td>—</td><td>Marqueur structurel : début de la zone PE/PA (extraction au Step 2)</td></tr>
 <tr><td><code>@/custom</code></td><td><code>@/custom contenu@</code></td><td><strong>Custom :</strong> contenu reformulé</td><td>Annotation personnalisée — reformulation LLM avec le préfixe choisi par l'expert</td></tr>
-<tr><td><code>@remplir</code></td><td><code>@remplir description : texte@</code></td><td>texte (partie après le <code>:</code>)</td><td>Texte à substituer au Step 4. Seule la partie après le <code>:</code> est conservée dans le PRE — la description avant le <code>:</code> sert d'indication à l'expert.</td></tr>
+<tr><td><code>@remplir</code></td><td><code>@remplir_champ texte@</code> (inline)<br/><code>@remplir_bloc : texte@</code> (bloc)</td><td>texte</td><td><strong>Champ</strong> : insertion inline — le texte pré-remplit le champ (si absent, champ vide).<br/><strong>Bloc</strong> : insertion multi-lignes — le texte après <code>:</code> pré-remplit le bloc (si absent, bloc vide). Seul le contenu est conservé dans le PRE.</td></tr>
 <tr><td><code>@resume</code></td><td><code>@resume @reference annotation_xxx, @reference annotation_yyy, ...@</code></td><td>Résumé des sections citées</td><td>Concatène les contenus des annotations référencées et génère un résumé via LLM. Résolu au Step 4 <strong>après</strong> la reformulation des annotations citées.</td></tr>
 </tbody>
 </table>

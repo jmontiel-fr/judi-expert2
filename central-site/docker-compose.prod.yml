@@ -31,6 +31,7 @@ services:
       SMTP_USER: "${SMTP_USER}"
       SMTP_PASSWORD: "${SMTP_PASSWORD}"
       SMTP_FROM_NAME: "${SMTP_FROM_NAME}"
+      SMTP_NOTIFICATION_TO: "${SMTP_NOTIFICATION_TO}"
       DOMAINES_YAML_PATH: "/data/domaines/domaines.yaml"
       CORPUS_BASE_PATH: "/data/corpus"
       DOCS_PATH: "/data/docs"

@@ -156,6 +156,7 @@ export default function InscriptionPage() {
         domaine: formData.domaine,
         email: formData.email.trim(),
         password: formData.password,
+        captchaToken: captchaToken,
         acceptMentions: formData.acceptMentions,
         acceptCGU: formData.acceptCGU,
         acceptProtection: formData.acceptProtection,
