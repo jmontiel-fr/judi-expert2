@@ -1,9 +1,12 @@
+import { buildPageMetadata } from "@/lib/seo";
 import styles from "../(legal)/legal.module.css";
 
-export const metadata = {
-  title: "Politique de confidentialité — Judi-expert",
-  description: "Politique de confidentialité et gestion des données personnelles de Judi-expert",
-};
+export const metadata = buildPageMetadata({
+  title: "Politique de confidentialité",
+  description:
+    "Politique de confidentialité et gestion des données personnelles de Judi-Expert.",
+  path: "/politique-confidentialite",
+});
 
 export default function PolitiqueConfidentialitePage() {
   return (

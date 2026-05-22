@@ -1,9 +1,11 @@
+import { buildPageMetadata } from "@/lib/seo";
 import styles from "../(legal)/legal.module.css";
 
-export const metadata = {
-  title: "Conditions Générales d'Utilisation — Judi-expert",
-  description: "Conditions générales d'utilisation du service Judi-expert",
-};
+export const metadata = buildPageMetadata({
+  title: "Conditions Générales d'Utilisation",
+  description: "Conditions générales d'utilisation du service Judi-Expert.",
+  path: "/cgu",
+});
 
 export default function CGUPage() {
   return (

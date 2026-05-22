@@ -1,4 +1,12 @@
+import { buildPageMetadata } from "@/lib/seo";
 import styles from "./securite.module.css";
+
+export const metadata = buildPageMetadata({
+  title: "Sécurité",
+  description:
+    "Sécurité Judi-Expert : isolation réseau, données d'expertise en local, conformité RGPD et AI Act européen.",
+  path: "/securite",
+});
 
 export default function SecuritePage() {
   return (

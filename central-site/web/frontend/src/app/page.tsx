@@ -1,8 +1,18 @@
+import { HomePageJsonLd } from "@/components/JsonLd";
+import { buildPageMetadata } from "@/lib/seo";
 import styles from "./landing.module.css";
+
+export const metadata = buildPageMetadata({
+  title: "Assistance IA pour experts judiciaires",
+  description:
+    "Réduisez de 50 % le temps de production de vos dossiers d'expertise. Solution multi-domaines, données en local, conformité RGPD et AI Act.",
+  path: "/",
+});
 
 export default function HomePage() {
   return (
     <>
+      <HomePageJsonLd />
       {/* ===== Section Accueil / Hero ===== */}
       <section className={styles.hero}>
         <div className={styles.heroColumns}>

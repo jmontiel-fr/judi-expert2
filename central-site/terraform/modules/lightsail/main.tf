@@ -51,20 +51,26 @@ resource "aws_lightsail_instance_public_ports" "main" {
   instance_name = aws_lightsail_instance.main.name
 
   port_info {
-    protocol  = "tcp"
-    from_port = 3000
-    to_port   = 3000
+    protocol   = "tcp"
+    from_port  = 3000
+    to_port    = 3000
+    cidrs      = ["0.0.0.0/0"]
+    ipv6_cidrs = ["::/0"]
   }
 
   port_info {
-    protocol  = "tcp"
-    from_port = 8000
-    to_port   = 8000
+    protocol   = "tcp"
+    from_port  = 8000
+    to_port    = 8000
+    cidrs      = ["0.0.0.0/0"]
+    ipv6_cidrs = ["::/0"]
   }
 
   port_info {
-    protocol  = "tcp"
-    from_port = 22
-    to_port   = 22
+    protocol   = "tcp"
+    from_port  = 22
+    to_port    = 22
+    cidrs      = ["0.0.0.0/0"]
+    ipv6_cidrs = ["::/0"]
   }
 }

@@ -1,4 +1,12 @@
+import { buildPageMetadata } from "@/lib/seo";
 import styles from "./tarification.module.css";
+
+export const metadata = buildPageMetadata({
+  title: "Tarification",
+  description:
+    "Tarifs Judi-Expert à l'acte par dossier d'expertise. Offre de lancement : 2 dossiers gratuits pour le premier achat. Module psychologie disponible.",
+  path: "/tarification",
+});
 
 export default function TarificationPage() {
   return (
@@ -15,8 +23,8 @@ export default function TarificationPage() {
         <div>
           <h2 className={styles.promoTitle}>Offre de lancement</h2>
           <p className={styles.promoText}>
-            <strong>3 dossiers gratuits</strong> offerts à l&apos;inscription.
-            Aucun engagement, aucune carte bancaire requise pour commencer.
+            <strong>2 dossiers gratuits</strong> pour le premier dossier acheté.
+            Offre valable sur votre premier achat de ticket.
           </p>
         </div>
       </div>
@@ -44,7 +52,7 @@ export default function TarificationPage() {
               <li>Trames d&apos;entretien adaptées</li>
               <li>Modèle de rapport pré-configuré</li>
               <li>Workflow complet en 5 étapes</li>
-              <li>3 dossiers gratuits à l&apos;inscription</li>
+              <li>2 dossiers gratuits pour le premier dossier acheté</li>
             </ul>
           </div>
 
@@ -117,8 +125,8 @@ export default function TarificationPage() {
           <div className={styles.howStep}>
             <div className={styles.howNumber}>1</div>
             <p className={styles.howText}>
-              Inscrivez-vous et recevez <strong>3 tickets gratuits</strong> pour
-              le module psychologie.
+              Inscrivez-vous gratuitement, puis achetez votre premier ticket :
+              <strong> 2 dossiers gratuits</strong> offerts en plus.
             </p>
           </div>
           <div className={styles.howStep}>

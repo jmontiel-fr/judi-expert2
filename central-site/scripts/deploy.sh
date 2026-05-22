@@ -39,9 +39,6 @@ set -a
 source "$ENV_FILE"
 set +a
 
-# Export version for Terraform
-export TF_VAR_app_version="$VERSION"
-
 # ── Validate Terraform directory ──────────────────────
 if [ ! -d "$TERRAFORM_DIR" ]; then
   echo -e "${RED}Erreur : répertoire Terraform introuvable ($TERRAFORM_DIR)${NC}"
@@ -71,7 +68,7 @@ echo ""
 
 # ── Terraform Plan ─────────────────────────────────────
 echo -e "${YELLOW}[2/3]${NC} Planification des changements..."
-terraform -chdir="$TERRAFORM_DIR" plan -var="app_version=${VERSION}" -out=tfplan
+terraform -chdir="$TERRAFORM_DIR" plan -out=tfplan
 echo -e "${GREEN}  ✔ Plan Terraform généré${NC}"
 echo ""
 

@@ -1,9 +1,11 @@
+import { buildPageMetadata } from "@/lib/seo";
 import styles from "../(legal)/legal.module.css";
 
-export const metadata = {
-  title: "Mentions légales — Judi-expert",
-  description: "Mentions légales du site Judi-expert",
-};
+export const metadata = buildPageMetadata({
+  title: "Mentions légales",
+  description: "Mentions légales du site Judi-Expert.",
+  path: "/mentions-legales",
+});
 
 export default function MentionsLegalesPage() {
   return (

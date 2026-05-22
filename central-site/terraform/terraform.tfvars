@@ -19,3 +19,4 @@ db_password       = "JudiExpert2026!Prod"
 
 # --- DNS ---
 domain_name = "judi-expert.fr"
+google_site_verification = "google-site-verification=lFLgHBmAUdCh_QlzxIW9bGY2cgt7jv_qVLx18NBCK_Q"

@@ -1,0 +1,11 @@
+import { noindexMetadata } from "@/lib/seo";
+
+export const metadata = noindexMetadata("Administration", "/admin");
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return children;
+}

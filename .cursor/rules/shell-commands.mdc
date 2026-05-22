@@ -1,0 +1,30 @@
+---
+description: Exécution des commandes shell — foreground uniquement, sortie complète
+alwaysApply: true
+---
+
+# Commandes shell
+
+## Foreground uniquement
+
+- Exécuter **toutes** les commandes shell en **foreground** (attendre la fin et lire la sortie complète).
+- Ne pas lancer de commandes en arrière-plan (`run_in_background`, `block_until_ms: 0`, ou équivalent) sauf demande **explicite** de l'utilisateur.
+- Ne pas utiliser `Await` / polling pour contourner une commande mise en background par défaut.
+
+## Sortie complète
+
+- Ne pas tronquer la sortie avec `tail`, `head` (pour masquer le début/fin), `2>&1 | tail -N`, ni filtres similaires destinés à cacher des traces ou des erreurs.
+- Si la sortie est longue, lire le fichier terminal complet ou relancer avec une limite de temps plus élevée — pas de masquage partiel.
+- En cas d'échec, analyser **toute** la sortie visible (stderr inclus) avant de conclure.
+
+## Exemples
+
+```bash
+# ❌ À éviter
+npm run build 2>&1 | tail -25
+docker build ... 2>&1 | tail -40
+
+# ✅ Préférer
+npm run build
+docker build ...
+```

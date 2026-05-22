@@ -98,6 +98,7 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: "http://localhost:8002"
+        NEXT_PUBLIC_SITE_URL: "http://localhost:3001"
         NEXT_PUBLIC_RECAPTCHA_SITE_KEY: "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
         NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "${STRIPE_PUBLISHABLE_KEY:-pk_test_CHANGEZ_MOI}"
     container_name: judi-central-frontend

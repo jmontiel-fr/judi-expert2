@@ -58,3 +58,11 @@ variable "domain_name" {
   type        = string
   default     = "judi-expert.fr"
 }
+
+# Google Search Console — enregistrement TXT fourni par Google (laisser vide si non utilise)
+variable "google_site_verification" {
+  description = "Valeur TXT Google Search Console (ex: google-site-verification=ABC123...)"
+  type        = string
+  default     = ""
+  sensitive   = false
+}

@@ -99,6 +99,7 @@ docker build \
   -t "${FRONTEND_IMAGE}:${TAG}" \
   --build-arg NEXT_PUBLIC_API_URL="" \
   --build-arg NEXT_PUBLIC_APP_ENV="production" \
+  --build-arg NEXT_PUBLIC_SITE_URL="https://www.judi-expert.fr" \
   --build-arg NEXT_PUBLIC_RECAPTCHA_SITE_KEY="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI" \
   -f "$AWS_DIR/web/frontend/Dockerfile" \
   "$AWS_DIR/web/frontend"
