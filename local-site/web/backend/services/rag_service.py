@@ -138,7 +138,7 @@ class RAGService:
     Gère les collections :
     - ``corpus_{domaine}`` : documents du corpus domaine (PDF, URLs)
     - ``config_{domaine}`` : TPE et Template Rapport de l'expert
-    - ``system_docs`` : documentation système (user-guide, CGU, mentions légales)
+    - ``system_docs`` : documentation système (guide-utilisateur, CGU, mentions légales)
     """
 
     def __init__(

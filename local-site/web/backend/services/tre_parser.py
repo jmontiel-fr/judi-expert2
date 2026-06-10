@@ -223,10 +223,6 @@ class TREParser:
         """
         errors: list[str] = []
 
-        # Vérifier la présence du marqueur @debut_tpe@
-        if result.debut_tpe_position is None:
-            errors.append("Le marqueur @debut_tpe@ est absent du document.")
-
         # Vérifier les annotations non fermées (déjà dans result.errors)
         for error in result.errors:
             if "non fermée" in error:

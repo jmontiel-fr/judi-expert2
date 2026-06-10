@@ -28,6 +28,7 @@ from routers.auth import get_current_user
 from services.llm_service import LLMService
 from services.rag_service import RAGService
 from services.workflow_engine import workflow_engine
+from services.workflow_config import is_simple_workflow
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +138,18 @@ async def _get_dossier_name(dossier_id: int, db: AsyncSession) -> str:
     return dossier.nom
 
 
+async def _get_dossier_workflow_type(dossier_id: int, db: AsyncSession) -> str:
+    """Retourne le type de workflow du dossier (standard ou simple)."""
+    from models.dossier import Dossier as DossierModel
+    from services.workflow_config import normalize_workflow_type
+
+    result = await db.execute(select(DossierModel).where(DossierModel.id == dossier_id))
+    dossier = result.scalar_one_or_none()
+    if dossier is None:
+        raise HTTPException(status_code=404, detail="Dossier non trouvé")
+    return normalize_workflow_type(dossier.workflow_type)
+
+
 def _step_in(dossier_name: str, step_number: int) -> str:
     """Retourne le chemin du sous-dossier d'entrée d'un step."""
     from services.file_paths import step_in_dir
@@ -153,6 +166,50 @@ def _dossier_dir(dossier_name: str) -> str:
     """Retourne le chemin du répertoire racine d'un dossier."""
     from services.file_paths import dossier_root
     return dossier_root(dossier_name)
+
+
+def _step_error_log_path(dossier_name: str, step_number: int) -> str:
+    """Chemin du fichier de log d'erreur d'un step.
+
+    <nom-dossier>/step{n}/error/log.txt
+    """
+    root = _dossier_dir(dossier_name)
+    error_dir = os.path.join(root, f"step{step_number}", "error")
+    os.makedirs(error_dir, exist_ok=True)
+    return os.path.join(error_dir, "log.txt")
+
+
+def _clear_step_error_log(dossier_name: str, step_number: int) -> None:
+    """Supprime le log d'erreur d'un step si présent."""
+    path = _step_error_log_path(dossier_name, step_number)
+    if os.path.isfile(path):
+        os.remove(path)
+
+
+def _write_step_error_log(dossier_name: str, step_number: int, message: str) -> None:
+    """Écrit le message d'erreur dans le log du step."""
+    path = _step_error_log_path(dossier_name, step_number)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(message.strip() + "\n")
+
+
+def _resolve_prea_path(in_dir: str) -> str | None:
+    """Résout le chemin du PREA (prea.docx prioritaire, repli pea.docx legacy)."""
+    for name in ("prea.docx", "pea.docx"):
+        path = os.path.join(in_dir, name)
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+def _resolve_demande_md_path(dossier_name: str) -> str | None:
+    """Résout le chemin du markdown Step 1 (demande.md prioritaire, repli ordonnance.md)."""
+    out_dir = _step_out(dossier_name, 1)
+    for name in ("demande.md", "ordonnance.md"):
+        path = os.path.join(out_dir, name)
+        if os.path.isfile(path):
+            return path
+    return None
 
 
 async def _get_step(
@@ -200,15 +257,55 @@ async def step1_upload(
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Upload le PDF de demande dans step1/in/ sans lancer de traitement.
-
-    Le fichier conserve son nom d'origine (ex: requisition.pdf, ordonnance.pdf).
-    """
+    """Upload le PDF de demande (standard) ou le PRE.docx (simple) dans step1/in/."""
 
     # Vérifier que l'étape n'est pas verrouillée
     await workflow_engine.require_step_not_validated(dossier_id, 1, db)
 
-    # Vérifier que le fichier est un PDF
+    workflow_type = await _get_dossier_workflow_type(dossier_id, db)
+    dossier_name = await _get_dossier_name(dossier_id, db)
+    in_dir = _step_in(dossier_name, 1)
+    os.makedirs(in_dir, exist_ok=True)
+
+    if is_simple_workflow(workflow_type):
+        if not file.filename or not file.filename.lower().endswith(".docx"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Seuls les fichiers DOCX (.docx) sont acceptés pour le workflow simple",
+            )
+        content = await file.read()
+        if not content:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Le fichier DOCX est vide",
+            )
+        pre_path = os.path.join(in_dir, "pre.docx")
+        with open(pre_path, "wb") as f:
+            f.write(content)
+
+        step = await _get_step(dossier_id, 1, db)
+        for old_file in list(step.files):
+            if old_file.filename == "pre.docx":
+                await db.delete(old_file)
+        await db.flush()
+        db.add(
+            StepFile(
+                step_id=step.id,
+                filename="pre.docx",
+                file_path=pre_path,
+                file_type="re_projet",
+                file_size=len(content),
+            )
+        )
+        await db.commit()
+
+        return UploadResponse(
+            message="PRE importé avec succès",
+            filename="pre.docx",
+            file_size=len(content),
+        )
+
+    # --- Workflow standard : PDF ordonnance ---
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -263,6 +360,101 @@ async def step1_upload(
 
 # ---- Step1 : POST /api/dossiers/{id}/step1/execute -----------------------
 
+
+async def _simple_step1_execute(dossier_id: int, db: AsyncSession) -> "ExtractResponse":
+    """Workflow simple — Step 1 : PRE.docx → PREF (révision linguistique)."""
+    import shutil
+
+    from services.revision_service import RevisionService
+
+    await workflow_engine.require_step_not_validated(dossier_id, 1, db)
+
+    step = await _get_step(dossier_id, 1, db)
+    if step.statut == "en_cours":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Le traitement est déjà en cours",
+        )
+
+    dossier_name = await _get_dossier_name(dossier_id, db)
+    _clear_step_error_log(dossier_name, 1)
+
+    in_dir = _step_in(dossier_name, 1)
+    out_dir = _step_out(dossier_name, 1)
+    os.makedirs(in_dir, exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
+
+    pre_path = os.path.join(in_dir, "pre.docx")
+    if not os.path.isfile(pre_path):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="PRE non trouvé — importez d'abord pre.docx",
+        )
+
+    await workflow_engine.start_step(dossier_id, 1, db)
+    step = await _get_step(dossier_id, 1, db)
+    step.progress_current = 1
+    step.progress_total = 2
+    step.progress_message = "Révision linguistique du PRE"
+    await db.commit()
+
+    pref_path = os.path.join(out_dir, "pref.docx")
+    shutil.copy2(pre_path, pref_path)
+
+    revision_service = RevisionService()
+    correction_count = 0
+    try:
+        doc = DocxDocument(pref_path)
+        for paragraph in doc.paragraphs:
+            text = paragraph.text.strip()
+            if not text:
+                continue
+            result = await revision_service.revise(text)
+            paragraph.text = result.corrected_text
+            correction_count += len(result.corrections)
+        doc.save(pref_path)
+    except Exception as exc:
+        await workflow_engine.fail_step(dossier_id, 1, db)
+        _write_step_error_log(dossier_name, 1, str(exc))
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors de la révision linguistique : {exc}",
+        ) from exc
+
+    step = await _get_step(dossier_id, 1, db)
+    for old_file in list(step.files):
+        if old_file.file_type in ("re_projet", "re_projet_auxiliaire"):
+            await db.delete(old_file)
+    await db.flush()
+
+    pref_size = os.path.getsize(pref_path)
+    db.add(
+        StepFile(
+            step_id=step.id,
+            filename="pref.docx",
+            file_path=pref_path,
+            file_type="re_projet",
+            file_size=pref_size,
+        )
+    )
+
+    await workflow_engine.execute_step(dossier_id, 1, db)
+    await db.commit()
+
+    logger.info(
+        "[Simple Step1] Dossier %d — PREF généré (%d corrections)",
+        dossier_id,
+        correction_count,
+    )
+
+    return ExtractResponse(
+        markdown="",
+        pdf_path="",
+        md_path=pref_path,
+    )
+
+
 @router.post(
     "/{dossier_id}/step1/execute",
     response_model=ExtractResponse,
@@ -273,10 +465,11 @@ async def step1_execute(
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Lance l'OCR + structuration LLM sur les fichiers déjà uploadés dans step1/in/.
+    """Lance l'OCR + structuration LLM (standard) ou la révision PRE→PREF (simple)."""
 
-    Produit : demande.md, placeholders.csv dans step1/out/.
-    """
+    workflow_type = await _get_dossier_workflow_type(dossier_id, db)
+    if is_simple_workflow(workflow_type):
+        return await _simple_step1_execute(dossier_id, db)
 
     # 0. Vérifier que l'étape n'est pas verrouillée
     await workflow_engine.require_step_not_validated(dossier_id, 1, db)
@@ -291,6 +484,9 @@ async def step1_execute(
 
     # 0c. Trouver le fichier PDF uploadé (quel que soit son nom)
     dossier_name = await _get_dossier_name(dossier_id, db)
+    # Nettoyer le log d'erreur précédent pour ce step
+    _clear_step_error_log(dossier_name, 1)
+
     in_dir = _step_in(dossier_name, 1)
     out_dir = _step_out(dossier_name, 1)
 
@@ -312,8 +508,8 @@ async def step1_execute(
     await workflow_engine.start_step(dossier_id, 1, db)
     step = await _get_step(dossier_id, 1, db)
     step.progress_current = 1
-    step.progress_total = 5
-    step.progress_message = "OCR (extraction du texte)"
+    step.progress_total = 4
+    step.progress_message = "Étape 1/4 — OCR (extraction du texte)"
     await db.commit()
 
     # 2. Lire le PDF
@@ -321,7 +517,7 @@ async def step1_execute(
         pdf_content = f.read()
 
     # 3. Appeler le service OCR
-    logger.info("[Step1] Dossier %d — Phase 1/3 : OCR en cours…", dossier_id)
+    logger.info("[Step1] Dossier %d — Étape 1/4 : OCR en cours…", dossier_id)
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(
@@ -334,32 +530,38 @@ async def step1_execute(
     except httpx.ConnectError:
         await workflow_engine.fail_step(dossier_id, 1, db)
         await db.commit()
+        detail = "Service OCR indisponible — vérifiez que le conteneur judi-ocr est démarré"
+        _write_step_error_log(dossier_name, 1, detail)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Service OCR indisponible — vérifiez que le conteneur judi-ocr est démarré",
+            detail=detail,
         )
     except httpx.TimeoutException:
         await workflow_engine.fail_step(dossier_id, 1, db)
         await db.commit()
+        detail = "Service OCR indisponible — délai de connexion dépassé"
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Service OCR indisponible — délai de connexion dépassé",
+            detail=detail,
         )
     except httpx.HTTPStatusError as exc:
         logger.error("Erreur OCR HTTP %s", exc.response.status_code)
         await workflow_engine.fail_step(dossier_id, 1, db)
         await db.commit()
+        detail = "Erreur du service OCR lors de l'extraction"
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Erreur du service OCR lors de l'extraction",
+            detail=detail,
         )
 
     if not texte_brut.strip():
         await workflow_engine.fail_step(dossier_id, 1, db)
         await db.commit()
+        detail = "Le PDF ne contient pas de texte exploitable"
+        _write_step_error_log(dossier_name, 1, detail)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Le PDF ne contient pas de texte exploitable",
+            detail=detail,
         )
 
     # 3b. Vérifier si l'opération a été annulée entre OCR et LLM
@@ -369,10 +571,10 @@ async def step1_execute(
         return ExtractResponse(markdown="", pdf_path=pdf_path, md_path="")
 
     # 4. Appeler le LLM pour structurer en Markdown
-    logger.info("[Step1] Dossier %d — Phase 2/5 : Structuration ordonnance (LLM)…", dossier_id)
+    logger.info("[Step1] Dossier %d — Étape 2/4 : Structuration ordonnance (LLM)…", dossier_id)
     step = await _get_step(dossier_id, 1, db)
     step.progress_current = 2
-    step.progress_message = "Structuration en Markdown ⏳ LLM"
+    step.progress_message = "Étape 2/4 — Structuration en Markdown ⏳ LLM"
     await db.commit()
     llm = LLMService()
     try:
@@ -381,6 +583,8 @@ async def step1_execute(
         logger.error("Erreur LLM lors de la structuration Markdown : %s", exc)
         await workflow_engine.fail_step(dossier_id, 1, db)
         await db.commit()
+        detail = f"Service LLM indisponible — erreur lors de la structuration Markdown : {exc}"
+        _write_step_error_log(dossier_name, 1, detail)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Service LLM indisponible — essayez de redémarrer le conteneur judi-llm",
@@ -405,8 +609,8 @@ async def step1_execute(
 
     # 5. Sauvegarder les fichiers de sortie
     step = await _get_step(dossier_id, 1, db)
-    step.progress_current = 5
-    step.progress_message = "Sauvegarde des fichiers"
+    step.progress_current = 3
+    step.progress_message = "Étape 3/4 — Extraction des questions + sauvegarde"
     await db.commit()
 
     os.makedirs(out_dir, exist_ok=True)
@@ -421,17 +625,66 @@ async def step1_execute(
         logger.info("Step 1 annulé avant extraction questions — abandon")
         return ExtractResponse(markdown=markdown, pdf_path=pdf_path, md_path=md_path)
 
-    # 6. Extraire les questions du tribunal
-    logger.info("[Step1] Dossier %d — Phase 3/5 : Extraction des questions (LLM)…", dossier_id)
+    # 6. Extraire les questions du tribunal (parsing syntaxique — sans LLM)
+    logger.info("[Step1] Dossier %d — Étape 3/4 : Extraction des questions (syntaxique)…", dossier_id)
     step = await _get_step(dossier_id, 1, db)
     step.progress_current = 3
-    step.progress_message = "Extraction des questions ⏳ LLM"
+    step.progress_message = "Étape 3/4 — Extraction des questions"
     await db.commit()
-    try:
-        questions_md = await llm.extraire_questions(markdown)
-    except Exception as exc:
-        logger.warning("Extraction questions échouée : %s — on continue sans", exc)
-        questions_md = ""
+
+    # Parser la section "## Questions du Tribunal" depuis le Markdown structuré
+    import re as _re_q
+    questions_md = ""
+    questions_section_match = _re_q.search(
+        r"##\s*Questions\s+du\s+Tribunal\s*\n(.*?)(?=\n##\s|\Z)",
+        markdown,
+        _re_q.DOTALL | _re_q.IGNORECASE,
+    )
+    if questions_section_match:
+        section_content = questions_section_match.group(1).strip()
+
+        # Méthode 1 : Extraire les questions multi-lignes entre les numéros
+        # Pattern : "N. texte" suivi de tout jusqu'au prochain "N. " ou fin
+        q_multi = _re_q.findall(
+            r"^\s*\d+\.\s+(.*?)(?=^\s*\d+\.\s|\Z)",
+            section_content,
+            _re_q.MULTILINE | _re_q.DOTALL,
+        )
+        if q_multi:
+            # Nettoyer : joindre les lignes et supprimer les retours à la ligne
+            q_lines = [_re_q.sub(r"\s+", " ", q.strip()) for q in q_multi if q.strip()]
+        else:
+            # Fallback : lignes simples numérotées
+            q_lines = _re_q.findall(r"^\s*\d+\.\s+(.+)$", section_content, _re_q.MULTILINE)
+
+        if not q_lines:
+            # Fallback : tirets "- texte" (sous-points)
+            q_lines = _re_q.findall(r"^\s*[-–•]\s+(.+)$", section_content, _re_q.MULTILINE)
+
+        if not q_lines:
+            # Fallback : lettres "a. texte", "b. texte"
+            q_lines = _re_q.findall(r"^\s*[a-z][.)]\s+(.+)$", section_content, _re_q.MULTILINE)
+
+        # Filtrer : exclure les lignes "Objet de mission : ..." si présentes
+        q_lines = [q for q in q_lines if not q.strip().lower().startswith("objet de mission")]
+
+        if q_lines:
+            # Reconstruire le format questions.md attendu par le reste du code
+            parts = []
+            for i, q_text in enumerate(q_lines, 1):
+                parts.append(f"## Q{i}\n{q_text.strip()}")
+            questions_md = "# Questions du Tribunal\n\n" + "\n\n".join(parts)
+            logger.info("[Step1] %d questions extraites par parsing syntaxique", len(q_lines))
+        else:
+            logger.warning("[Step1] Section 'Questions du Tribunal' trouvée mais aucune question détectée")
+    else:
+        logger.warning("[Step1] Section 'Questions du Tribunal' non trouvée dans le Markdown — fallback LLM")
+        # Fallback : appel LLM si le format n'est pas détecté
+        try:
+            questions_md = await llm.extraire_questions(markdown)
+        except Exception as exc:
+            logger.warning("Extraction questions LLM échouée : %s — on continue sans", exc)
+            questions_md = ""
 
     # Nettoyer le markdown des questions
     if questions_md:
@@ -448,10 +701,10 @@ async def step1_execute(
         return ExtractResponse(markdown=markdown, pdf_path=pdf_path, md_path=md_path)
 
     # 7. Extraire les placeholders
-    logger.info("[Step1] Dossier %d — Phase 4/5 : Extraction des placeholders (LLM)…", dossier_id)
+    logger.info("[Step1] Dossier %d — Étape 4/4 : Extraction des placeholders (LLM)…", dossier_id)
     step = await _get_step(dossier_id, 1, db)
     step.progress_current = 4
-    step.progress_message = "Extraction des placeholders ⏳ LLM"
+    step.progress_message = "Étape 4/4 — Extraction des placeholders ⏳ LLM"
     await db.commit()
     try:
         placeholders_csv = await llm.extraire_placeholders(markdown)
@@ -564,7 +817,7 @@ async def step1_execute(
                     f.write("\n".join(question_lines) + "\n")
             else:
                 with open(placeholders_path, "a", encoding="utf-8") as f:
-                    f.write("\n".join(question_lines) + "\n")
+                    f.write("\n" + "\n".join(question_lines) + "\n")
 
     # 8. Créer les entrées StepFile de sortie en base
     step = await _get_step(dossier_id, 1, db)
@@ -672,8 +925,8 @@ async def step0_get_markdown(
     await workflow_engine.require_step_access(dossier_id, 1, db)
 
     dossier_name = await _get_dossier_name(dossier_id, db)
-    md_path = os.path.join(_step_out(dossier_name, 1), "ordonnance.md")
-    if not os.path.isfile(md_path):
+    md_path = _resolve_demande_md_path(dossier_name)
+    if md_path is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Fichier Markdown non trouvé — lancez d'abord l'extraction",
@@ -703,8 +956,8 @@ async def step0_update_markdown(
     await workflow_engine.require_step_not_validated(dossier_id, 1, db)
 
     dossier_name = await _get_dossier_name(dossier_id, db)
-    md_path = os.path.join(_step_out(dossier_name, 1), "ordonnance.md")
-    if not os.path.isfile(md_path):
+    md_path = _resolve_demande_md_path(dossier_name)
+    if md_path is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Fichier Markdown non trouvé — lancez d'abord l'extraction",
@@ -716,7 +969,7 @@ async def step0_update_markdown(
     # Mettre à jour la taille du fichier dans StepFile
     step = await _get_step(dossier_id, 1, db)
     for sf in step.files:
-        if sf.filename == "ordonnance.md":
+        if sf.filename in ("demande.md", "ordonnance.md"):
             sf.file_size = len(body.content.encode("utf-8"))
             break
 
@@ -770,14 +1023,14 @@ async def step0_import_docx(
     paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
     markdown = "\n\n".join(paragraphs)
 
-    md_path = os.path.join(out_dir, "ordonnance.md")
+    md_path = os.path.join(out_dir, "demande.md")
     with open(md_path, "w", encoding="utf-8") as f:
         f.write(markdown)
 
     # Mettre à jour les tailles dans StepFile
     step = await _get_step(dossier_id, 1, db)
     for sf in step.files:
-        if sf.filename == "ordonnance.md":
+        if sf.filename in ("demande.md", "ordonnance.md"):
             sf.file_size = len(markdown.encode("utf-8"))
         elif sf.filename == "ordonnance.docx":
             sf.file_size = len(content)
@@ -940,28 +1193,177 @@ async def step1_validate(
     return Step0ValidateResponse(message="Step 1 validé avec succès")
 
 
-# ---- Step2 : POST /api/dossiers/{id}/step2/execute -----------------------
-
 @router.post(
-    "/{dossier_id}/step2/execute",
-    response_model=QmecResponse,
+    "/{dossier_id}/step1/generate-dac",
+    response_model=Step2UploadResponse,
 )
-async def step2_execute(
+async def step1_generate_dac_simple(
     dossier_id: int,
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Extrait le PE (plan d'entretien) depuis le TRE.
+    """Workflow simple — génération optionnelle du DAC à partir du PREF."""
+    workflow_type = await _get_dossier_workflow_type(dossier_id, db)
+    if not is_simple_workflow(workflow_type):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Génération DAC Step 1 réservée au workflow simple",
+        )
 
-    Nouveau flux TRE-centré :
-    1. Résoudre le TRE (personnalisé ou par défaut du domaine)
-    2. Valider la structure du TRE (présence @debut_tpe@)
-    3. Charger les questions depuis placeholders.csv du Step 1
-    4. Extraire le PE : portion @debut_tpe@ → fin + questions en conclusion
-    5. Sauvegarder pe.docx
+    await workflow_engine.require_step_access(dossier_id, 1, db)
+    dossier_name = await _get_dossier_name(dossier_id, db)
+    pref_path = os.path.join(_step_out(dossier_name, 1), "pref.docx")
+    if not os.path.isfile(pref_path):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="PREF non trouvé — exécutez d'abord la mise en forme linguistique",
+        )
 
-    Valide : Exigences 7.1, 7.2 (Requirement 2)
-    """
+    pref_doc = DocxDocument(pref_path)
+    pref_text = "\n".join(p.text for p in pref_doc.paragraphs if p.text.strip())
+
+    result = await db.execute(select(LocalConfig).limit(1))
+    config = result.scalar_one_or_none()
+    domaine = config.domaine if config else "psychologie"
+
+    rag = RAGService()
+    rag_context = ""
+    try:
+        rag_docs = await rag.search(
+            query="contestation expertise méthodologie biais déontologie jurisprudence",
+            collection=f"corpus_{domaine}",
+            limit=10,
+        )
+        if rag_docs:
+            rag_context = "\n\n".join(doc.content for doc in rag_docs)
+    except Exception as exc:
+        logger.warning("[Simple Step1/DAC] Contexte RAG indisponible : %s", exc)
+
+    llm = LLMService()
+    dac_content = await llm.generer_dac(pref_text, pref_text, rag_context)
+
+    out_dir = _step_out(dossier_name, 1)
+    dac_path = os.path.join(out_dir, "dac.docx")
+    _save_markdown_as_docx(dac_content, dac_path, "Document d'Analyse Contradictoire")
+
+    step = await _get_step(dossier_id, 1, db)
+    for old_file in list(step.files):
+        if old_file.file_type == "re_projet_auxiliaire":
+            await db.delete(old_file)
+    await db.flush()
+
+    dac_size = os.path.getsize(dac_path)
+    db.add(
+        StepFile(
+            step_id=step.id,
+            filename="dac.docx",
+            file_path=dac_path,
+            file_type="re_projet_auxiliaire",
+            file_size=dac_size,
+        )
+    )
+    await db.commit()
+
+    return Step2UploadResponse(
+        message="DAC généré avec succès",
+        filenames=["dac.docx"],
+    )
+
+
+# ---- Step2 : POST /api/dossiers/{id}/step2/execute -----------------------
+
+
+async def _simple_step2_archive(
+    dossier_id: int,
+    file: UploadFile | None,
+    db: AsyncSession,
+) -> Step3ExecuteResponse:
+    """Workflow simple — Step 2 : archivage ZIP + timbre."""
+    import shutil
+
+    from services.archive_service import archive_dossier
+
+    await workflow_engine.require_step_access(dossier_id, 2, db)
+    await workflow_engine.start_step(dossier_id, 2, db)
+    await db.commit()
+
+    dossier_name = await _get_dossier_name(dossier_id, db)
+    _clear_step_error_log(dossier_name, 2)
+
+    in_dir = _step_in(dossier_name, 2)
+    out_dir = _step_out(dossier_name, 2)
+    os.makedirs(in_dir, exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
+
+    input_filename: str | None = None
+    input_path: str | None = None
+    input_file_type: str | None = None
+    input_file_size: int | None = None
+
+    if file and file.filename:
+        pref_bytes = await file.read()
+        input_path = os.path.join(in_dir, "pref.docx")
+        with open(input_path, "wb") as f:
+            f.write(pref_bytes)
+        input_filename = "pref.docx"
+        input_file_type = "rapport_final"
+        input_file_size = len(pref_bytes)
+    else:
+        source_pref = os.path.join(_step_out(dossier_name, 1), "pref.docx")
+        if not os.path.isfile(source_pref):
+            await workflow_engine.fail_step(dossier_id, 2, db)
+            await db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="PREF non trouvé — validez le Step 1 ou importez pref.docx",
+            )
+        input_path = os.path.join(in_dir, "pref.docx")
+        shutil.copy2(source_pref, input_path)
+        input_filename = "pref.docx"
+        input_file_type = "rapport_final"
+        input_file_size = os.path.getsize(input_path)
+
+    step = await _get_step(dossier_id, 2, db)
+    for old_file in list(step.files):
+        await db.delete(old_file)
+    await db.flush()
+
+    zip_filename, timbre_filename, sha256_hash = await archive_dossier(
+        dossier_id=dossier_id,
+        dossier_name=dossier_name,
+        step_number=2,
+        step_id=step.id,
+        db=db,
+        input_filename=input_filename,
+        input_path=input_path,
+        input_file_type=input_file_type,
+        input_file_size=input_file_size,
+        placeholders_step=1,
+    )
+
+    await workflow_engine.execute_step(dossier_id, 2, db)
+    await db.commit()
+
+    return Step3ExecuteResponse(
+        message=f"Archive générée — Hash SHA-256 : {sha256_hash}",
+        filenames=[zip_filename, timbre_filename],
+    )
+
+
+@router.post(
+    "/{dossier_id}/step2/execute",
+)
+async def step2_execute(
+    dossier_id: int,
+    file: UploadFile = None,
+    _user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Validation TRE → PREA (standard) ou archivage (simple)."""
+    workflow_type = await _get_dossier_workflow_type(dossier_id, db)
+    if is_simple_workflow(workflow_type):
+        return await _simple_step2_archive(dossier_id, file, db)
+
     import shutil
 
     from services.tre_parser import TREParser
@@ -972,6 +1374,8 @@ async def step2_execute(
 
     # Résoudre le nom du dossier pour les chemins
     dossier_name = await _get_dossier_name(dossier_id, db)
+    # Nettoyer le log d'erreur précédent pour ce step
+    _clear_step_error_log(dossier_name, 2)
 
     # 2. Vérifier que le step n'est pas déjà en cours
     step = await _get_step(dossier_id, 2, db)
@@ -991,9 +1395,14 @@ async def step2_execute(
     # 4. Résoudre le TRE
     tre_file = resolve_tre_path(dossier_name, domaine)
     if tre_file is None:
+        detail = (
+            "Aucun TRE trouvé — uploadez un TRE personnalisé ou placez un fichier tre.docx "
+            "dans le corpus du domaine"
+        )
+        _write_step_error_log(dossier_name, 2, detail)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Aucun TRE trouvé — uploadez un TRE personnalisé ou placez un fichier tre.docx dans le corpus du domaine",
+            detail=detail,
         )
 
     # 5. Marquer le step comme "en_cours"
@@ -1018,18 +1427,22 @@ async def step2_execute(
         logger.error("[Step2] Erreur parsing TRE : %s", exc)
         await workflow_engine.fail_step(dossier_id, 2, db)
         await db.commit()
+        detail = f"Erreur lors du parsing du TRE : {exc}"
+        _write_step_error_log(dossier_name, 2, detail)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Erreur lors du parsing du TRE : {exc}",
+            detail=detail,
         )
 
     errors = parser.validate(parse_result)
     if errors:
         await workflow_engine.fail_step(dossier_id, 2, db)
         await db.commit()
+        detail = f"TRE invalide : {'; '.join(errors)}"
+        _write_step_error_log(dossier_name, 2, detail)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"TRE invalide : {'; '.join(errors)}",
+            detail=detail,
         )
 
     # 8. Vérifier que les placeholders du TRE sont définis dans placeholders.csv
@@ -1081,16 +1494,15 @@ async def step2_execute(
     # 10. Sauvegarder le TRE complet en sortie
     step = await _get_step(dossier_id, 2, db)
     step.progress_current = 3
-    step.progress_message = "Copie du TRE complet en sortie"
+    step.progress_message = "Copie du TRE validé → PREA"
     await db.commit()
 
     step2_out = _step_out(dossier_name, 2)
     os.makedirs(step2_out, exist_ok=True)
 
-    # Copier le TRE complet (pas d'extraction PE — l'expert annote le TRE directement)
     import shutil as _shutil
-    tre_out_path = os.path.join(step2_out, "tre.docx")
-    _shutil.copy2(tre_local, tre_out_path)
+    prea_out_path = os.path.join(step2_out, "prea.docx")
+    _shutil.copy2(tre_local, prea_out_path)
 
     # 11. Créer les StepFile en base
     step = await _get_step(dossier_id, 2, db)
@@ -1098,13 +1510,13 @@ async def step2_execute(
         await db.delete(old_file)
     await db.flush()
 
-    tre_size = os.path.getsize(tre_out_path)
+    prea_size = os.path.getsize(prea_out_path)
     db.add(StepFile(
         step_id=step.id,
-        filename="tre.docx",
-        file_path=tre_out_path,
-        file_type="plan_entretien_docx",
-        file_size=tre_size,
+        filename="prea.docx",
+        file_path=prea_out_path,
+        file_type="pea",
+        file_size=prea_size,
     ))
 
     # 12. Marquer step2 comme "réalisé"
@@ -1115,7 +1527,7 @@ async def step2_execute(
     step.progress_message = None
     await db.commit()
 
-    logger.info("[Step2] Dossier %d — TRE validé et copié avec succès", dossier_id)
+    logger.info("[Step2] Dossier %d — PREA produit avec succès", dossier_id)
 
     return QmecResponse(qmec=placeholder_warning)
 
@@ -1158,23 +1570,21 @@ async def step2_upload_tre(
         )
 
     # Valider la structure du TRE
-    import io
+    import tempfile
     from services.tre_parser import TREParser
 
     parser = TREParser()
+    tmp_path = None
     try:
-        from docx import Document as DocxDocument
-        # Vérifier que c'est un docx valide avec @debut_tpe@
-        temp_doc = DocxDocument(io.BytesIO(content))
-        found_debut_tpe = False
-        for para in temp_doc.paragraphs:
-            if parser.DEBUT_TPE_RE.match(para.text):
-                found_debut_tpe = True
-                break
-        if not found_debut_tpe:
+        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+        parse_result = parser.parse(tmp_path)
+        errors = parser.validate(parse_result)
+        if errors:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Le TRE doit contenir le marqueur @debut_tpe@ pour délimiter le PE",
+                detail=f"TRE invalide : {'; '.join(errors)}",
             )
     except HTTPException:
         raise
@@ -1183,6 +1593,9 @@ async def step2_upload_tre(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Fichier .docx invalide : {exc}",
         )
+    finally:
+        if tmp_path and os.path.isfile(tmp_path):
+            os.unlink(tmp_path)
 
     # Sauvegarder le TRE
     dossier_name = await _get_dossier_name(dossier_id, db)
@@ -1227,10 +1640,7 @@ async def step2_download(
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Télécharge le fichier QMEC généré pour step1.
-
-    Valide : Exigence 7.3
-    """
+    """Télécharge le PREA produit au Step 2."""
 
     # Vérifier l'accès à l'étape
     await workflow_engine.require_step_access(dossier_id, 2, db)
@@ -1238,28 +1648,27 @@ async def step2_download(
     dossier_name = await _get_dossier_name(dossier_id, db)
     step2_out = _step_out(dossier_name, 2)
 
-    pe_path = os.path.join(step2_out, "pe.docx")
-    if not os.path.isfile(pe_path):
-        # Fallback to .md
-        pe_path = os.path.join(step2_out, "pe.md")
-        if not os.path.isfile(pe_path):
-            # Legacy fallback
-            pe_path = os.path.join(step2_out, "qmec.docx")
-            if not os.path.isfile(pe_path):
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Plan d'Entretien non trouvé — lancez d'abord l'exécution du Step 2",
-                )
+    prea_path = os.path.join(step2_out, "prea.docx")
+    if os.path.isfile(prea_path):
         return FileResponse(
-            path=pe_path,
-            filename="pe.md",
-            media_type="text/markdown",
+            path=prea_path,
+            filename="prea.docx",
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
 
-    return FileResponse(
-        path=pe_path,
-        filename="pe.docx",
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    # Repli legacy (anciens dossiers)
+    for legacy_name, media_type in (
+        ("pe.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+        ("pe.md", "text/markdown"),
+        ("qmec.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+    ):
+        legacy_path = os.path.join(step2_out, legacy_name)
+        if os.path.isfile(legacy_path):
+            return FileResponse(path=legacy_path, filename=legacy_name, media_type=media_type)
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="PREA non trouvé — lancez d'abord l'exécution du Step 2",
     )
 
 
@@ -1336,7 +1745,7 @@ async def step4_upload(
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Upload du PEA/PAA (.docx) sans lancer la génération du pré-rapport."""
+    """Upload du PREA (.docx) complété par l'expert — sans lancer la génération du PRE."""
 
     # Vérifier l'accès
     await workflow_engine.require_step_access(dossier_id, 4, db)
@@ -1356,28 +1765,25 @@ async def step4_upload(
             detail="Le fichier est vide",
         )
 
-    # Sauvegarder le PEA
     dossier_name = await _get_dossier_name(dossier_id, db)
     in_dir = _step_in(dossier_name, 4)
     os.makedirs(in_dir, exist_ok=True)
 
-    pea_path = os.path.join(in_dir, "pea.docx")
-    with open(pea_path, "wb") as f:
+    prea_path = os.path.join(in_dir, "prea.docx")
+    with open(prea_path, "wb") as f:
         f.write(content)
 
-    # Créer le StepFile en base
     step = await _get_step(dossier_id, 4, db)
 
-    # Supprimer l'ancien PEA s'il existe
     for old_file in list(step.files):
-        if old_file.filename == "pea.docx":
+        if old_file.filename in ("prea.docx", "pea.docx"):
             await db.delete(old_file)
     await db.flush()
 
     step_file = StepFile(
         step_id=step.id,
-        filename="pea.docx",
-        file_path=pea_path,
+        filename="prea.docx",
+        file_path=prea_path,
         file_type="pea",
         file_size=len(content),
     )
@@ -1385,8 +1791,8 @@ async def step4_upload(
     await db.commit()
 
     return UploadResponse(
-        message="PEA/PAA importé avec succès",
-        filename="pea.docx",
+        message="PREA importé avec succès",
+        filename="prea.docx",
         file_size=len(content),
     )
 
@@ -1436,18 +1842,20 @@ async def step4_execute(
     step.progress_message = "Validation syntaxique des annotations et placeholders"
     await db.commit()
 
-    # 2. Résoudre le nom du dossier pour les chemins
     dossier_name = await _get_dossier_name(dossier_id, db)
+    _clear_step_error_log(dossier_name, 4)
 
-    # 3. Vérifier que le PEA existe
+    # 3. Vérifier que le PREA existe
     in_dir = _step_in(dossier_name, 4)
-    pea_path = os.path.join(in_dir, "pea.docx")
-    if not os.path.isfile(pea_path):
+    prea_path = _resolve_prea_path(in_dir)
+    if prea_path is None:
+        detail = "PREA non trouvé — importez d'abord prea.docx dans la section Fichiers d'entrée"
+        _write_step_error_log(dossier_name, 4, detail)
         await workflow_engine.fail_step(dossier_id, 4, db)
         await db.commit()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="PEA/PAA non trouvé — importez d'abord le fichier dans la section Fichiers d'entrée",
+            detail=detail,
         )
 
     # 4. Créer le répertoire de sortie
@@ -1455,9 +1863,8 @@ async def step4_execute(
     os.makedirs(out_dir, exist_ok=True)
     pre_path = os.path.join(out_dir, "pre.docx")
 
-    # 5. Copier le PEA → pre.docx (document de travail)
-    # Le PEA est maintenant le TRE complet annoté par l'expert (plus besoin de recoller l'en-tête)
-    shutil.copy2(pea_path, pre_path)
+    # 5. Copier le PREA → pre.docx (document de travail)
+    shutil.copy2(prea_path, pre_path)
 
     # 5. Charger les placeholders de réquisition (Step 1)
     placeholders_csv_path = os.path.join(
@@ -1991,12 +2398,12 @@ async def step4_generate_dac(
     pre_doc = DocxDocument(pre_path)
     pre_content = "\n".join(p.text for p in pre_doc.paragraphs if p.text.strip())
 
-    # 5. Lire le PEA (texte brut)
-    pea_path = os.path.join(in_dir, "pea.docx")
-    pea_text = ""
-    if os.path.isfile(pea_path):
-        with open(pea_path, "rb") as f:
-            pea_text = f.read().decode("utf-8", errors="replace")
+    # 5. Lire le PREA (texte brut)
+    prea_text = ""
+    prea_path = _resolve_prea_path(in_dir)
+    if prea_path:
+        prea_doc = DocxDocument(prea_path)
+        prea_text = "\n".join(p.text for p in prea_doc.paragraphs if p.text.strip())
 
     # 6. Mettre à jour la progression
     step = await _get_step(dossier_id, 4, db)
@@ -2030,7 +2437,7 @@ async def step4_generate_dac(
     # 9. Générer le DAC via LLM
     llm = LLMService()
     try:
-        dac_content = await llm.generer_dac(pea_text, pre_content, rag_context)
+        dac_content = await llm.generer_dac(prea_text, pre_content, rag_context)
     except Exception as exc:
         logger.error("Erreur LLM lors de la génération du DAC : %s", exc)
         step = await _get_step(dossier_id, 4, db)
@@ -2133,6 +2540,9 @@ async def step5_execute(
 
     # 1. Vérifier l'accès au step5
     await workflow_engine.require_step_access(dossier_id, 5, db)
+
+    dossier_name = await _get_dossier_name(dossier_id, db)
+    _clear_step_error_log(dossier_name, 5)
 
     # 1b. Marquer le step comme "en_cours"
     await workflow_engine.start_step(dossier_id, 5, db)

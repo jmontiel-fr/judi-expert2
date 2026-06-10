@@ -47,17 +47,17 @@ const FAQ_DATA: FAQSection[] = [
       {
         question: "Comment configurer mon domaine d'expertise ?",
         answer:
-          "Accédez à la page Configuration depuis le menu. Sélectionnez votre domaine dans la liste, puis téléchargez le module RAG correspondant. Vous pourrez ensuite importer votre trame d'entretien (TPE) et votre template de rapport Word.",
+          "Accédez à la page Configuration depuis le menu. Sélectionnez votre domaine, téléchargez le module RAG correspondant, puis importez votre TRE (Template de Rapport d'Expertise) au format Word.",
       },
       {
-        question: "Comment importer ma trame d'entretien personnalisée ?",
+        question: "Comment importer mon TRE personnalisé ?",
         answer:
-          "Dans la page Configuration, section « Trame d'entretien », cliquez sur « Importer » et sélectionnez votre fichier TPE. La trame sera utilisée pour générer les plans d'entretien à l'étape 2 (Préparation investigations) du workflow.",
+          "Dans Configuration, section TRE / Template rapport, importez votre fichier tre.docx. Il sera utilisé au Step 2 (validation → PREA) du workflow standard.",
       },
       {
         question: "Comment importer mon template de rapport Word ?",
         answer:
-          "Dans la page Configuration, section « Template rapport », cliquez sur « Importer » et sélectionnez votre fichier .docx. Ce template sera utilisé pour générer le pré-rapport à l'étape 4 (Production pré-rapport).",
+          "Le TRE (tre.docx) sert de template central pour le workflow standard. Importez-le dans Configuration ; il contient les placeholders <<...>> et annotations @type@ utilisés aux Steps 2, E/A et 4.",
       },
       {
         question: "Puis-je changer de domaine d'expertise ?",
@@ -72,27 +72,32 @@ const FAQ_DATA: FAQSection[] = [
       {
         question: "Comment créer un nouveau dossier d'expertise ?",
         answer:
-          "Depuis la page Dossiers, cliquez sur « Nouveau dossier ». Saisissez un nom et le code du ticket acheté sur le site central. Le ticket est vérifié en ligne puis le dossier est créé avec les 5 étapes du workflow.",
+          "Depuis la page Dossiers, cliquez sur « Nouveau dossier ». Saisissez un nom, le token du ticket, puis choisissez le type de workflow : Standard (5 étapes + Step E/A) ou Simple (2 étapes — PRE déjà rédigé).",
       },
       {
-        question: "Quelles sont les étapes du workflow ?",
+        question: "Quelles sont les étapes du workflow standard ?",
         answer:
-          "Étape 1 — Création dossier : import de l'ordonnance et des pièces, extraction OCR, identification des questions (Q1…Qn) et des placeholders. Étape 2 — Préparation investigations : génération du Plan d'Entretien (PE) ou du Plan d'Analyse (PA). Étape E/A — Entretien ou Analyse : l'expert mène ses entretiens ou analyses hors application et annote le plan (PEA/PAA). Étape 3 — Consolidation documentaire : import des pièces de diligence et extraction OCR. Étape 4 — Production pré-rapport : import du PEA/PAA annoté, génération du Pré-Rapport (PRE) et du Document d'Analyse Contradictoire (DAC). Étape 5 — Finalisation et archivage : import du rapport final (REF), création de l'archive ZIP avec timbre SHA-256.",
+          "Step 1 — Création dossier (OCR ordonnance, placeholders, questions). Step 2 — Validation TRE → PREA. Step 3 — Consolidation documentaire (pièces de diligence). Step E/A — Entretien ou Analyse hors application (après Step 3) : enrichissement du PREA. Step 4 — Production PRE (+ DAC optionnel) depuis le PREA complété. Step 5 — Import REF, archivage ZIP + timbre SHA-256.",
+      },
+      {
+        question: "Qu'est-ce que le workflow simple ?",
+        answer:
+          "Pour les expertises où le PRE (pre.docx) est déjà rédigé : Step 1 — mise en forme linguistique → PREF (relance possible) + DAC optionnel ; Step 2 — archivage ZIP + timbre. Deux étapes seulement.",
       },
       {
         question: "Puis-je modifier le texte extrait par l'OCR ?",
         answer:
-          "Oui. Après l'extraction OCR (étape 1 — Création dossier), le Markdown généré est affiché dans un éditeur. Vous pouvez le corriger librement avant de valider l'étape.",
+          "Oui, au Step 1 du workflow standard. Vérifiez et corrigez le Markdown avant de valider l'étape.",
       },
       {
         question: "Puis-je revenir en arrière une fois une étape validée ?",
         answer:
-          "Non. Une fois validée, une étape est verrouillée. Cela garantit l'intégrité du processus d'expertise. Vérifiez bien chaque étape avant de la valider.",
+          "Non. Une étape validée est verrouillée. Utilisez Reset avant validation si vous devez recommencer (dossier actif).",
       },
       {
         question: "Comment télécharger le rapport final ?",
         answer:
-          "Une fois l'étape 4 (Production pré-rapport) terminée, les boutons de téléchargement apparaissent pour le Pré-Rapport d'Expertise (PRE) et le Document d'Analyse Contradictoire (DAC) au format Word. Après relecture et ajustement, vous importez le rapport final (REF) à l'étape 5 pour l'archivage.",
+          "Workflow standard : téléchargez le PRE au Step 4, ajustez-le hors application en REF, importez-le au Step 5 puis archivez. Workflow simple : le PREF est produit au Step 1 ; l'archive est générée au Step 2.",
       },
     ],
   },

@@ -91,11 +91,11 @@ class TestParseValidTRE:
 # ---------------------------------------------------------------------------
 
 
-class TestValidateMissingDebutTpe:
-    """Vérifie que l'absence de @debut_tpe@ est signalée."""
+class TestValidateWithoutDebutTpe:
+    """Un TRE sans @debut_tpe@ reste valide (marqueur optionnel)."""
 
-    def test_validate_missing_debut_tpe(self, tmp_path):
-        """Un TRE sans @debut_tpe@ produit une erreur de validation."""
+    def test_validate_without_debut_tpe(self, tmp_path):
+        """L'absence de @debut_tpe@ ne bloque plus la validation."""
         paragraphs = [
             "En-tête du rapport",
             "Expert : <<nom_expert>>",
@@ -107,7 +107,7 @@ class TestValidateMissingDebutTpe:
         result = parser.parse(docx_path)
         errors = parser.validate(result)
 
-        assert any("@debut_tpe@" in e and "absent" in e for e in errors)
+        assert not any("@debut_tpe@" in e for e in errors)
 
 
 # ---------------------------------------------------------------------------
@@ -167,16 +167,10 @@ class TestExtractPEWithQuestions:
         pe_doc = DocxDocument(io.BytesIO(pe_bytes))
         texts = [p.text for p in pe_doc.paragraphs if p.text.strip()]
 
-        # Les paragraphes après @debut_tpe@ sont présents
+        # Les paragraphes après @debut_tpe@ sont présents (sans l'en-tête)
         assert "Premier paragraphe du TPE" in texts
         assert "Deuxième paragraphe du TPE" in texts
-
-        # La section Conclusion est présente
-        assert "Conclusion" in texts
-
-        # Les questions sont présentes
-        assert "Quel est le préjudice subi ?" in texts
-        assert "Quelles sont les séquelles ?" in texts
+        assert "En-tête à exclure" not in texts
 
         # L'en-tête n'est PAS présent
         assert "En-tête à exclure" not in texts

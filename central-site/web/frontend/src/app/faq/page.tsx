@@ -30,7 +30,7 @@ const FAQ_DATA: FAQSection[] = [
       {
         question: "Comment configurer mon domaine d'expertise ?",
         answer:
-          "Lors du premier lancement, sélectionnez votre domaine dans la liste proposée. Vous pourrez ensuite télécharger le module RAG correspondant depuis le menu Configuration, puis importer votre trame d'entretien (TPE) et votre template de rapport au format Word.",
+          "Lors du premier lancement, sélectionnez votre domaine. Téléchargez le module RAG depuis Configuration, puis importez votre TRE (tre.docx) pour le workflow standard.",
       },
     ],
   },
@@ -45,7 +45,7 @@ const FAQ_DATA: FAQSection[] = [
       {
         question: "Comment fonctionne le workflow d'expertise ?",
         answer:
-          "Chaque dossier suit 5 étapes séquentielles : Step 1 (création dossier — extraction OCR et identification des questions), Step 2 (préparation investigations — génération du plan d'entretien PE ou plan d'analyse PA), Step 3 (consolidation documentaire — import des pièces de diligence), Step 4 (production pré-rapport — génération du PRE et du DAC à partir du plan annoté PEA/PAA), Step 5 (finalisation et archivage — import du rapport final et création de l'archive ZIP avec timbre SHA-256). Entre les étapes 2 et 3, l'expert mène ses entretiens ou analyses hors application (étape E/A). Chaque étape doit être validée avant de passer à la suivante.",
+          "Deux workflows au choix à la création du dossier. Standard (5 étapes + Step E/A hors appli) : Step 1 OCR ordonnance → Step 2 validation TRE/PREA → Step 3 pièces diligence → Step E/A enrichissement PREA → Step 4 PRE (+ DAC) → Step 5 archivage REF. Simple (2 étapes) : Step 1 révision linguistique PRE→PREF → Step 2 archivage. Chaque étape doit être validée avant la suivante.",
       },
       {
         question: "Puis-je revenir en arrière une fois une étape validée ?",

@@ -143,6 +143,30 @@
   color: #1e40af;
 }
 
+.badgeSimple {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.workflowChoices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.workflowChoice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #475569);
+  cursor: pointer;
+}
+
+.workflowChoice input {
+  margin-top: 3px;
+}
+
 /* Step progress */
 .stepProgress {
   display: flex;

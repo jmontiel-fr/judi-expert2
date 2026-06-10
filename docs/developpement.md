@@ -267,7 +267,7 @@ judi-expert/
 │   ├── developpement.md
 │   ├── exploitation.md
 │   ├── stripe.md
-│   ├── user-guide.md
+│   ├── guide-utilisateur.md
 │   ├── methodologie.md
 │   ├── cout-aws.md
 │   ├── cgu.md

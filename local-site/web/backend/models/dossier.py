@@ -21,6 +21,7 @@ class Dossier(Base):
     nom: Mapped[str] = mapped_column(String(255))
     ticket_id: Mapped[str] = mapped_column(String(255), unique=True)
     domaine: Mapped[str] = mapped_column(String(100))
+    workflow_type: Mapped[str] = mapped_column(String(20), default="standard")
     statut: Mapped[str] = mapped_column(String(20), default="actif")
     created_at: Mapped[datetime] = mapped_column(default=func.now())
     updated_at: Mapped[datetime] = mapped_column(default=func.now(), onupdate=func.now())

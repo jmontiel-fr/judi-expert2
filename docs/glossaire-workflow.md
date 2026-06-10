@@ -2,7 +2,7 @@
 
 Ce document centralise les termes, acronymes et concepts du projet, ainsi que le workflow fonctionnel complet de l'expertise judiciaire assistée par IA.
 
-> Voir aussi : [Architecture](architecture.md) · [Guide utilisateur](user-guide.md) · [Méthodologie](methodologie.md) · [Développement](developpement.md)
+> Voir aussi : [Architecture](architecture.md) · [Guide utilisateur](guide-utilisateur.md) · [Méthodologie](methodologie.md) · [Développement](developpement.md)
 
 ---
 
@@ -10,15 +10,28 @@ Ce document centralise les termes, acronymes et concepts du projet, ainsi que le
 
 ### Vue d'ensemble
 
-L'expert judiciaire utilise Judi-Expert pour produire un rapport d'expertise en 5 étapes séquentielles (plus une étape intermédiaire E/A réalisée par l'expert hors application). Chaque étape doit être validée avant de passer à la suivante. Une étape validée est verrouillée et ne peut plus être modifiée.
+Judi-Expert propose **deux types de workflow**, choisis à la **création du dossier** :
 
-Le **TRE** (Template de Rapport d'Expertise) est le **document central** du workflow. Il contient deux types de méta-instructions :
+| Type | Étapes applicatives | Usage typique |
+|------|---------------------|---------------|
+| **Standard** | 5 steps + Step E/A (hors appli) | Expertise complète assistée par IA : ordonnance → TRE → PREA → PRE → archivage |
+| **Simple** | 2 steps | L'expert dispose déjà d'un **PRE** rédigé : mise en forme linguistique → archivage |
+
+---
+
+### Workflow standard (5 étapes + E/A)
+
+L'expert judiciaire utilise le workflow standard pour produire un rapport d'expertise en **5 étapes séquentielles**, plus une **étape intermédiaire E/A** (Entretien ou Analyse) réalisée par l'expert **hors application, après le Step 3**. Chaque étape gérée par l'application doit être validée avant de passer à la suivante. Une étape validée est verrouillée et ne peut plus être modifiée.
+
+Le **TRE** (Template de Rapport d'Expertise, fichier `tre.docx`) est le **document central** du workflow standard. Il contient deux types de méta-instructions :
 - **Placeholders** : `<<nom>>` — champs substitués par des valeurs extraites ou saisies
 - **Annotations** : `@type contenu@` — instructions de génération interprétées par le moteur
 
-Le workflow supporte deux modes d'expertise :
-- **Mode Entretien** : expertise basée sur des entretiens avec les parties (TPE → PE → PEA)
-- **Mode Analyse** : expertise basée sur l'analyse documentaire des pièces (TPA → PA → PAA)
+> **Note importante — TRE, PREA et PRE**
+>
+> À l'issue du **Step 2**, le fichier `prea.docx` est une **copie du `tre.docx` validée syntaxiquement** (placeholders et annotations conformes). Ce n'est pas encore le rapport final : c'est le document de travail de l'expert.
+>
+> Le **PREA** est ensuite **enrichi progressivement** par les notes de l'expert au **Step E/A** (après le Step 3). Ce `prea.docx` complété est **injecté au Step 4** pour permettre la production du **`pre.docx`** (Pré-Rapport d'Expertise en texte lisible).
 
 <table border="2" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; margin: 1em 0;">
 <tr style="background-color: #e3f2fd;">
@@ -33,10 +46,10 @@ Le workflow supporte deux modes d'expertise :
 </tr>
 <tr>
   <th style="width: 16%; background-color: #e8f5e9; text-align: center;">Step 1<br/><small>Création dossier</small></th>
-  <th style="width: 16%; background-color: #e8f5e9; text-align: center;">Step 2<br/><small>Extraction PE depuis TRE</small></th>
-  <th style="width: 16%; background-color: #fff8e1; text-align: center;">Step E/A<br/><small>Entretien ou Analyse</small></th>
+  <th style="width: 16%; background-color: #e8f5e9; text-align: center;">Step 2<br/><small>Validation TRE → PREA</small></th>
   <th style="width: 16%; background-color: #e8f5e9; text-align: center;">Step 3<br/><small>Consolidation doc.</small></th>
-  <th style="width: 16%; background-color: #e8f5e9; text-align: center;">Step 4<br/><small>Production pré-rapport</small></th>
+  <th style="width: 16%; background-color: #fff8e1; text-align: center;">Step E/A<br/><small>Entretien ou Analyse</small></th>
+  <th style="width: 16%; background-color: #e8f5e9; text-align: center;">Step 4<br/><small>Production PRE</small></th>
   <th style="width: 16%; background-color: #e8f5e9; text-align: center;">Step 5<br/><small>Révision &amp; Archivage</small></th>
 </tr>
 <tr style="font-size: 0.85em;">
@@ -47,22 +60,16 @@ Le workflow supporte deux modes d'expertise :
     <strong>Sortie :</strong><br/>
     <code>demande.md</code><br/>
     <code>piece-xxx.md</code><br/>
-    <code>placeholders.csv</code>
+    <code>placeholders.csv</code><br/>
+    <code>questions.md</code>
   </td>
   <td style="vertical-align: top;">
     <strong>Entrée :</strong><br/>
     <code>tre.docx</code><br/>
     <code>placeholders.csv</code><br/><br/>
     <strong>Sortie :</strong><br/>
-    <code>pe.docx</code><br/>
-    <code>pa.docx</code>
-  </td>
-  <td style="vertical-align: top; background-color: #fff8e1;">
-    <strong>Entrée :</strong><br/>
-    <code>pe.docx</code> ou <code>pa.docx</code><br/><br/>
-    <strong>Sortie :</strong><br/>
-    <code>pea.docx</code> ou <code>paa.docx</code><br/><br/>
-    <em>(hors application)</em>
+    <code>prea.docx</code><br/>
+    <em>(copie TRE validée)</em>
   </td>
   <td style="vertical-align: top;">
     <strong>Entrée :</strong><br/>
@@ -70,14 +77,23 @@ Le workflow supporte deux modes d'expertise :
     <strong>Sortie :</strong><br/>
     <code>diligence-xxx-piece-yyy.md</code>
   </td>
+  <td style="vertical-align: top; background-color: #fff8e1;">
+    <strong>Entrée :</strong><br/>
+    <code>prea.docx</code><br/>
+    pièces Step 3 (si existantes)<br/><br/>
+    <strong>Sortie :</strong><br/>
+    <code>prea.docx</code><br/>
+    <em>(annotations complétées)</em><br/><br/>
+    <em>(hors application)</em>
+  </td>
   <td style="vertical-align: top;">
     <strong>Entrée :</strong><br/>
-    <code>pea.docx</code><br/>
-    <code>tre.docx</code><br/>
-    <code>placeholders.csv</code><br/><br/>
+    <code>prea.docx</code><br/>
+    <code>placeholders.csv</code><br/>
+    docs Step 3 (si existants)<br/><br/>
     <strong>Sortie :</strong><br/>
     <code>pre.docx</code><br/>
-    <code>dac.docx</code>
+    <code>dac.docx</code> (optionnel)
   </td>
   <td style="vertical-align: top;">
     <strong>Entrée :</strong><br/>
@@ -89,13 +105,30 @@ Le workflow supporte deux modes d'expertise :
 </tr>
 <tr style="font-size: 0.85em; background-color: #fafafa;">
   <td style="text-align: center;"><em>judi-ocr<br/>judi-llm</em></td>
-  <td style="text-align: center;"><em>extraction<br/>mécanique</em></td>
-  <td style="text-align: center; background-color: #fff8e1;"><em>—</em></td>
+  <td style="text-align: center;"><em>vérification syntaxique<br/>placeholders + annotations</em></td>
   <td style="text-align: center;"><em>judi-ocr</em></td>
+  <td style="text-align: center; background-color: #fff8e1;"><em>—</em></td>
   <td style="text-align: center;"><em>judi-rag<br/>judi-llm</em></td>
   <td style="text-align: center;"><em>judi-llm<br/>S3</em></td>
 </tr>
 </table>
+
+### Workflow simple (2 étapes)
+
+Pour les expertises où l'expert a **déjà rédigé son Pré-Rapport** (`pre.docx`) en dehors de Judi-Expert, le workflow **simple** accélère la finalisation :
+
+| Step | Nom | Entrée | Opération | Sortie |
+|------|-----|--------|-----------|--------|
+| **1** | Mise en forme linguistique | `pre.docx` | Révision linguistique LLM (préservation verbatim) | `pref.docx` (+ `dac.docx` optionnel) |
+| **2** | Archivage | `pref.docx` (Step 1 ou version ajustée) | Archive ZIP + timbre SHA-256 (+ stockage S3) | `<dossier>.zip`, `<dossier>-timbre.txt` |
+
+**Cycle itératif Step 1** : l'expert peut relancer la mise en forme après avoir modifié le PRE ou le PREF, tant que le Step 1 n'est pas validé.
+
+**Acronymes workflow simple** :
+- **PRE** — Pré-Rapport d'Expertise (`pre.docx`) — document rédigé par l'expert en amont
+- **PREF** — Projet de Rapport d'Expertise Final (`pref.docx`) — PRE après révision linguistique
+
+> Le workflow simple **ne remplace pas** le workflow standard pour une expertise guidée de bout en bout (ordonnance → TRE → investigations → PRE). Les deux coexistent ; le choix est **figé à la création du dossier**.
 
 ### Prérequis avant le workflow
 
@@ -105,7 +138,7 @@ Le workflow supporte deux modes d'expertise :
    - Son **domaine d'expertise** (psychologie, psychiatrie, etc.)
 3. L'expert peut personnaliser :
    - Son **corpus d'expertise** (documents de référence indexés dans la base RAG)
-   - Son **TRE** — Template de Rapport d'Expertise (`tre.docx`), document central contenant placeholders `<<...>>` et annotations `@type contenu@`. Le PE/PA est extrait du TRE (section délimitée par `@debut_tpe@`).
+   - Son **TRE** — Template de Rapport d'Expertise (`tre.docx`), document central contenant placeholders `<<...>>` et annotations `@type contenu@`
 
 ### Tableau récapitulatif Entrées / Opération / Sorties
 
@@ -120,36 +153,36 @@ Le workflow supporte deux modes d'expertise :
   <td><strong>1</strong></td>
   <td>Création dossier</td>
   <td><code>demande.pdf</code>, <code>piece-xxx.*</code></td>
-  <td>Extraire et structurer</td>
-  <td><code>demande.md</code>, <code>piece-xxx.md</code>, <code>placeholders.csv</code></td>
+  <td>OCR + structuration LLM</td>
+  <td><code>demande.md</code>, <code>piece-xxx.md</code>, <code>placeholders.csv</code>, <code>questions.md</code></td>
 </tr>
 <tr>
   <td><strong>2</strong></td>
-  <td>Extraction PE/PA depuis TRE</td>
-  <td><code>tre.docx</code>, <code>demande.md</code>, <code>piece-xxx.md</code></td>
-  <td>Extraire le plan depuis le TRE</td>
-  <td><strong>Entretien</strong> : <code>pe.md</code>, <code>pe.docx</code><br/><strong>Analyse</strong> : <code>pa.md</code>, <code>pa.docx</code>, <code>diligence-xxx.docx</code></td>
-</tr>
-<tr style="background-color: #fff8e1;">
-  <td><strong>E/A</strong></td>
-  <td>Entretien ou Analyse sur pièces</td>
-  <td>PE ou PA extrait au Step 2</td>
-  <td><em>(action expert hors application)</em></td>
-  <td><code>pea.docx</code> ou <code>paa.docx</code> (plan annoté)</td>
+  <td>Validation du TRE → PREA</td>
+  <td><code>tre.docx</code>, <code>placeholders.csv</code></td>
+  <td>Vérifier la syntaxe du TRE (placeholders, annotations) et produire le PREA</td>
+  <td><code>prea.docx</code></td>
 </tr>
 <tr>
   <td><strong>3</strong></td>
   <td>Consolidation documentaire</td>
   <td><code>diligence-xxx-piece-yyy.*</code></td>
-  <td>Extraire les documents</td>
+  <td>Extraire les documents complémentaires (OCR)</td>
   <td><code>diligence-xxx-piece-yyy.md</code></td>
+</tr>
+<tr style="background-color: #fff8e1;">
+  <td><strong>E/A</strong></td>
+  <td>Entretien ou Analyse sur pièces</td>
+  <td><code>prea.docx</code> (issu du Step 2), pièces Step 3 (si existantes)</td>
+  <td><em>(action expert hors application)</em> — remplissage des annotations en style télégraphique</td>
+  <td><code>prea.docx</code> (annotations complétées)</td>
 </tr>
 <tr>
   <td><strong>4</strong></td>
   <td>Production pré-rapport</td>
-  <td><code>pea.docx</code> ou <code>paa.docx</code>, <code>tre.docx</code>, <code>placeholders.csv</code>, docs Step 3</td>
-  <td>Reconstituer le rapport (TRE header + PEA), reformuler les annotations via LLM</td>
-  <td><code>pre.docx</code>, <code>dac.docx</code></td>
+  <td><code>prea.docx</code>, <code>placeholders.csv</code>, docs Step 3 (si existants)</td>
+  <td>Substituer les placeholders, reformuler les annotations via LLM, générer éventuellement un DAC</td>
+  <td><code>pre.docx</code>, <code>dac.docx</code> (optionnel)</td>
 </tr>
 <tr>
   <td><strong>5</strong></td>
@@ -172,25 +205,19 @@ Le workflow supporte deux modes d'expertise :
 <tbody>
 <tr><td><code>demande.pdf</code></td><td>—</td><td>PDF-scan de la demande d'expertise (ordonnance ou réquisition du tribunal)</td></tr>
 <tr><td><code>demande.md</code></td><td>—</td><td>Texte de la demande extrait par OCR, structuré en Markdown</td></tr>
+<tr><td><code>questions.md</code></td><td>—</td><td>Questions soumises à l'expert, extraites et structurées au Step 1</td></tr>
 <tr><td><code>piece-xxx.*</code></td><td>—</td><td>Pièce complémentaire (PDF, DOCX ou image)</td></tr>
 <tr><td><code>piece-xxx.md</code></td><td>—</td><td>Texte extrait par OCR d'une pièce complémentaire</td></tr>
-<tr><td><code>placeholders.csv</code></td><td>—</td><td>Valeurs des placeholders extraites de la demande (Step 1) : questions numérotées <code>question_1</code>…<code>question_n</code> + métadonnées. Utilisé pour les substitutions dans <code>tre.docx</code> (Step 4)</td></tr>
-<tr><td><code>tre.docx</code></td><td>TRE</td><td>Template de Rapport d'Expertise — document central contenant placeholders <code>&lt;&lt;...&gt;&gt;</code> et annotations <code>@type contenu@</code>. Inclut le PE/PA après le marqueur <code>@debut_tpe@</code>.</td></tr>
-<tr><td><code>pe.md</code></td><td>PE</td><td>Plan d'Entretien extrait du TRE (Mode Entretien)</td></tr>
-<tr><td><code>pe.docx</code></td><td>PE</td><td>Plan d'Entretien au format .docx (Mode Entretien)</td></tr>
-<tr><td><code>pa.md</code></td><td>PA</td><td>Plan d'Analyse extrait du TRE (Mode Analyse)</td></tr>
-<tr><td><code>pa.docx</code></td><td>PA</td><td>Plan d'Analyse au format .docx</td></tr>
-<tr><td><code>diligence-xxx.docx</code></td><td>—</td><td>Projet de courrier pour diligences complémentaires</td></tr>
+<tr><td><code>placeholders.csv</code></td><td>—</td><td>Ensemble clé/valeur des placeholders extraits de la demande (Step 1) : questions numérotées <code>question_1</code>…<code>question_n</code> + métadonnées. Utilisé pour les substitutions au Step 4</td></tr>
+<tr><td><code>tre.docx</code></td><td>TRE</td><td>Template de Rapport d'Expertise — document type contenant placeholders <code>&lt;&lt;...&gt;&gt;</code> et annotations <code>@type contenu@</code>. Peut provenir de la configuration, du corpus domaine ou être ad hoc pour l'expertise. Validé au Step 2, il devient le PREA.</td></tr>
+<tr><td><code>prea.docx</code></td><td>PREA</td><td>Projet de Rapport d'Expertise Annoté — copie du TRE validé (Step 2), complétée par l'expert (Step E/A) avec les informations collectées en entretien ou en analyse</td></tr>
 <tr><td><code>diligence-xxx-piece-yyy.*</code></td><td>—</td><td>Pièce reçue en réponse à une diligence</td></tr>
 <tr><td><code>diligence-xxx-piece-yyy.md</code></td><td>—</td><td>Texte extrait par OCR d'une pièce de diligence</td></tr>
-<tr><td><code>pea.docx</code></td><td>PEA</td><td>Plan d'Entretien Annoté par l'expert (voir section 7)</td></tr>
-<tr><td><code>paa.docx</code></td><td>PAA</td><td>Plan d'Analyse Annoté par l'expert (voir section 7)</td></tr>
-<tr><td><code>placeholders.csv</code></td><td>—</td><td>Valeurs des placeholders (questions <code>question_1</code>…<code>question_n</code> + métadonnées) extraites au Step 1</td></tr>
-<tr><td><code>pre.docx</code></td><td>PRE</td><td>Pré-Rapport d'Expertise généré au Step 4</td></tr>
-<tr><td><code>dac.docx</code></td><td>DAC</td><td>Document d'Analyse Contradictoire</td></tr>
-<tr><td><code>ref.docx</code></td><td>REF</td><td>Rapport d'Expertise Final — pré-rapport ajusté et validé par l'expert</td></tr>
+<tr><td><code>pre.docx</code></td><td>PRE</td><td>Pré-Rapport d'Expertise généré au Step 4 — rapport en texte lisible après reformulation des annotations et substitution des placeholders</td></tr>
+<tr><td><code>dac.docx</code></td><td>DAC</td><td>Document d'Analyse Contradictoire (optionnel) — suggestions pour renforcer et challenger les analyses</td></tr>
+<tr><td><code>ref.docx</code></td><td>REF</td><td>Rapport d'Expertise Final — pré-rapport ajusté et validé par l'expert (édition hors application)</td></tr>
 <tr><td><code>&lt;nom-dossier&gt;.zip</code></td><td>—</td><td>Archive immuable contenant tous les fichiers du dossier</td></tr>
-<tr><td><code>&lt;nom-dossier&gt;-timbre.txt</code></td><td>—</td><td>Fichier timbre : métadonnées (date de création, hash SHA-256 du .zip, nom expert, référence dossier). Stocké sur S3 pour horodatage technique.</td></tr>
+<tr><td><code>&lt;nom-dossier&gt;-timbre.txt</code></td><td>—</td><td>Fichier timbre : métadonnées (date de création, hash SHA-256 du .zip, nom expert, référence dossier). Stocké sur S3 pour horodatage technique (non juridiquement horlogé). L'archivage longue durée est à la charge de l'expert.</td></tr>
 </tbody>
 </table>
 
@@ -200,37 +227,25 @@ Le workflow supporte deux modes d'expertise :
 ### Step 1 — Création dossier
 
 <table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%;">
-<tr><td style="width:150px;"><strong>Objectif</strong></td><td>Importer les fichiers du dossier, extraire le texte par OCR, identifier les questions et les valeurs de placeholders</td></tr>
+<tr><td style="width:150px;"><strong>Objectif</strong></td><td>Importer la réquisition originale, extraire le texte par OCR, identifier les questions et les valeurs de placeholders</td></tr>
 <tr><td><strong>Entrée</strong></td><td><code>demande.pdf</code> + zéro ou plusieurs <code>piece-xxx.pdf/.docx/.img</code></td></tr>
-<tr><td><strong>Traitement</strong></td><td>OCR (judi-ocr) → conversion PDF/scan en Markdown. Extraction LLM des questions numérotées (stockées comme <code>question_1</code>…<code>question_n</code>) et des valeurs de placeholders depuis la demande.</td></tr>
-<tr><td><strong>Sortie</strong></td><td><code>demande.md</code>, <code>piece-xxx.md</code>, <code>placeholders.csv</code></td></tr>
+<tr><td><strong>Traitement</strong></td><td>OCR (judi-ocr) → conversion PDF/scan en Markdown. Extraction LLM des questions numérotées (stockées comme <code>question_1</code>…<code>question_n</code> dans <code>placeholders.csv</code> et <code>questions.md</code>) et des valeurs de placeholders depuis la demande.</td></tr>
+<tr><td><strong>Sortie</strong></td><td><code>demande.md</code>, <code>piece-xxx.md</code>, <code>placeholders.csv</code>, <code>questions.md</code></td></tr>
 <tr><td><strong>Stockage</strong></td><td>Entrées dans <code>C:\judi-expert\&lt;nom-dossier&gt;\step1\in</code> · Sorties dans <code>step1\out</code></td></tr>
 <tr><td><strong>Rôle expert</strong></td><td>Vérifier le texte extrait, corriger les erreurs OCR, valider les placeholders et questions extraites</td></tr>
 <tr><td><strong>Verrouillage</strong></td><td>Validation → passage au Step 2, Step 1 non modifiable</td></tr>
 </table>
 
-### Step 2 — Extraction PE/PA depuis le TRE
+### Step 2 — Validation du TRE → PREA
 
 <table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%;">
-<tr><td style="width:150px;"><strong>Objectif</strong></td><td>Extraire le plan d'entretien (PE) ou le plan d'analyse (PA) depuis le TRE</td></tr>
-<tr><td><strong>Entrée</strong></td><td><code>tre.docx</code> + <code>demande.md</code> + <code>piece-xxx.md</code></td></tr>
-<tr><td><strong>Traitement</strong></td><td>Extraction mécanique du contenu du TRE depuis le marqueur <code>@debut_tpe@</code> jusqu'à la fin du document. Aucune génération LLM — le PE/PA est directement extrait du TRE. En Mode Analyse, génération de courriers de diligence.</td></tr>
-<tr><td><strong>Sortie (Mode Entretien)</strong></td><td><code>pe.md</code>, <code>pe.docx</code></td></tr>
-<tr><td><strong>Sortie (Mode Analyse)</strong></td><td><code>pa.md</code>, <code>pa.docx</code>, <code>diligence-xxx.docx</code></td></tr>
+<tr><td style="width:150px;"><strong>Objectif</strong></td><td>Sélectionner le TRE et produire le PREA (projet de rapport avec annotations)</td></tr>
+<tr><td><strong>Entrée</strong></td><td><code>tre.docx</code> (configuration, corpus domaine ou ad hoc) + <code>placeholders.csv</code></td></tr>
+<tr><td><strong>Traitement</strong></td><td>Vérification syntaxique du TRE : placeholders en snake_case, annotations bien formées. Vérification des placeholders du TRE contre <code>placeholders.csv</code>. Copie du TRE validé en <code>prea.docx</code>. Aucune génération LLM.</td></tr>
+<tr><td><strong>Sortie</strong></td><td><code>prea.docx</code> — Projet de Rapport d'Expertise Annoté (structure du rapport avec emplacements d'annotations prêts à être remplis)</td></tr>
 <tr><td><strong>Stockage</strong></td><td>Entrées dans <code>C:\judi-expert\&lt;nom-dossier&gt;\step2\in</code> · Sorties dans <code>step2\out</code></td></tr>
-<tr><td><strong>Rôle expert</strong></td><td>Télécharger le PE/PA, l'adapter si nécessaire, valider</td></tr>
-<tr><td><strong>Verrouillage</strong></td><td>Validation → passage au Step E/A (action expert), Step 2 non modifiable</td></tr>
-</table>
-
-### Step E/A — Entretien ou Analyse sur pièces (action expert)
-
-<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%;">
-<tr><td style="width:150px;"><strong>Objectif</strong></td><td>L'expert mène ses entretiens (Mode Entretien) ou ses analyses sur pièces (Mode Analyse) et annote le plan extrait</td></tr>
-<tr><td><strong>Entrée</strong></td><td>PE (<code>pe.md</code> / <code>pe.docx</code>) en Mode Entretien, ou PA (<code>pa.md</code> / <code>pa.docx</code>) en Mode Analyse</td></tr>
-<tr><td><strong>Traitement</strong></td><td>Aucun traitement IA — travail de l'expert hors application</td></tr>
-<tr><td><strong>Sortie</strong></td><td><code>pea.docx</code> (Plan d'Entretien Annoté) ou <code>paa.docx</code> (Plan d'Analyse Annoté) avec annotations balisées</td></tr>
-<tr><td><strong>Rôle expert</strong></td><td>Mener les entretiens ou analyses, annoter le plan avec les conventions de balisage (@dires, @analyse, @verbatim, @question, @reference, @cite)</td></tr>
-<tr><td><strong>Note</strong></td><td>Cette étape se déroule entre le Step 2 et le Step 3. Elle n'est pas gérée par l'application (pas de bouton d'action). L'expert travaille sur le document hors ligne puis l'importe au Step 4.</td></tr>
+<tr><td><strong>Rôle expert</strong></td><td>Choisir ou uploader son template, lancer la validation, télécharger le PREA</td></tr>
+<tr><td><strong>Verrouillage</strong></td><td>Validation → passage au Step 3, Step 2 non modifiable</td></tr>
 </table>
 
 ### Step 3 — Consolidation documentaire
@@ -242,22 +257,38 @@ Le workflow supporte deux modes d'expertise :
 <tr><td><strong>Sortie</strong></td><td><code>diligence-xxx-piece-yyy.md</code> pour chaque fichier nécessitant extraction</td></tr>
 <tr><td><strong>Stockage</strong></td><td>Entrées dans <code>C:\judi-expert\&lt;nom-dossier&gt;\step3\in</code> · Sorties dans <code>step3\out</code></td></tr>
 <tr><td><strong>Rôle expert</strong></td><td>Téléverser les pièces reçues, vérifier les extractions, valider</td></tr>
-<tr><td><strong>Verrouillage</strong></td><td>Validation → passage au Step 4, Step 3 non modifiable</td></tr>
+<tr><td><strong>Verrouillage</strong></td><td>Validation → passage au Step E/A (action expert hors application), Step 3 non modifiable</td></tr>
+</table>
+
+### Step E/A — Entretien ou Analyse sur pièces (action expert)
+
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%;">
+<tr><td style="width:150px;"><strong>Objectif</strong></td><td>L'expert mène ses entretiens ou ses analyses sur pièces et remplit les annotations du PREA</td></tr>
+<tr><td><strong>Entrée</strong></td><td><code>prea.docx</code> produit au Step 2, éventuellement les pièces consolidées au Step 3</td></tr>
+<tr><td><strong>Traitement</strong></td><td>Aucun traitement IA — travail de l'expert hors application. L'expert remplit les champs annotation en style télégraphique, de deux façons possibles :
+<ul>
+<li>Édition directe dans Word sur le <code>prea.docx</code></li>
+<li>Utilisation de l'outil d'édition PREA (formulaire avec les annotations comme champs à saisir)</li>
+</ul>
+L'expert ajoute aussi la conclusion à l'aide d'annotations pour faciliter le rappel des questions et les copies textuelles de sections dans le corps du rapport.</td></tr>
+<tr><td><strong>Sortie</strong></td><td><code>prea.docx</code> complété (même fichier, annotations remplies)</td></tr>
+<tr><td><strong>Rôle expert</strong></td><td>Mener les entretiens ou analyses, remplir les annotations avec les conventions de balisage (@dires, @analyse, @verbatim, @conclusion, @question, @reference, @cite, etc.)</td></tr>
+<tr><td><strong>Note</strong></td><td>Cette étape se déroule <strong>après le Step 3</strong>, avant le Step 4. Elle n'est pas gérée par l'application (pas de bouton d'action). L'expert travaille sur le document hors ligne puis importe le PREA complété au Step 4.</td></tr>
 </table>
 
 ### Step 4 — Production pré-rapport
 
 <table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%;">
-<tr><td style="width:150px;"><strong>Objectif</strong></td><td>Reconstituer le rapport complet à partir de l'en-tête du TRE et du PEA, puis reformuler les annotations via LLM</td></tr>
-<tr><td><strong>Entrée</strong></td><td><code>pea.docx</code> (Mode Entretien) ou <code>paa.docx</code> (Mode Analyse) + <code>tre.docx</code> + <code>placeholders.csv</code> + documents complémentaires Step 3 (si existants)</td></tr>
+<tr><td style="width:150px;"><strong>Objectif</strong></td><td>Générer le Pré-Rapport d'Expertise (PRE) à partir du PREA complété</td></tr>
+<tr><td><strong>Entrée</strong></td><td><code>prea.docx</code> (complété au Step E/A) + <code>placeholders.csv</code> + documents complémentaires Step 3 (si existants)</td></tr>
 <tr><td><strong>Traitement</strong></td><td>
-1. Reconstitution du rapport complet : en-tête du TRE (avant <code>@debut_tpe@</code>) + contenu du PEA/PAA<br/>
-2. Substitution des placeholders <code>&lt;&lt;...&gt;&gt;</code> depuis <code>placeholders.csv</code><br/>
-3. Interprétation des annotations <code>@type contenu@</code> : reformulation LLM pour <code>@dires</code> et <code>@analyse</code>, préservation pour <code>@verbatim</code>, résolution des <code>@question</code>, <code>@reference</code> et <code>@cite</code><br/>
-4. Génération du PRE et du DAC</td></tr>
-<tr><td><strong>Sortie</strong></td><td><code>pre.docx</code> (Pré-Rapport d'Expertise), <code>dac.docx</code> (Document d'Analyse Contradictoire)</td></tr>
+1. Substitution des placeholders <code>&lt;&lt;...&gt;&gt;</code> depuis <code>placeholders.csv</code><br/>
+2. Interprétation des annotations <code>@type contenu@</code> : reformulation LLM pour <code>@dires</code> et <code>@analyse</code>, préservation pour <code>@verbatim</code>, résolution des <code>@question</code>, <code>@reference</code>, <code>@cite</code> et <code>@resume</code><br/>
+3. Mise en forme en langage compréhensible des contenus en style télégraphique<br/>
+4. Génération du PRE et, optionnellement, du DAC</td></tr>
+<tr><td><strong>Sortie</strong></td><td><code>pre.docx</code> (Pré-Rapport d'Expertise), <code>dac.docx</code> (Document d'Analyse Contradictoire, optionnel)</td></tr>
 <tr><td><strong>Stockage</strong></td><td>Entrées dans <code>C:\judi-expert\&lt;nom-dossier&gt;\step4\in</code> · Sorties dans <code>step4\out</code></td></tr>
-<tr><td><strong>Rôle expert</strong></td><td>Relire PRE et DAC, affiner les conclusions, valider</td></tr>
+<tr><td><strong>Rôle expert</strong></td><td>Importer le PREA complété, relire PRE et DAC, affiner les conclusions. Éditer le PRE hors application pour produire le REF.</td></tr>
 <tr><td><strong>Verrouillage</strong></td><td>Validation → passage au Step 5, Step 4 non modifiable</td></tr>
 </table>
 
@@ -270,10 +301,10 @@ Le workflow supporte deux modes d'expertise :
 1. Service de révision (optionnel) : relecture LLM du rapport final (cohérence, orthographe, style)<br/>
 2. Création d'une archive ZIP contenant tous les fichiers du dossier<br/>
 3. Génération du fichier timbre <code>&lt;nom-dossier&gt;-timbre.txt</code> contenant les métadonnées : date de création, hash SHA-256 du .zip, nom de l'expert, référence dossier, domaine<br/>
-4. Stockage du timbre sur S3</td></tr>
+4. Stockage du timbre sur S3 (horodatage technique, non juridiquement horlogé)</td></tr>
 <tr><td><strong>Sortie</strong></td><td><code>&lt;nom-dossier&gt;.zip</code> (archive immuable), <code>&lt;nom-dossier&gt;-timbre.txt</code> (horodatage technique + métadonnées)</td></tr>
 <tr><td><strong>Stockage</strong></td><td>Entrées dans <code>C:\judi-expert\&lt;nom-dossier&gt;\step5\in</code> · Sorties dans <code>step5\out</code></td></tr>
-<tr><td><strong>Rôle expert</strong></td><td>Importer le rapport final ajusté, utiliser le service de révision si souhaité, valider pour archivage définitif. L'expert peut compléter par un horodatage juridiquement certifié (solutions externes proposées dans le manuel utilisateur).</td></tr>
+<tr><td><strong>Rôle expert</strong></td><td>Importer le rapport final ajusté, utiliser le service de révision si souhaité, valider pour archivage définitif. L'archivage longue durée est à la charge de l'expert.</td></tr>
 <tr><td><strong>Verrouillage</strong></td><td>Validation → dossier fermé, aucune modification possible</td></tr>
 </table>
 
@@ -286,16 +317,16 @@ Création (ticket valide)
   Step 1 (Création dossier):           initial ──► en_cours ──► valide
     │
     ▼
-  Step 2 (Extraction PE/PA depuis TRE): initial ──► en_cours ──► valide
+  Step 2 (Validation TRE → PREA):      initial ──► en_cours ──► valide
     │
-    ▼
-  Step E/A (Entretien ou Analyse):     action expert hors application
-    │                                  (annotation PE → PEA ou PA → PAA)
     ▼
   Step 3 (Consolidation documentaire): initial ──► en_cours ──► valide
     │
     ▼
-  Step 4 (Production pré-rapport):     initial ──► en_cours ──► valide
+  Step E/A (Entretien ou Analyse):     action expert hors application
+    │                                  (remplissage des annotations du PREA)
+    ▼
+  Step 4 (Production PRE):             initial ──► en_cours ──► valide
     │
     ▼
   Step 5 (Révision et archivage):      initial ──► en_cours ──► valide
@@ -315,27 +346,24 @@ Création (ticket valide)
 </tr>
 </thead>
 <tbody>
-<tr><td>Dossier</td><td>Dossier d'expertise</td><td>Unité de travail regroupant les 5 étapes d'une expertise judiciaire</td></tr>
+<tr><td>Dossier</td><td>Dossier d'expertise</td><td>Unité de travail. Workflow <strong>standard</strong> : 5 étapes + Step E/A. Workflow <strong>simple</strong> : 2 étapes. Le type est choisi à la création.</td></tr>
 <tr><td>PEX</td><td>Personne Expertisée</td><td>Personne évaluée en expertise (plaignant ou mis en cause). Sujet de l'expertise désigné par la juridiction. Remplace l'ancien terme MEC (Mis en Cause).</td></tr>
-<tr><td>QT</td><td>Questions du Tribunal</td><td>Questions posées par la juridiction auxquelles l'expert doit répondre, extraites de la demande et stockées comme <code>question_1</code>…<code>question_n</code> dans <code>placeholders.csv</code></td></tr>
-<tr><td>TPE</td><td>Template de Plan d'Entretien</td><td>Partie du TRE (après <code>@debut_tpe@</code>) définissant la structure des entretiens</td></tr>
-<tr><td>TPA</td><td>Template de Plan d'Analyse</td><td>Partie du TRE (après <code>@debut_tpe@</code>) définissant la structure des analyses sur pièces</td></tr>
-<tr><td>PE</td><td>Plan d'Entretien</td><td>Document <code>pe.md</code> / <code>pe.docx</code> extrait du TRE au Step 2 (Mode Entretien)</td></tr>
-<tr><td>PA</td><td>Plan d'Analyse</td><td>Document <code>pa.md</code> / <code>pa.docx</code> extrait du TRE au Step 2 (Mode Analyse)</td></tr>
-<tr><td>PEA</td><td>Plan d'Entretien Annoté</td><td>Document <code>pea.docx</code> — PE annoté par l'expert (voir section 7). Fichier d'entrée du Step 4 en Mode Entretien.</td></tr>
-<tr><td>PAA</td><td>Plan d'Analyse Annoté</td><td>Document <code>paa.docx</code> — PA annoté par l'expert (voir section 7). Fichier d'entrée du Step 4 en Mode Analyse.</td></tr>
-<tr><td>TRE</td><td>Template de Rapport d'Expertise</td><td>Fichier <code>tre.docx</code> — document central du workflow. Contient des placeholders <code>&lt;&lt;...&gt;&gt;</code> et des annotations <code>@type contenu@</code>. Inclut le TPE/TPA après le marqueur <code>@debut_tpe@</code>.</td></tr>
-<tr><td>PRE</td><td>Pré-Rapport d'Expertise</td><td>Document <code>pre.docx</code> généré au Step 4 par reconstitution TRE header + PEA et reformulation des annotations</td></tr>
-<tr><td>DAC</td><td>Document d'Analyse Contradictoire</td><td>Document <code>dac.docx</code> généré au Step 4</td></tr>
-<tr><td>REF</td><td>Rapport d'Expertise Final</td><td>Document <code>ref.docx</code> — pré-rapport ajusté, importé au Step 5</td></tr>
+<tr><td>QT</td><td>Questions du Tribunal</td><td>Questions posées par la juridiction auxquelles l'expert doit répondre, extraites de la demande et stockées comme <code>question_1</code>…<code>question_n</code> dans <code>placeholders.csv</code> et <code>questions.md</code></td></tr>
+<tr><td>TRE</td><td>Template de Rapport d'Expertise</td><td>Fichier <code>tre.docx</code> — document type contenant placeholders <code>&lt;&lt;...&gt;&gt;</code> et annotations <code>@type contenu@</code>. Validé au Step 2 pour produire le PREA.</td></tr>
+<tr><td>PREA</td><td>Projet de Rapport d'Expertise Annoté</td><td>Fichier <code>prea.docx</code> — copie du TRE validé au Step 2, complétée par l'expert au Step E/A. Fichier d'entrée du Step 4.</td></tr>
+<tr><td>PRE</td><td>Pré-Rapport d'Expertise</td><td>Document <code>pre.docx</code> — en workflow <strong>standard</strong>, généré au Step 4 ; en workflow <strong>simple</strong>, importé au Step 1 (rédigé par l'expert en amont)</td></tr>
+<tr><td>PREF</td><td>Projet de Rapport d'Expertise Final</td><td>Document <code>pref.docx</code> — PRE après révision linguistique (workflow simple, Step 1)</td></tr>
+<tr><td>DAC</td><td>Document d'Analyse Contradictoire</td><td>Document <code>dac.docx</code> généré optionnellement au Step 4 (standard) ou Step 1 (simple)</td></tr>
+<tr><td>REF</td><td>Rapport d'Expertise Final</td><td>Document <code>ref.docx</code> — pré-rapport ajusté par l'expert hors application, importé au Step 5</td></tr>
 <tr><td>Réquisition</td><td>Demande d'expertise</td><td>Document officiel (<code>demande.pdf</code>) — ordonnance ou réquisition du tribunal</td></tr>
 <tr><td>Ticket</td><td>Code d'accès</td><td>Code unique acheté via Stripe</td></tr>
 <tr><td>Domaine</td><td>Spécialité d'expertise</td><td>Psychologie, psychiatrie, médecine légale, bâtiment ou comptabilité</td></tr>
 <tr><td>Corpus</td><td>Base documentaire</td><td>Documents de référence par domaine utilisés par le RAG</td></tr>
-<tr><td>Mode Entretien</td><td>Mode d'expertise</td><td>Expertise basée sur des entretiens → TPE, PE, PEA</td></tr>
-<tr><td>Mode Analyse</td><td>Mode d'expertise</td><td>Expertise basée sur l'analyse documentaire → TPA, PA, PAA</td></tr>
+<tr><td>Step E/A</td><td>Entretien ou Analyse</td><td>Étape hors application <strong>après le Step 3</strong>, avant le Step 4 : l'expert remplit les annotations du PREA lors de ses entretiens ou analyses sur pièces</td></tr>
 </tbody>
 </table>
+
+> **Termes obsolètes** (ne plus utiliser) : PE, PA, **TPE**, TPA, PEA, PAA, `@debut_tpe@`, Mode Entretien / Mode Analyse comme flux parallèles.
 
 ## 3. Glossaire — Infrastructure
 
@@ -419,7 +447,7 @@ Les placeholders sont des champs de substitution directe. Ils sont remplacés pa
 
 **Syntaxe** : `<<nom_placeholder>>`
 
-**Exemples** : `<<tribunal>>`, `<<magistrat>>`, `<<question_1>>`, `<<nom_mec>>`
+**Exemples** : `<<nom_tribunal>>`, `<<nom_magistrat>>`, `<<question_1>>`, `<<nom_pex>>`
 
 ### 7.2 Annotations `@type contenu@`
 
@@ -440,10 +468,10 @@ Les annotations sont des instructions de génération interprétées par le mote
 <tr><td><code>@question</code></td><td><code>@question n@</code></td><td>Texte de la question n</td><td>Substitution du placeholder <code>question_n</code> depuis <code>placeholders.csv</code></td></tr>
 <tr><td><code>@reference</code></td><td><code>@reference @dires_x.y.z@</code></td><td>cf section X.Y.Z — titre</td><td>Génère une référence croisée vers la section indiquée</td></tr>
 <tr><td><code>@cite</code></td><td><code>@cite @dires_x.y.z@</code></td><td>citation section X.Y.Z — titre … texte</td><td>Insère une citation du contenu de la section référencée</td></tr>
-<tr><td><code>@debut_tpe</code></td><td><code>@debut_tpe@</code></td><td>—</td><td>Marqueur structurel : début de la zone PE/PA (extraction au Step 2)</td></tr>
 <tr><td><code>@/custom</code></td><td><code>@/custom contenu@</code></td><td><strong>Custom :</strong> contenu reformulé</td><td>Annotation personnalisée — reformulation LLM avec le préfixe choisi par l'expert</td></tr>
 <tr><td><code>@remplir</code></td><td><code>@remplir_champ texte@</code> (inline)<br/><code>@remplir_bloc : texte@</code> (bloc)</td><td>texte</td><td><strong>Champ</strong> : insertion inline — le texte pré-remplit le champ (si absent, champ vide).<br/><strong>Bloc</strong> : insertion multi-lignes — le texte après <code>:</code> pré-remplit le bloc (si absent, bloc vide). Seul le contenu est conservé dans le PRE.</td></tr>
 <tr><td><code>@resume</code></td><td><code>@resume @reference annotation_xxx, @reference annotation_yyy, ...@</code></td><td>Résumé des sections citées</td><td>Concatène les contenus des annotations référencées et génère un résumé via LLM. Résolu au Step 4 <strong>après</strong> la reformulation des annotations citées.</td></tr>
+<tr><td><code>@conclusion</code></td><td><code>@conclusion</code> … <code>@</code></td><td>Contenu de la zone conclusion (annotations imbriquées résolues comme ailleurs)</td><td>Pas de paramètres, pas de rendu spécifique propre à cette balise au Step 4 — voir section dédiée ci-dessous</td></tr>
 </tbody>
 </table>
 
@@ -451,36 +479,29 @@ Les annotations sont des instructions de génération interprétées par le mote
 
 ### Principe de fonctionnement
 
-Le TRE se divise en deux zones séparées par le marqueur `@debut_tpe@` :
+Le TRE est un document unique contenant la structure complète du rapport d'expertise : en-tête administratif, corps du rapport et conclusion. Les placeholders et annotations sont répartis dans l'ensemble du document selon la structure choisie par l'expert.
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  EN-TÊTE DU TRE (avant @debut_tpe@)            │
+│  TRE (tre.docx)                                  │
 │                                                  │
-│  Contient : placeholders <<...>> + annotations   │
-│  @type contenu@ pour la partie administrative    │
-│  et structurelle du rapport                      │
-├──────────────────────────────────────────────────┤
-│  @debut_tpe@                                     │
-├──────────────────────────────────────────────────┤
-│  CORPS TPE/TPA (après @debut_tpe@)              │
+│  Structure complète du rapport d'expertise :     │
+│  - placeholders <<...>> pour les métadonnées     │
+│  - annotations @type contenu@ pour recevoir      │
+│    les informations collectées en entretien      │
+│    ou en analyse, et les conclusions             │
 │                                                  │
-│  Contient : la trame d'entretien ou d'analyse    │
-│  avec annotations @type contenu@ pour guider     │
-│  l'expert dans ses observations                  │
-│  → Extrait au Step 2 pour produire le PE/PA      │
+│  Step 2 : validation TRE → prea.docx (PREA)     │
+│  Step 3 : consolidation des pièces               │
+│  Step E/A : remplissage des annotations          │
+│  Step 4 : génération → pre.docx (PRE)            │
 └─────────────────────────────────────────────────┘
 ```
 
 ### Flux de traitement au Step 4
 
 ```
-TRE (en-tête, avant @debut_tpe@)
-    │
-    ├─ Reconstitution : en-tête TRE + contenu PEA/PAA
-    │
-    ▼
-Document reconstitué complet
+PREA (prea.docx complété)
     │
     ├─ Passe 1 : validation syntaxique des annotations
     │            et vérification des <<placeholders>> contre placeholders.csv
@@ -499,17 +520,16 @@ Document reconstitué complet
     │
     ├─ Passe 5 : substitution des <<placeholders>>
     │            (valeurs depuis placeholders.csv du Step 1)
-    │            Note : les placeholders dans les annotations sont résolus ici
     │
     ▼
 pre.docx (Pré-Rapport d'Expertise)
 ```
 
-### Conventions d'annotation dans le PEA/PAA
+### Conventions d'annotation dans le PREA
 
-L'expert annote le PE/PA avec les balises `@type contenu@` en style télégraphique. Le LLM reformule les annotations `@dires` et `@analyse` en style professionnel lors de la génération du pré-rapport.
+L'expert remplit le PREA avec les balises `@type contenu@` en style télégraphique (Step E/A). Le LLM reformule les annotations `@dires` et `@analyse` en style professionnel lors de la génération du pré-rapport (Step 4).
 
-### Exemple d'annotation dans le PEA
+### Exemple d'annotation dans le PREA
 
 ```
 ## Section 4.1.3 : Relations à la fratrie
@@ -542,17 +562,33 @@ sentiment d'injustice perçu dans la dynamique familiale.
 « Ma sœur et moi, on ne se parle plus depuis que mon père est décédé »
 ```
 
+### Annotation `@conclusion`
+
+L'annotation **`@conclusion`** n'a **pas de paramètres** et ne produit **en elle-même rien de spécial** en résolution finale au Step 4 : elle ne déclenche ni reformulation LLM ni substitution dédiée. Son rôle est surtout **structurel** et lié au **mode remplissage assisté** (outil **Éditer PREA** / formulaire) :
+
+- Dans l'éditeur formulaire, `@conclusion` ouvre une **zone de texte multiligne** pour rédiger la conclusion.
+- L'outil propose d'**injecter** d'autres annotations — notamment `@reference` et `@cite` — à l'intérieur de cette zone.
+- Ces annotations imbriquées (`@question`, `@reference`, `@cite`, etc.) **apparaissent à l'intérieur de `@conclusion`** et sont traitées **normalement** au Step 4 comme si elles étaient placées ailleurs dans le PREA.
+
+**Édition manuelle (Word)** : si l'expert rédige la conclusion directement dans le `prea.docx`, il est **conseillé d'inclure explicitement** les annotations `@reference` et `@cite` (ainsi que `@question` le cas échéant) **à l'intérieur de `@conclusion`**, afin de pouvoir **passer sans friction** du mode édition manuelle au mode assistant d'édition en formulaire (les références et citations restent alors détectables et réutilisables par l'outil d'insertion).
+
+**Syntaxe** : balise ouvrante `@conclusion` (éventuellement suivie de `:` puis d'un contenu initial) et balise fermante `@` sur une ligne dédiée, comme les autres annotations multi-lignes.
+
 ### Balises spéciales : @question, @reference et @cite
+
+Ces annotations sont couramment regroupées dans la section conclusion du rapport. Elles peuvent être placées **à l'intérieur de `@conclusion`** ou directement dans le corps du PREA.
 
 ```
 ## 9. CONCLUSION
 
+@conclusion
 @question 1@
 @reference @dires_4.1.3@
 @cite @dires_4.2.1@
 
 @question 2@
 @reference @dires_5.1.2@
+@
 ```
 
 - `@question n@` → substitue le texte de la question N° n (depuis `question_n` dans `placeholders.csv`)
@@ -564,13 +600,13 @@ sentiment d'injustice perçu dans la dynamique familiale.
 L'expert peut définir ses propres types d'annotations avec le préfixe `@/` :
 
 ```
-@/observation Le MEC présente une agitation psychomotrice notable@
+@/observation Le PEX présente une agitation psychomotrice notable@
 @/recommandation Suivi psychothérapeutique hebdomadaire recommandé@
 ```
 
 Rendu dans le PRE :
 ```
-Observation : Le MEC présente une agitation psychomotrice notable.
+Observation : Le PEX présente une agitation psychomotrice notable.
 Recommandation : Un suivi psychothérapeutique hebdomadaire est recommandé.
 ```
 
@@ -582,23 +618,22 @@ Recommandation : Un suivi psychothérapeutique hebdomadaire est recommandé.
 - Plusieurs annotations peuvent se succéder dans une même section
 - Si une même annotation apparaît plusieurs fois dans une section, les contenus sont concaténés
 - L'expert est libre d'ajouter du texte non balisé entre les annotations (il sera ignoré par le parseur)
-- Le marqueur `@debut_tpe@` ne doit apparaître qu'une seule fois dans le TRE
 
 ---
 
 ## 8. Placeholders du Template de Rapport (`tre.docx`)
 
-Le fichier `tre.docx` (Template de Rapport d'Expertise) contient des champs `<<nom_placeholder>>` qui sont automatiquement substitués lors de la génération du pré-rapport au Step 4.
+Le fichier TRE contient des champs `<<nom_placeholder>>` qui sont automatiquement substitués lors de la génération du pré-rapport au Step 4.
 
 ### Deux sources de placeholders
 
 | Source | Moment d'extraction | Stockage | Type |
 |--------|---------------------|----------|------|
 | **Demande** (Step 1) | Extraction LLM au Step 1 | `placeholders.csv` | Placeholders de réquisition (standards) + questions (`question_1`…`question_n`) |
-| **PEA/PAA** (Step 4) | Parsing des annotations `@type contenu@` | En mémoire au Step 4 | Contenu des annotations (reformulé ou préservé selon le type) |
+| **PREA** (Step 4) | Parsing des annotations `@type contenu@` | En mémoire au Step 4 | Contenu des annotations (reformulé ou préservé selon le type) |
 
 - Les **placeholders de réquisition** sont **standards** (communs à tous les domaines).
-- Les **questions** sont numérotées `question_1` à `question_n` dans `placeholders.csv`.
+- Les **questions** sont numérotées `question_1` à `question_n` dans `placeholders.csv` et listées dans `questions.md`.
 - Les **annotations** sont interprétées au Step 4 selon leur type (voir section 7).
 
 ### 8.1 Placeholders de réquisition (standards)
@@ -610,7 +645,7 @@ Le fichier `tre.docx` (Template de Rapport d'Expertise) contient des champs `<<n
 - **Questions** : stockées comme `question_1;Texte de la question 1`, `question_2;Texte de la question 2`, etc.
 - **Validation** : l'expert vérifie et corrige les valeurs
 - **Modification** : l'expert peut éditer directement le CSV
-- **Utilisation au Step 4** : lu automatiquement pour substitution dans le TRE
+- **Utilisation au Step 4** : lu automatiquement pour substitution dans le PREA
 - **Archivage** : fichier extrait et modifié conservés dans l'archive ZIP
 
 #### Exemple
@@ -621,19 +656,16 @@ nom_expert;Dr. Martin Dupont
 prenom_expert;Martin
 titre_expert;Expert judiciaire en psychologie
 date_mission;15/03/2025
-tribunal;Tribunal judiciaire de Paris
+nom_tribunal;Tribunal judiciaire de Paris
 reference_dossier;RG 24/12345
-nom_expertise;Expertise psychologique
-nom_mec;Jean Durand
-prenom_mec;Jean
-nom_requerant;Marie Lambert
-prenom_requerant;Marie
+titre_expertise;Expertise psychologique
+nom_pex;Jean Durand
+prenom_pex;Jean
+requerant_nom;Marie Lambert
+requerant_prenom;Marie
 objet_mission;Évaluation du préjudice psychologique
-date_ordonnance;10/02/2025
-juridiction;Tribunal judiciaire
-ville_juridiction;Paris
-magistrat;Mme la Juge Lefèvre
-question_1;Décrire l'état psychologique actuel du MEC
+nom_magistrat;Mme la Juge Lefèvre
+question_1;Décrire l'état psychologique actuel du PEX
 question_2;Évaluer le retentissement psychologique des faits
 question_3;Déterminer si un suivi thérapeutique est nécessaire
 ```
@@ -682,4 +714,4 @@ question_3;Déterminer si un suivi thérapeutique est nécessaire
 
 > **Note** : Le terme **PEX** (Personne Expertisée) remplace l'ancien terme MEC (Mis en Cause) pour couvrir les cas où la personne expertisée est le plaignant et non le mis en cause.
 
-> **Note** : cette liste est extensible. L'expert peut ajouter des placeholders personnalisés dans son `tre.docx` et renseigner les valeurs correspondantes dans le CSV.
+> **Note** : cette liste est extensible. L'expert peut ajouter des placeholders personnalisés dans son TRE et renseigner les valeurs correspondantes dans le CSV.

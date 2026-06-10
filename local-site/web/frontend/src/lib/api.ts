@@ -30,16 +30,20 @@ export interface DossierListItem {
   nom: string;
   ticket_id: string;
   domaine: string;
+  workflow_type?: WorkflowType;
   statut: string;
   created_at: string;
   steps?: DossierStep[];
 }
+
+export type WorkflowType = "standard" | "simple";
 
 export interface DossierDetail {
   id: number;
   nom: string;
   ticket_id: string;
   domaine: string;
+  workflow_type: WorkflowType;
   statut: string;
   created_at: string;
   updated_at: string;
@@ -381,10 +385,10 @@ export const dossiersApi = {
     return res.data;
   },
 
-  async create(nom: string, ticket_id: string) {
+  async create(nom: string, ticket_id: string, workflow_type: WorkflowType = "standard") {
     const res = await apiClient.post<DossierDetail>(
       "/api/dossiers",
-      { nom, ticket_id },
+      { nom, ticket_id, workflow_type },
     );
     return res.data;
   },
@@ -551,6 +555,16 @@ export const step1Api = {
     );
     return res.data;
   },
+
+  /** Workflow simple — génération optionnelle du DAC */
+  async generateDac(dossierId: string | number) {
+    const res = await apiClient.post<{ message: string; filenames: string[] }>(
+      `/api/dossiers/${dossierId}/step1/generate-dac`,
+      {},
+      { timeout: 1_800_000 },
+    );
+    return res.data;
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -558,12 +572,24 @@ export const step1Api = {
 // ---------------------------------------------------------------------------
 
 export const step2Api = {
-  /** Extraire le Plan d'Entretien (PE) depuis le TRE */
+  /** Extraire le Plan d'Entretien (PE) depuis le TRE (standard) */
   async execute(dossierId: string | number) {
     const res = await apiClient.post<{ qmec: string }>(
       `/api/dossiers/${dossierId}/step2/execute`,
       {},
       { timeout: 1_800_000 },
+    );
+    return res.data;
+  },
+
+  /** Workflow simple — archivage ZIP + timbre (PREF optionnel) */
+  async archive(dossierId: string | number, prefFile?: File) {
+    const formData = new FormData();
+    if (prefFile) formData.append("file", prefFile);
+    const res = await apiClient.post<{ message: string; filenames: string[] }>(
+      `/api/dossiers/${dossierId}/step2/execute`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" }, timeout: 1_800_000 },
     );
     return res.data;
   },

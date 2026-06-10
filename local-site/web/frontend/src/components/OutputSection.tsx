@@ -1,6 +1,6 @@
 "use client";
 
-import type { StepFileItem } from "@/lib/api";
+import type { StepFileItem, WorkflowType } from "@/lib/api";
 import { getOutputFiles } from "@/lib/stepConfig";
 import FileList from "./FileList";
 import styles from "./OutputSection.module.css";
@@ -14,19 +14,17 @@ interface OutputSectionProps {
   dossierId: string;
   files: StepFileItem[];
   isLocked: boolean;
+  workflowType?: WorkflowType;
 }
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 export default function OutputSection({
   stepNumber,
   dossierId,
   files,
   isLocked,
+  workflowType = "standard",
 }: OutputSectionProps) {
-  const outputFiles = getOutputFiles(stepNumber, files);
+  const outputFiles = getOutputFiles(stepNumber, files, workflowType);
 
   return (
     <section className={styles.section} aria-labelledby="output-section-heading">

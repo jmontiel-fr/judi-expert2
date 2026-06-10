@@ -27,6 +27,7 @@ from routers.auth import get_current_user
 from services.file_service import FileService
 from services.file_paths import create_dossier_tree, dossier_root, step_in_dir, step_out_dir, step_dir as fp_step_dir
 from services.site_central_client import SiteCentralClient, SiteCentralError
+from services.workflow_config import normalize_workflow_type, step_count_for
 from services.workflow_engine import (
     DOSSIER_ACTIF,
     DOSSIER_FERME,
@@ -46,6 +47,7 @@ class DossierListItem(BaseModel):
     nom: str
     ticket_id: str
     domaine: str
+    workflow_type: str = "standard"
     statut: str
     created_at: datetime
 
@@ -57,6 +59,10 @@ class DossierListResponse(BaseModel):
 class DossierCreateRequest(BaseModel):
     nom: str = Field(..., min_length=1, description="Nom du dossier")
     ticket_id: str = Field(..., min_length=1, description="Code du ticket")
+    workflow_type: str = Field(
+        default="standard",
+        description="Type de workflow : 'standard' (5 étapes) ou 'simple' (2 étapes)",
+    )
 
 
 class StepItem(BaseModel):
@@ -73,6 +79,7 @@ class DossierDetailResponse(BaseModel):
     nom: str
     ticket_id: str
     domaine: str
+    workflow_type: str = "standard"
     statut: str
     created_at: datetime
     updated_at: datetime
@@ -180,7 +187,20 @@ async def _verify_ticket(ticket_token: str) -> dict:
                 "ticket_code": data.get("ticket_code", ""),
             }
         error = data.get("error", "Ticket invalide ou déjà utilisé")
-        return {"valid": False, "message": error, "ticket_code": data.get("ticket_code")}
+        if error == "déjà utilisé":
+            message = "Ce ticket a déjà été utilisé pour un autre dossier"
+        elif error == "en attente de paiement":
+            message = (
+                "Paiement non finalisé — terminez l'achat sur le site central "
+                "(paiement Stripe puis retour automatique)"
+            )
+        elif error == "périmé" or "périmé" in error:
+            message = "Ticket périmé (délai de 48 h dépassé)"
+        else:
+            message = error if error not in ("invalide", "format_invalide") else (
+                "Ticket invalide ou déjà utilisé"
+            )
+        return {"valid": False, "message": message, "ticket_code": data.get("ticket_code")}
 
     try:
         body = resp.json()
@@ -216,6 +236,7 @@ async def list_dossiers(
                 nom=d.nom,
                 ticket_id=d.ticket_id,
                 domaine=d.domaine,
+                workflow_type=d.workflow_type,
                 statut=d.statut,
                 created_at=d.created_at,
             )
@@ -257,18 +278,22 @@ async def create_dossier(
     config = await _get_local_config(db)
 
     # Create dossier
+    workflow_type = normalize_workflow_type(body.workflow_type)
+    step_count = step_count_for(workflow_type)
+
     dossier = Dossier(
         nom=body.nom,
         ticket_id=ticket_code,
         domaine=config.domaine,
+        workflow_type=workflow_type,
         statut="actif",
     )
     db.add(dossier)
     await db.flush()  # get dossier.id
 
-    # Create 5 steps (1, 2, 3, 4, 5) all with statut="initial"
+    # Create steps (1..N) all with statut="initial"
     steps: list[Step] = []
-    for step_number in range(1, 6):
+    for step_number in range(1, step_count + 1):
         step = Step(
             dossier_id=dossier.id,
             step_number=step_number,
@@ -282,14 +307,15 @@ async def create_dossier(
     for s in steps:
         await db.refresh(s)
 
-    # Créer l'arborescence sur disque (step1-5/in + out)
-    create_dossier_tree(dossier.nom)
+    # Créer l'arborescence sur disque (step1..N/in + out)
+    create_dossier_tree(dossier.nom, step_count=step_count)
 
     return DossierDetailResponse(
         id=dossier.id,
         nom=dossier.nom,
         ticket_id=dossier.ticket_id,
         domaine=dossier.domaine,
+        workflow_type=dossier.workflow_type,
         statut=dossier.statut,
         created_at=dossier.created_at,
         updated_at=dossier.updated_at,
@@ -332,6 +358,7 @@ async def get_dossier(
         nom=dossier.nom,
         ticket_id=dossier.ticket_id,
         domaine=dossier.domaine,
+        workflow_type=dossier.workflow_type,
         statut=dossier.statut,
         created_at=dossier.created_at,
         updated_at=dossier.updated_at,
@@ -372,20 +399,21 @@ async def get_step_detail(
     db: AsyncSession = Depends(get_db),
 ):
     """Retourne le détail d'une étape spécifique avec ses fichiers."""
-    if step_number not in (1, 2, 3, 4, 5):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Le numéro d'étape doit être entre 1 et 5",
-        )
-
-    # Verify dossier exists
     dossier_result = await db.execute(
         select(Dossier).where(Dossier.id == dossier_id)
     )
-    if dossier_result.scalar_one_or_none() is None:
+    dossier = dossier_result.scalar_one_or_none()
+    if dossier is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Dossier non trouvé",
+        )
+
+    max_step = step_count_for(dossier.workflow_type)
+    if step_number < 1 or step_number > max_step:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Le numéro d'étape doit être entre 1 et {max_step}",
         )
 
     result = await db.execute(

@@ -88,9 +88,39 @@ def _create_ticket_and_token(
     return ticket, token
 
 
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
+def _ticket_verify_error_message(ticket: Ticket | None, token_error: str | None) -> str:
+    """Message d'erreur explicite pour l'application locale."""
+    if token_error == "périmé":
+        return "Ticket périmé (délai de 48 h dépassé)"
+    if token_error == "format_invalide":
+        return "Format de token invalide"
+    if token is None:
+        return "Ticket inconnu sur le site central"
+    if ticket.statut == "utilisé":
+        return "Ticket déjà utilisé pour un autre dossier"
+    if ticket.statut == "en_attente":
+        return (
+            "Paiement non finalisé — terminez l'achat sur le site central "
+            "(paiement Stripe puis retour automatique), ou supprimez ce ticket et recommencez"
+        )
+    if ticket.statut != "actif":
+        return f"Ticket non utilisable (statut : {ticket.statut})"
+    return "Ticket invalide"
+
+
+async def _activate_ticket_after_payment(ticket: Ticket, email: str) -> None:
+    """Passe un ticket de en_attente à actif (après paiement Stripe)."""
+    if ticket.statut != "en_attente":
+        return
+    ticket.statut = "actif"
+    if not ticket.ticket_token:
+        now = datetime.now(timezone.utc)
+        ticket.ticket_token = generate_ticket_token(
+            ticket_code=ticket.ticket_code,
+            email=email,
+            created_at=now,
+        )
+        ticket.expires_at = now + timedelta(hours=TICKET_VALIDITY_HOURS)
 
 
 @router.get("/price", response_model=TicketPriceResponse)
@@ -142,6 +172,29 @@ async def purchase_ticket(
     await db.commit()
     logger.info("Ticket en attente: %s pour %s", ticket_code, expert.email)
 
+    app_url = os.environ.get("APP_URL", "http://localhost:3001")
+
+    # Dev local sans clés Stripe : activer le ticket sans Checkout
+    if IS_DEV and not stripe_service.is_stripe_configured():
+        ticket.statut = "actif"
+        ticket.stripe_payment_id = f"dev-mock-{uuid.uuid4()}"
+        await db.commit()
+        logger.info("Ticket activé en mode dev (Stripe non configuré): %s", ticket_code)
+        try:
+            email_service.send_ticket_email(
+                expert_email=expert.email,
+                ticket_code=ticket.ticket_token or ticket_code,
+                domaine=expert.domaine,
+            )
+        except Exception as e:
+            logger.warning("Envoi email ticket ignoré en dev: %s", e)
+        return PurchaseResponse(
+            checkout_url=(
+                f"{app_url}/monespace/tickets"
+                f"?success=true&ticket_code={ticket_code}"
+            ),
+        )
+
     try:
         session = stripe_service.create_checkout_session(
             expert=expert,
@@ -189,7 +242,7 @@ async def confirm_ticket(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket introuvable")
 
     if ticket.statut == "en_attente":
-        ticket.statut = "actif"
+        await _activate_ticket_after_payment(ticket, expert.email)
         await db.commit()
         logger.info("Ticket confirmé: %s", ticket_code)
 
@@ -235,7 +288,7 @@ async def verify_ticket(
         return TicketVerifyResponse(
             success=False,
             ticket_code=code or request.ticket_token[:20],
-            error=error,
+            error=_ticket_verify_error_message(None, error),
         )
 
     payload = result["payload"]
@@ -247,13 +300,37 @@ async def verify_ticket(
     ticket = db_result.scalars().first()
 
     if ticket is None:
-        return TicketVerifyResponse(success=False, ticket_code=ticket_code, error="invalide")
+        return TicketVerifyResponse(
+            success=False,
+            ticket_code=ticket_code,
+            error=_ticket_verify_error_message(None, "invalide"),
+        )
 
     if ticket.statut == "utilisé":
         return TicketVerifyResponse(success=False, ticket_code=ticket_code, error="déjà utilisé")
 
+    if ticket.statut == "en_attente":
+        # Dev local : pas de webhook Stripe → activer si le token est valide
+        if IS_DEV:
+            await _activate_ticket_after_payment(ticket, payload.get("email", ""))
+            await db.commit()
+            logger.info(
+                "Ticket %s activé en dev lors de la vérification (en_attente → actif)",
+                ticket_code,
+            )
+        else:
+            return TicketVerifyResponse(
+                success=False,
+                ticket_code=ticket_code,
+                error="en attente de paiement",
+            )
+
     if ticket.statut != "actif":
-        return TicketVerifyResponse(success=False, ticket_code=ticket_code, error="invalide")
+        return TicketVerifyResponse(
+            success=False,
+            ticket_code=ticket_code,
+            error=_ticket_verify_error_message(ticket, None),
+        )
 
     ticket.statut = "utilisé"
     ticket.used_at = datetime.now(timezone.utc).replace(tzinfo=None)

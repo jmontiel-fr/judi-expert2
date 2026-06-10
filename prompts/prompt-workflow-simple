@@ -1,0 +1,18 @@
+je veux crée un 2eme workflow dit 'simple:
+
+Step1 : Introduction du PRE.docx.
+sortie = PREF (Projet de raport expertise final)
+Opération : met en formlinguistique PRE 
+Optionnement : généère un DAC
+Peut cycle sur des modifications successives.
+
+Step2. archivage du dossier, 
+création timbre et stocjahe S3
+
+-------------------
+Lorsqu'on cree un dossier on choisit le type de workflow 'simple' ou ' standard'
+après la logie est similarire dans les steps.
+
+Crée ce workflow
+Modifie le workflow-glossaire pour distingure les 2 workflow.
+

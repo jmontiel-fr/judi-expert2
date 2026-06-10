@@ -1,0 +1,85 @@
+Modifier le document glossaire-workflow.md dans 
+le sens suivant:
+
+On simpleifie le workflow. On élémine le PE/PA le TPE/TPA 
+et le PEA/PAA.
+le nouveau workflow est le suivant :
+1. step1 : introduction du .pdf de requête orifiginal.
+OCR et extration des données pour produire 
+demande.md (= mise en form de la requete en format 
+texte structuré
+extraction des questions soumises à l'expert : 
+questions.mdplaceholder.csj ensemble de clé/valeur
+qui seront tuilisée dans le rapport final
+
+2. step 2:
+L'expert sélectionne le tpe.docx (templa de rapport 
+d'expertise) soit celui de la configuration soit
+un tpe.docx adhoc pour cete expertise. Charqge à
+l'expert de se construire un ou plieurs template
+ou utiliser le template corpus proposé par défaut.
+
+Ce template est un document contenant le format type
+du rapport d'expertise type avec
+des palceholders <<placeholder-xxx>> et des annotations
+ @annotation-x ....@. les annotations sont destinnées à 
+ revcevoir les informationcollectées en entretien et e
+ analyses et conclusions de l'expert
+ L'opération est la vérification syntaxique du tpe 
+ pour les palcehodlers et les annotations.
+ En sortie on obtient le prea.docx (Projet de Rapport 
+ d'expertis avec annotations).
+ 
+ 3. step3 : introduction de documents complémentaires
+ docuents issues de diligences pour complètre analyse.
+
+ ------ Entretien ou Analyse des pièces
+ Repmlissage du prea.docx
+ 
+ Suite ou pendant l'entretien, l'expert remplit 
+ les champs annotation du prea 
+ en stype  télégraphique. Il peut procéder de 2 façons
+ - soit en  complétant directement en édition word 
+ dans le prea.docx
+ - soit utilisant l'outil d'édition du prea: cet outil 
+ montre le prea comme un formulaire avec les annotations 
+ comme des champs à saisir.
+
+ Il ajoute aussi la conclusion à l'ide d'annoration poru facilite
+ le rapple des question et les copies textuelles d'annoration complétées
+ dans le corps du rapport. 
+
+4. Stpe4 :
+L'expert introduit son prea.docx complété.
+L'application va remplacer tous les placehomlders
+par leurs valeurs définies dans placeholders.csv.
+Il va mettre en forme en language compréhensible de tous
+les contenus en style télégraphues, faire les résumés
+et copiert/coler de sections demandées en conclusion.
+L'opération produit en sortie le PRE.docx : projet de 
+rapport d'expertise en texte lisible.
+
+Optionnelement l'expert peut demander la génération du
+document d'analyse contradictoire (DAC) avec des suggestions
+pour renforcer et challenger les analyses et conclusions 
+de l'expert.
+
+L'expert édite alors de son côté hors application le PRE 
+pour le nommer le REF : rapport d'expertise final.
+
+5. Step5 :
+L'expert introduit son REF et l'application construit 
+l'archive .zip comprenant tous les fichiers du dossier
+un timbre de hash de archive à horodater hosr 
+application? Le timre est stocké dans S32 qui a
+techniquement une valeur d'horodatage maiss
+non juridiquement horlogué.
+A noter : l'archivage longue durée de l'archive est 
+à la charge de l'expert.
+
+------------------------
+- modifie le worklfow et le glossaire métier pour s'aligner 
+sur ce workflow et nouvelle terminologie.
+Nouveau terme : PREA 
+Elimine les termes obsoletes.
+Les annotations sont inchangées. 

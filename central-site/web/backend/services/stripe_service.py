@@ -22,6 +22,14 @@ APP_URL = os.environ.get("APP_URL", "http://localhost:3000")
 
 stripe.api_key = STRIPE_SECRET_KEY
 
+_STRIPE_PLACEHOLDERS = {"", "sk_test_CHANGEZ_MOI", "sk_live_CHANGEZ_MOI"}
+
+
+def is_stripe_configured() -> bool:
+    """True si une clé secrète Stripe valide est configurée."""
+    key = (STRIPE_SECRET_KEY or "").strip()
+    return key not in _STRIPE_PLACEHOLDERS and key.startswith(("sk_test_", "sk_live_"))
+
 
 def create_checkout_session(
     expert: Expert,
@@ -104,9 +112,15 @@ def create_checkout_session(
             expert.id,
             exc,
         )
+        detail = "Erreur lors de la création de la session de paiement"
+        if isinstance(exc, stripe.error.AuthenticationError):
+            detail = (
+                "Clé Stripe invalide ou non configurée — "
+                "renseignez STRIPE_SECRET_KEY dans central-site/.env.dev ou .env.local"
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erreur lors de la création de la session de paiement",
+            detail=detail,
         ) from exc
 
     return session

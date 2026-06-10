@@ -168,11 +168,45 @@ async def test_create_dossier_success(client: AsyncClient):
     assert data["ticket_id"].startswith("TKT-MOCK")
     assert data["domaine"] == "psychologie"
     assert data["statut"] == "actif"
+    assert data.get("workflow_type", "standard") == "standard"
     # 5 steps created
     assert len(data["steps"]) == 5
     for i, step in enumerate(data["steps"]):
         assert step["step_number"] == i + 1
         assert step["statut"] == "initial"
+
+
+@pytest.mark.asyncio
+async def test_create_dossier_simple_workflow(client: AsyncClient):
+    await _setup_config(client)
+
+    with _mock_verify_ticket_success():
+        resp = await client.post(
+            "/api/dossiers",
+            json={"nom": "Dossier simple", "ticket_id": "T-SIMPLE", "workflow_type": "simple"},
+        )
+
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["workflow_type"] == "simple"
+    assert len(data["steps"]) == 2
+    assert data["steps"][0]["step_number"] == 1
+    assert data["steps"][1]["step_number"] == 2
+
+
+@pytest.mark.asyncio
+async def test_create_dossier_invalid_workflow_defaults_standard(client: AsyncClient):
+    await _setup_config(client)
+
+    with _mock_verify_ticket_success():
+        resp = await client.post(
+            "/api/dossiers",
+            json={"nom": "Dossier std", "ticket_id": "T-STD2", "workflow_type": "inconnu"},
+        )
+
+    assert resp.status_code == 201
+    assert resp.json()["workflow_type"] == "standard"
+    assert len(resp.json()["steps"]) == 5
 
 
 @pytest.mark.asyncio
@@ -302,3 +336,95 @@ async def test_get_step_dossier_not_found(client: AsyncClient):
 
 # We need the import for the side_effect test
 from fastapi import HTTPException
+
+
+# ---------------------------------------------------------------------------
+# Workflow simple — Step 1 upload PRE, Step 2 archivage
+# ---------------------------------------------------------------------------
+
+
+async def _create_simple_dossier(client: AsyncClient, ticket_id: str = "T-SWF") -> int:
+    with _mock_verify_ticket_success():
+        resp = await client.post(
+            "/api/dossiers",
+            json={"nom": "Simple WF", "ticket_id": ticket_id, "workflow_type": "simple"},
+        )
+    assert resp.status_code == 201
+    return resp.json()["id"]
+
+
+async def _validate_step1_simple(client: AsyncClient, dossier_id: int) -> None:
+    from services.workflow_engine import workflow_engine as wf
+
+    override_fn = app.dependency_overrides[get_db]
+    async for db in override_fn():
+        await wf.execute_step(dossier_id, 1, db)
+        await wf.validate_step(dossier_id, 1, db)
+        await db.commit()
+        break
+
+
+@pytest.mark.asyncio
+async def test_simple_step1_upload_rejects_pdf(client: AsyncClient):
+    await _setup_config(client)
+    dossier_id = await _create_simple_dossier(client, "T-SWF-PDF")
+
+    resp = await client.post(
+        f"/api/dossiers/{dossier_id}/step1/upload",
+        files={"file": ("ordonnance.pdf", b"%PDF", "application/pdf")},
+    )
+    assert resp.status_code == 400
+    assert "DOCX" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_simple_step1_upload_accepts_docx(client: AsyncClient):
+    await _setup_config(client)
+    dossier_id = await _create_simple_dossier(client, "T-SWF-DOCX")
+
+    resp = await client.post(
+        f"/api/dossiers/{dossier_id}/step1/upload",
+        files={
+            "file": (
+                "pre.docx",
+                b"PK\x03\x04 fake docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ),
+        },
+    )
+    assert resp.status_code == 201
+    assert resp.json()["filename"] == "pre.docx"
+
+
+@pytest.mark.asyncio
+async def test_simple_step2_blocked_until_step1_validated(client: AsyncClient):
+    await _setup_config(client)
+    dossier_id = await _create_simple_dossier(client, "T-SWF-BLOCK")
+
+    resp = await client.post(f"/api/dossiers/{dossier_id}/step2/execute")
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_simple_step2_archive(client: AsyncClient):
+    await _setup_config(client)
+    dossier_id = await _create_simple_dossier(client, "T-SWF-ARCH")
+    await _validate_step1_simple(client, dossier_id)
+
+    with patch(
+        "services.archive_service.archive_dossier",
+        new=AsyncMock(return_value=("test.zip", "test-timbre.txt", "abc123")),
+    ):
+        resp = await client.post(
+            f"/api/dossiers/{dossier_id}/step2/execute",
+            files={
+                "file": (
+                    "pref.docx",
+                    b"PK\x03\x04 fake pref",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ),
+            },
+        )
+
+    assert resp.status_code == 200
+    assert "SHA-256" in resp.json()["message"]

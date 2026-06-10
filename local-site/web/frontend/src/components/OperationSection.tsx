@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { STEP_CONFIG } from "@/lib/stepConfig";
-import type { StepDetail } from "@/lib/api";
-import { step4Api, getErrorMessage } from "@/lib/api";
+import { getStepConfig } from "@/lib/stepConfig";
+import type { StepDetail, WorkflowType } from "@/lib/api";
+import { step1Api, step4Api, getErrorMessage } from "@/lib/api";
 import StepProgressList from "./StepProgressList";
 import styles from "./OperationSection.module.css";
 
@@ -13,11 +13,10 @@ import styles from "./OperationSection.module.css";
 
 const PROGRESS_STEPS: Record<number, string[]> = {
   1: [
-    "Étape 1/5 — OCR (extraction du texte)",
-    "Étape 2/5 — Structuration en Markdown (LLM)",
-    "Étape 3/5 — Extraction des questions (LLM)",
-    "Étape 4/5 — Extraction des placeholders (LLM)",
-    "Étape 5/5 — Sauvegarde des fichiers (demande.md, placeholders.csv)",
+    "Étape 1/4 — OCR (extraction du texte)",
+    "Étape 2/4 — Structuration en Markdown (LLM)",
+    "Étape 3/4 — Extraction des questions + sauvegarde",
+    "Étape 4/4 — Extraction des placeholders (LLM)",
   ],
   2: [
     "Étape 1/3 — Validation syntaxique du TRE (annotations, placeholders)",
@@ -33,12 +32,23 @@ const PROGRESS_STEPS: Record<number, string[]> = {
     "Étape 2/5 — Reformulation des @dires et @analyse ⏳ LLM",
     "Étape 3/5 — Résolution des @resume ⏳ LLM",
     "Étape 4/5 — Résolution @question, @reference, @cite",
-    "Étape 5/5 — Reconstitution (en-tête TRE + PEA) et substitution",
+    "Étape 5/5 — Reconstitution (en-tête PREA) et substitution",
   ],
   5: [
     "Étape 1/3 — Import du Rapport Final (REF)",
     "Étape 2/3 — Création de l'archive ZIP",
     "Étape 3/3 — Génération du timbre SHA-256",
+  ],
+};
+
+const SIMPLE_PROGRESS_STEPS: Record<number, string[]> = {
+  1: [
+    "Étape 1/2 — Import du PRE",
+    "Étape 2/2 — Révision linguistique → PREF",
+  ],
+  2: [
+    "Étape 1/2 — Préparation du PREF",
+    "Étape 2/2 — Archive ZIP + timbre SHA-256",
   ],
 };
 
@@ -52,8 +62,10 @@ interface OperationSectionProps {
   step: StepDetail;
   isLocked: boolean;
   isDossierClosed: boolean;
+  workflowType?: WorkflowType;
   onExecute: () => Promise<void>;
   onCancel: () => Promise<void>;
+  onRerunSimpleStep1?: () => Promise<void>;
   onSkip?: () => Promise<void>;
   onRefresh?: () => Promise<void>;
   executionDuration?: number | null;
@@ -80,13 +92,16 @@ export default function OperationSection({
   step,
   isLocked,
   isDossierClosed,
+  workflowType = "standard",
   onExecute,
   onCancel,
+  onRerunSimpleStep1,
   onSkip,
   onRefresh,
   executionDuration,
 }: OperationSectionProps) {
-  const config = STEP_CONFIG[stepNumber];
+  const isSimple = workflowType === "simple";
+  const config = getStepConfig(stepNumber, workflowType);
   if (!config) return null;
 
   const isProcessing = step.statut === "en_cours";
@@ -94,26 +109,28 @@ export default function OperationSection({
   const isRealise = step.statut === "fait";
   const isInitial = step.statut === "initial";
   const showLockIndicator = isLocked || isDossierClosed;
-  const progressSteps = PROGRESS_STEPS[stepNumber] ?? [];
+  const progressSteps = (isSimple ? SIMPLE_PROGRESS_STEPS : PROGRESS_STEPS)[stepNumber] ?? [];
 
-  // DAC generation state (Step 4 only)
   const [dacGenerating, setDacGenerating] = useState(false);
   const [dacError, setDacError] = useState("");
   const [dacSuccess, setDacSuccess] = useState(false);
 
-  // Check if DAC already exists in output files
-  const hasDac = step.files?.some(f => f.file_type === "re_projet_auxiliaire") ?? false;
-  // Check if PRE exists (step 4 done)
-  const hasPre = step.files?.some(f => f.file_type === "re_projet") ?? false;
-  // Show DAC button when Step 4 is "fait" or "valide" and PRE exists
-  const showDacButton = stepNumber === 4 && hasPre && !dacGenerating && !isDossierClosed;
+  const hasDac = step.files?.some((f) => f.file_type === "re_projet_auxiliaire") ?? false;
+  const hasPre = step.files?.some((f) => f.file_type === "re_projet") ?? false;
+  const hasPref = step.files?.some((f) => f.filename === "pref.docx") ?? false;
+  const showSimpleDacButton = isSimple && stepNumber === 1 && hasPref && !dacGenerating && !isDossierClosed;
+  const showDacButton = showSimpleDacButton || (stepNumber === 4 && hasPre && !dacGenerating && !isDossierClosed);
 
   const handleGenerateDac = async () => {
     setDacGenerating(true);
     setDacError("");
     setDacSuccess(false);
     try {
-      await step4Api.generateDac(dossierId);
+      if (isSimple && stepNumber === 1) {
+        await step1Api.generateDac(dossierId);
+      } else {
+        await step4Api.generateDac(dossierId);
+      }
       setDacSuccess(true);
       if (onRefresh) await onRefresh();
     } catch (err: unknown) {
@@ -156,8 +173,12 @@ export default function OperationSection({
   // Steps 4, 5: le bouton principal est dans InputSection (upload déclenche le traitement).
   // Step 1: upload séparé de l'exécution — le bouton "Extraire" est ici.
   // Steps 2, 3: bouton d'exécution classique.
-  const isUploadStep = stepNumber === 5;
-  const showValidateButton = (isUploadStep || stepNumber === 1 || stepNumber === 2 || stepNumber === 3) && isRealise && !isDossierClosed;
+  const isUploadStep = isSimple ? stepNumber === 2 : stepNumber === 5;
+  const showValidateButton = (
+    isUploadStep ||
+    stepNumber === 1 ||
+    (!isSimple && (stepNumber === 2 || stepNumber === 3))
+  ) && isRealise && !isDossierClosed;
   const showExecuteButton = !isUploadStep && !isProcessing && !isRealise && !isValidated;
   const isButtonDisabled = isProcessing || isValidated || isDossierClosed;
 
@@ -228,6 +249,16 @@ export default function OperationSection({
             onClick={onExecute}
           >
             {buttonLabel}
+          </button>
+        )}
+
+        {isSimple && stepNumber === 1 && isRealise && !isValidated && !isDossierClosed && onRerunSimpleStep1 && (
+          <button
+            type="button"
+            className={styles.btnPrimary}
+            onClick={onRerunSimpleStep1}
+          >
+            ↻ Relancer la mise en forme
           </button>
         )}
 

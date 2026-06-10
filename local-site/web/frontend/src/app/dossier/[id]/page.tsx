@@ -9,8 +9,9 @@ import {
   getErrorMessage,
   isStepAccessible,
   type DossierDetail,
+  type WorkflowType,
 } from "@/lib/api";
-import { STEP_CONFIG } from "@/lib/stepConfig";
+import { getStepConfig, getMaxStepNumber } from "@/lib/stepConfig";
 import FileList from "@/components/FileList";
 
 /* ------------------------------------------------------------------ */
@@ -88,8 +89,11 @@ export default function DossierDetailPage() {
     return () => clearInterval(interval);
   }, [hasEnCours, dossierId]);
 
+  const workflowType: WorkflowType = dossier?.workflow_type ?? "standard";
+  const maxStep = getMaxStepNumber(workflowType);
+
   const allStepsValidated =
-    dossier?.steps.length === 5 &&
+    dossier?.steps.length === maxStep &&
     dossier.steps.every((s) => s.statut === "valide");
 
   const handleClose = async () => {
@@ -205,6 +209,11 @@ export default function DossierDetailPage() {
               <span className={`${styles.badge} ${styles.badgeDomaine}`}>
                 {dossier.domaine}
               </span>
+              {dossier.workflow_type === "simple" && (
+                <span className={`${styles.badge} ${styles.badgeSimple}`}>
+                  Workflow simple
+                </span>
+              )}
               <span
                 className={`${styles.badge} ${
                   dossier.statut === "actif"
@@ -274,7 +283,7 @@ export default function DossierDetailPage() {
               .sort((a, b) => a.step_number - b.step_number)
               .map((step) => {
                 const accessible = isStepAccessible(step.step_number, dossier.steps);
-                const stepLabel = `Étape ${step.step_number} — ${STEP_CONFIG[step.step_number]?.name ?? `Step${step.step_number}`}`;
+                const stepLabel = `Étape ${step.step_number} — ${getStepConfig(step.step_number, workflowType)?.name ?? `Step${step.step_number}`}`;
 
                 const statusClass =
                   step.statut === "valide"
@@ -309,7 +318,7 @@ export default function DossierDetailPage() {
                       <div className={styles.stepHeader}>
                         <span className={styles.stepNumber}>{step.step_number}</span>
                         <span className={styles.stepName}>
-                          {STEP_CONFIG[step.step_number]?.name ?? `Step${step.step_number}`}
+                          {getStepConfig(step.step_number, workflowType)?.name ?? `Step${step.step_number}`}
                         </span>
                       </div>
                       <div className={styles.stepDates}>

@@ -25,7 +25,12 @@ echo -e "${GREEN}  ✔ Ports libres${NC}"
 echo ""
 echo -e "${YELLOW}[3/3] Démarrage${BUILD_FLAG:+ + build}...${NC}"
 ENV_FILE="$ROOT_DIR/central-site/.env.dev"
-if [ -f "$ENV_FILE" ]; then
+if [ -f "$ROOT_DIR/central-site/.env.local" ]; then
+  ENV_FILE="$ROOT_DIR/central-site/.env.local"
+elif [ ! -f "$ENV_FILE" ]; then
+  ENV_FILE=""
+fi
+if [ -n "$ENV_FILE" ]; then
   docker compose -f "$COMPOSE" --env-file "$ENV_FILE" up -d $BUILD_FLAG
 else
   docker compose -f "$COMPOSE" up -d $BUILD_FLAG

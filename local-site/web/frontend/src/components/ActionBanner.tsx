@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { STEP_CONFIG } from "@/lib/stepConfig";
+import { getStepConfig } from "@/lib/stepConfig";
+import type { WorkflowType } from "@/lib/api";
 import styles from "./ActionBanner.module.css";
 
 // ---------------------------------------------------------------------------
@@ -11,14 +12,11 @@ import styles from "./ActionBanner.module.css";
 interface ActionBannerProps {
   stepNumber: number;
   dossierName: string;
+  workflowType?: WorkflowType;
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
-export default function ActionBanner({ stepNumber, dossierName }: ActionBannerProps) {
-  const config = STEP_CONFIG[stepNumber];
+export default function ActionBanner({ stepNumber, dossierName, workflowType = "standard" }: ActionBannerProps) {
+  const config = getStepConfig(stepNumber, workflowType);
   const [expanded, setExpanded] = useState(false);
 
   if (!config) return null;

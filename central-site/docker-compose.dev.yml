@@ -1,7 +1,10 @@
 # ============================================
 # Judi-Expert — Site Central (déploiement local)
 # ============================================
-# Usage : docker compose -f central-site/docker-compose.dev.yml up -d
+# Usage : bash scripts-dev/dev-central-start.sh
+#    ou : docker compose -f central-site/docker-compose.dev.yml --env-file central-site/.env.dev up -d
+#
+# Clés Stripe : central-site/.env.dev (ou .env.local) — pas central-site/.env (AWS/prod)
 #
 # Services :
 #   - db       : PostgreSQL 16 (remplace RDS)
@@ -42,6 +45,11 @@ services:
       context: ./web/backend
       dockerfile: Dockerfile
     container_name: judi-central-backend
+    env_file:
+      - path: .env.dev
+        required: false
+      - path: .env.local
+        required: false
     ports:
       - "8002:8000"
     environment:
@@ -49,11 +57,7 @@ services:
       DOMAINES_YAML_PATH: "/data/domaines/domaines.yaml"
       APP_ENV: development
       APP_URL: "http://localhost:3001"
-      # Stripe mode test — définir dans .env.dev
-      STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY:-sk_test_CHANGEZ_MOI}"
-      STRIPE_PUBLISHABLE_KEY: "${STRIPE_PUBLISHABLE_KEY:-pk_test_CHANGEZ_MOI}"
-      STRIPE_WEBHOOK_SECRET: ""
-      STRIPE_PRICE_TICKET: "price_CHANGEZ_MOI"
+      # Stripe : lire .env.dev / .env.local via env_file (ne pas surcharger ici)
       # Cognito — en mode dev, le backend accepte un bypass auth
       COGNITO_USER_POOL_ID: "local-dev"
       COGNITO_APP_CLIENT_ID: "local-dev"
@@ -100,14 +104,19 @@ services:
         NEXT_PUBLIC_API_URL: "http://localhost:8002"
         NEXT_PUBLIC_SITE_URL: "http://localhost:3001"
         NEXT_PUBLIC_RECAPTCHA_SITE_KEY: "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
-        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "${STRIPE_PUBLISHABLE_KEY:-pk_test_CHANGEZ_MOI}"
+        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "${STRIPE_PUBLISHABLE_KEY:-}"
     container_name: judi-central-frontend
+    env_file:
+      - path: .env.dev
+        required: false
+      - path: .env.local
+        required: false
     ports:
       - "3001:3000"
     environment:
       NEXT_PUBLIC_API_URL: "http://localhost:8002"
       NEXT_PUBLIC_RECAPTCHA_SITE_KEY: "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "${STRIPE_PUBLISHABLE_KEY:-pk_test_CHANGEZ_MOI}"
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "${STRIPE_PUBLISHABLE_KEY:-}"
     depends_on:
       - backend
     restart: unless-stopped

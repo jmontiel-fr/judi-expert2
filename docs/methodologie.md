@@ -4,7 +4,7 @@
 
 Ce document présente la solution Judi-Expert, son usage de l'intelligence artificielle comme assistant à l'expert judiciaire, et sa conformité aux exigences réglementaires en vigueur. Il est destiné à accompagner l'expert dans la justification de l'usage de l'IA auprès des instances judiciaires.
 
-> Pour la définition des termes et acronymes utilisés dans ce document, consultez le [Glossaire & Workflow](glossaire-workflow.md).
+> Pour la définition des termes et acronymes utilisés dans ce document, consultez le [Glossaire & Workflow](glossaire-workflow.md) et le [Guide utilisateur](guide-utilisateur.md).
 
 ---
 
@@ -56,20 +56,29 @@ Judi-Expert est un système d'assistance aux experts judiciaires qui automatise 
 
 Le système se compose de deux parties :
 
-- **Application Locale** : installée sur le PC de l'expert, elle gère le workflow d'expertise en 5 étapes (extraction OCR, préparation investigations, consolidation documentaire, production pré-rapport, finalisation et archivage). Toutes les données d'expertise restent exclusivement sur le PC de l'expert. L'authentification utilise les identifiants du Site Central (connexion Internet requise).
+- **Application Locale** : installée sur le PC de l'expert, elle propose deux workflows — **standard** (5 étapes + Step E/A hors application) ou **simple** (2 étapes : mise en forme linguistique du PRE puis archivage). Le choix est effectué à la création du dossier. Toutes les données d'expertise restent exclusivement sur le PC de l'expert. L'authentification utilise les identifiants du Site Central (connexion Internet requise).
 
 - **Site Central** : plateforme web de gestion des inscriptions, des tickets d'expertise et de la distribution des modules de connaissances par domaine.
 
-### Workflow d'expertise assisté par l'IA
+### Workflow d'expertise assisté par l'IA — standard
 
 | Étape | Nom | Rôle de l'IA | Rôle de l'expert |
 |-------|-----|-------------|------------------|
 | Step 1 | Création dossier | Extraction OCR + structuration Markdown + extraction placeholders et questions | Vérification du texte extrait, validation des placeholders et questions |
-| Step 2 | Extraction PE/PA depuis TRE | Extraction mécanique du PE/PA depuis le TRE (à partir de `@debut_tpe@`), intégration des questions en conclusion | Validation, adaptation du plan |
-| Step E/A | Entretien ou Analyse | Aucun | Mener les entretiens/analyses, annoter le PE/PA → produire PEA/PAA |
+| Step 2 | Validation TRE → PREA | Vérification syntaxique du TRE (placeholders, annotations), production du PREA | Choix ou upload du TRE, validation |
 | Step 3 | Consolidation documentaire | Extraction OCR des pièces de diligence | Vérification des extractions |
-| Step 4 | Production pré-rapport | Reconstitution du rapport (TRE header + PEA), reformulation LLM des annotations `@dires` et `@analyse`, substitution placeholders, génération PRE et DAC | Relecture, ajustement des conclusions |
-| Step 5 | Révision et archivage | Révision linguistique LLM (préservation verbatim), création archive ZIP + timbre.txt (métadonnées + hash SHA-256) | Import du rapport final ajusté, validation des corrections, archivage |
+| Step E/A | Entretien ou Analyse | Aucun (hors application, **après le Step 3**) | Mener les entretiens/analyses, remplir les annotations du PREA |
+| Step 4 | Production pré-rapport | Reformulation LLM des annotations `@dires` et `@analyse`, substitution placeholders, génération PRE et DAC (optionnel) | Import du PREA complété, relecture, ajustement des conclusions |
+| Step 5 | Révision et archivage | Révision linguistique LLM (préservation verbatim), création archive ZIP + timbre.txt (métadonnées + hash SHA-256) | Import du rapport final ajusté (REF), validation des corrections, archivage |
+
+### Workflow d'expertise assisté par l'IA — simple
+
+Pour les expertises où l'expert a déjà rédigé son **PRE** (`pre.docx`) en dehors de Judi-Expert :
+
+| Étape | Nom | Rôle de l'IA | Rôle de l'expert |
+|-------|-----|-------------|------------------|
+| Step 1 | Mise en forme linguistique | Révision linguistique du PRE (préservation verbatim), génération du PREF ; DAC optionnel | Import du PRE, relecture du PREF, relance possible avant validation |
+| Step 2 | Archivage | Création archive ZIP + timbre.txt (hash SHA-256) | Validation du PREF final, archivage |
 
 À chaque étape, l'expert conserve la possibilité de modifier, corriger et valider les productions de l'IA avant de passer à l'étape suivante.
 
@@ -87,26 +96,25 @@ L'IA intervient dans les tâches suivantes :
 
 1. **Extraction et structuration de texte** (Step 1) : conversion des documents scannés en texte exploitable via OCR, structuration automatique en Markdown, extraction des questions du tribunal (Q1…Qn) et des valeurs de placeholders pour le template de rapport. L'expert vérifie et corrige le résultat.
 
-2. **Extraction du plan d'entretien ou d'analyse depuis le TRE** (Step 2) : extraction mécanique du PE (Mode Entretien) ou PA (Mode Analyse) depuis le TRE à partir du marqueur `@debut_tpe@`. Aucune génération LLM — le plan est directement extrait du template de l'expert. Les questions du tribunal sont intégrées en section conclusion. L'expert adapte le plan à son contexte.
+2. **Validation du TRE et production du PREA** (Step 2) : vérification syntaxique du TRE (`tre.docx`) — placeholders en snake_case, annotations bien formées, cohérence avec `placeholders.csv`. Aucune génération LLM : le TRE validé est copié en `prea.docx` (Projet de Rapport d'Expertise Annoté).
 
 3. **Extraction OCR des pièces de diligence** (Step 3) : conversion des documents reçus en réponse aux diligences en format Markdown. L'expert vérifie les extractions.
 
-4. **Production du pré-rapport** (Step 4) : reconstitution du rapport complet à partir de l'en-tête du TRE (avant `@debut_tpe@`) et du PEA/PAA annoté. Reformulation LLM des annotations `@dires` et `@analyse` (texte abrégé → texte rédigé professionnel). Préservation des `@verbatim` entre guillemets sans modification. Résolution des `@reference` et `@cite`. Substitution des placeholders `<<...>>` depuis `placeholders.csv`. Production du pré-rapport (`pre.docx`). L'expert valide le rapport.
+4. **Production du pré-rapport** (Step 4) : à partir du PREA complété (Step E/A), reformulation LLM des annotations `@dires` et `@analyse` (texte abrégé → texte rédigé professionnel). Préservation des `@verbatim` entre guillemets sans modification. Résolution des `@reference`, `@cite` et `@resume`. Substitution des placeholders `<<...>>` depuis `placeholders.csv`. Production du pré-rapport (`pre.docx`). L'expert valide le rapport.
 
 5. **Analyse contradictoire** (Step 4 — DAC) : génération d'un Document d'Analyse Contradictoire (`dac.docx`) identifiant les points de contestation possibles et proposant des pistes de renforcement. L'expert décide des modifications à retenir.
 
 6. **Révision linguistique** (Step 5) : correction automatique du rapport final par le LLM (orthographe, grammaire, syntaxe) avec préservation intacte des textes entre guillemets (verbatim). Les corrections sont présentées à l'expert pour validation.
 
-7. **Archivage sécurisé** (Step 5) : création d'une archive ZIP immuable contenant tous les fichiers du dossier, avec génération d'un fichier timbre (`<nom-dossier>-timbre.txt`) contenant les métadonnées d'expertise et le hash SHA-256 du ZIP. L'expert peut compléter par un horodatage juridiquement certifié.
+7. **Archivage sécurisé** (Step 5 standard, Step 2 simple) : création d'une archive ZIP immuable contenant tous les fichiers du dossier, avec génération d'un fichier timbre (`<nom-dossier>-timbre.txt`) contenant les métadonnées d'expertise et le hash SHA-256 du ZIP.
 
-8. **Assistant conversationnel** (ChatBot) : réponses aux questions de l'expert sur le domaine d'expertise et l'utilisation du système.
+8. **Révision linguistique PRE → PREF** (workflow simple, Step 1) : correction automatique du PRE par le LLM avec préservation des verbatim. L'expert peut relancer l'opération avant validation.
 
-### Documents annotés par l'expert (PEA / PAA)
+9. **Assistant conversationnel** (ChatBot) : réponses aux questions de l'expert sur le domaine d'expertise et l'utilisation du système.
 
-Après la génération du plan d'entretien (PE) ou du plan d'analyse (PA) au Step 2, l'expert annote le document en style télégraphique pour produire :
+### Step E/A — Remplissage du PREA (hors application, après le Step 3)
 
-- **PEA** (`pea.docx`) : Plan d'Entretien Annoté — en Mode Entretien
-- **PAA** (`paa.docx`) : Plan d'Analyse Annoté — en Mode Analyse
+Après la validation du TRE au Step 2, l'expert dispose d'un **PREA** (`prea.docx`) — copie du TRE validée syntaxiquement. Au **Step 3**, les pièces complémentaires de diligence sont consolidées. Puis, au **Step E/A** (hors application), l'expert mène ses entretiens ou analyses et remplit les annotations en style télégraphique, soit directement dans Word, soit via l'outil d'édition PREA (formulaire).
 
 L'expert utilise des balises d'annotation standardisées :
 
@@ -118,7 +126,7 @@ L'expert utilise des balises d'annotation standardisées :
 | `@question n @` | Référence à la question réquisition N° n |
 | `@reference section xxx @` | Substitution des sections dires/analyses relatives à la section xxx |
 
-Ces documents annotés constituent l'entrée principale du Step 4 pour la génération du pré-rapport. Le système interprète les balises pour structurer le rapport final.
+Le PREA complété constitue l'entrée principale du Step 4 pour la génération du pré-rapport. Le système interprète les balises pour structurer le rapport final.
 
 ### Garanties méthodologiques
 
@@ -144,8 +152,7 @@ Le système utilise une base de connaissances vectorielle (RAG — Retrieval-Aug
 
 - Des documents de référence publics (guides méthodologiques, textes réglementaires, référentiels de bonnes pratiques)
 - Des URLs de ressources institutionnelles et académiques
-- Le TPE ou TPA (trame d'entretien ou d'analyse) de l'expert
-- Le template de rapport (`tre.docx`) avec ses placeholders `<<...>>`
+- Le TRE (`tre.docx`) avec ses placeholders `<<...>>` et annotations `@type contenu@`
 
 La base RAG enrichit les réponses de l'IA avec des informations factuelles et à jour, réduisant les risques d'hallucination.
 

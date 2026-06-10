@@ -11,6 +11,8 @@ import type { StepFileItem } from "./api";
 // Types
 // ---------------------------------------------------------------------------
 
+export type WorkflowType = "standard" | "simple";
+
 export interface StepConfig {
   name: string;
   bannerText: string | ((dossierName: string) => string);
@@ -48,18 +50,18 @@ export const STEP_CONFIG: Record<number, StepConfig> = {
     },
   },
   2: {
-    name: "Validation et préparation du TRE",
+    name: "Validation TRE → PREA",
     bannerText:
-      "Validation du TRE (Template de Rapport d'Expertise) : vérification syntaxique des annotations et des placeholders. Le TRE complet est figé pour ce dossier. L'expert l'annotera directement lors de l'entretien/analyse (étape E/A).",
+      "Validation du TRE (Template de Rapport d'Expertise) : vérification syntaxique des annotations et des placeholders. Production du PREA — copie du TRE validée pour annotation lors du Step E/A.",
     buttonLabel: "Valider le TRE",
     inputFileTypes: ["tre", "markdown", "template_tpe", "template_tpa", "complementary_ocr"],
-    outputFileTypes: ["plan_entretien", "plan_entretien_docx", "plan_analyse", "plan_analyse_docx", "courrier_diligence"],
+    outputFileTypes: ["pea", "plan_entretien_docx"],
     description: {
-      objectif: "Valider la syntaxe du TRE, vérifier que les placeholders sont définis dans placeholders.csv, et figer la version du TRE pour ce dossier.",
+      objectif: "Valider la syntaxe du TRE et produire le PREA (Projet de Rapport d'Expertise Annoté).",
       entrees: ["tre.docx (uploadé ici ou depuis la Configuration)", "placeholders.csv (métadonnées et questions du Step 1)"],
-      operation: "1. Résolution du TRE (uploadé ou depuis config) — 2. Validation syntaxique des annotations (@dires, @analyse, @remplir, etc.) — 3. Vérification des <<placeholders>> contre placeholders.csv — 4. Copie du TRE complet en sortie (document de travail pour l'expert).",
-      sorties: ["tre.docx (TRE complet figé — à annoter par l'expert lors de l'étape E/A)"],
-      roleExpert: "Télécharger le TRE validé, l'annoter lors des entretiens/analyses (balises @dires, @analyse, @verbatim), puis l'importer au Step 4 comme PEA.",
+      operation: "Validation syntaxique du TRE (annotations, placeholders) puis copie en prea.docx.",
+      sorties: ["prea.docx (PREA — document de travail pour le Step E/A)"],
+      roleExpert: "Télécharger le PREA, l'enrichir lors des entretiens/analyses (Step E/A), puis l'importer au Step 4.",
     },
   },
   3: {
@@ -80,13 +82,13 @@ export const STEP_CONFIG: Record<number, StepConfig> = {
   4: {
     name: "Production pré-rapport",
     bannerText:
-      "Import du PEA (TRE annoté par l'expert). Génération du PRE par substitution directe dans le document : reformulation LLM des @dires/@analyse, résolution des @resume/@question/@cite, substitution des <<placeholders>>. Le document conserve sa structure et ses styles. Le DAC (analyse contradictoire) peut être généré séparément.",
+      "Import du PREA complété par l'expert. Génération du PRE par substitution directe dans le document : reformulation LLM des @dires/@analyse, résolution des @resume/@question/@cite, substitution des <<placeholders>>. Le document conserve sa structure et ses styles. Le DAC (analyse contradictoire) peut être généré séparément.",
     buttonLabel: "Générer le PRE",
     inputFileTypes: ["pea", "paa", "template_rapport", "place_holders", "diligence_ocr"],
     outputFileTypes: ["re_projet", "re_projet_auxiliaire"],
     description: {
-      objectif: "Produire le Pré-Rapport d'Expertise (PRE) par substitution in-place dans le TRE annoté. Optionnellement, générer le DAC.",
-      entrees: ["pea.docx (TRE annoté par l'expert avec balises @dires, @analyse, @verbatim, @question, @reference, @cite, @remplir)", "placeholders.csv (valeurs extraites au Step 1)"],
+      objectif: "Produire le Pré-Rapport d'Expertise (PRE) à partir du PREA complété au Step E/A.",
+      entrees: ["prea.docx (PREA annoté par l'expert — balises @dires, @analyse, @verbatim, etc.)", "placeholders.csv (valeurs extraites au Step 1)"],
       operation: "1. Validation syntaxique des annotations — 2. Reformulation LLM des @dires et @analyse ⏳ — 3. Résolution des @resume ⏳ — 4. Résolution des @question, @reference, @cite — 5. Substitution in-place dans le .docx (annotations → texte, <<placeholders>> → valeurs). Le document conserve sa structure, styles et table des matières. Optionnel : génération du DAC.",
       sorties: ["pre.docx (Pré-Rapport d'Expertise)", "dac.docx (Document d'Analyse Contradictoire — optionnel)"],
       roleExpert: "Relire le PRE, affiner les conclusions. Lancer le DAC si souhaité. Ajuster le rapport pour produire le REF à importer au Step 5.",
@@ -109,15 +111,67 @@ export const STEP_CONFIG: Record<number, StepConfig> = {
   },
 };
 
+/** Workflow simple — 2 étapes : PRE→PREF puis archivage */
+export const SIMPLE_STEP_CONFIG: Record<number, StepConfig> = {
+  1: {
+    name: "Mise en forme linguistique",
+    bannerText:
+      "Import du Pré-Rapport d'Expertise (PRE.docx). Révision linguistique par IA → PREF (Projet de Rapport d'Expertise Final). Génération optionnelle du DAC. Vous pouvez relancer cette étape après modifications.",
+    buttonLabel: "Mettre en forme linguistique",
+    inputFileTypes: ["re_projet"],
+    outputFileTypes: ["re_projet", "re_projet_auxiliaire"],
+    description: {
+      objectif: "Appliquer une révision linguistique au PRE pour produire le PREF, avec préservation des verbatim.",
+      entrees: ["pre.docx (Pré-Rapport d'Expertise rédigé par l'expert)"],
+      operation: "Révision linguistique LLM (orthographe, grammaire, syntaxe) avec préservation des textes entre guillemets. Option : génération du DAC.",
+      sorties: ["pref.docx (Projet de Rapport d'Expertise Final)", "dac.docx (optionnel)"],
+      roleExpert: "Importer le PRE, vérifier le PREF, relancer si nécessaire après corrections manuelles, puis valider avant l'archivage.",
+    },
+  },
+  2: {
+    name: "Archivage",
+    bannerText:
+      "Archivage du dossier : création d'une archive ZIP immuable et d'un timbre d'horodatage (SHA-256). Le PREF validé au Step 1 est inclus dans l'archive.",
+    buttonLabel: "Archiver le dossier",
+    inputFileTypes: ["rapport_final"],
+    outputFileTypes: ["archive_zip", "timbre"],
+    description: {
+      objectif: "Archiver l'ensemble du dossier avec horodatage technique.",
+      entrees: ["pref.docx (depuis Step 1, ou version ajustée uploadée ici)"],
+      operation: "Création d'une archive ZIP + fichier timbre (date + hash SHA-256). Stockage du timbre (S3 lorsque configuré).",
+      sorties: ["<dossier>.zip (archive immuable)", "<dossier>-timbre.txt (horodatage SHA-256)"],
+      roleExpert: "Vérifier le PREF final, lancer l'archivage, valider l'étape.",
+    },
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Helper functions
 // ---------------------------------------------------------------------------
 
+export function getMaxStepNumber(workflowType: WorkflowType = "standard"): number {
+  return workflowType === "simple" ? 2 : 5;
+}
+
+export function getStepConfig(
+  stepNumber: number,
+  workflowType: WorkflowType = "standard",
+): StepConfig | undefined {
+  if (workflowType === "simple") {
+    return SIMPLE_STEP_CONFIG[stepNumber];
+  }
+  return STEP_CONFIG[stepNumber];
+}
+
 /**
  * Filters files whose `file_type` is classified as an input type for the given step.
  */
-export function getInputFiles(stepNumber: number, files: StepFileItem[]): StepFileItem[] {
-  const config = STEP_CONFIG[stepNumber];
+export function getInputFiles(
+  stepNumber: number,
+  files: StepFileItem[],
+  workflowType: WorkflowType = "standard",
+): StepFileItem[] {
+  const config = getStepConfig(stepNumber, workflowType);
   if (!config) return [];
   return files.filter((file) => config.inputFileTypes.includes(file.file_type));
 }
@@ -126,8 +180,12 @@ export function getInputFiles(stepNumber: number, files: StepFileItem[]): StepFi
  * Filters files whose `file_type` is classified as an output type for the given step.
  * Files with unknown file_type (not in inputFileTypes) are included as fallback.
  */
-export function getOutputFiles(stepNumber: number, files: StepFileItem[]): StepFileItem[] {
-  const config = STEP_CONFIG[stepNumber];
+export function getOutputFiles(
+  stepNumber: number,
+  files: StepFileItem[],
+  workflowType: WorkflowType = "standard",
+): StepFileItem[] {
+  const config = getStepConfig(stepNumber, workflowType);
   if (!config) return [];
   return files.filter(
     (file) =>

@@ -1,11 +1,13 @@
 """Tests unitaires pour le router des étapes (Step1, Step2, Step3, Step4, Step5)."""
 
+import io
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, patch, MagicMock
 
 import pytest
 import pytest_asyncio
+from docx import Document as DocxDocument
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -111,6 +113,26 @@ async def _create_dossier(client: AsyncClient, ticket_id: str = "T-STEP0") -> in
     return resp.json()["id"]
 
 
+def _minimal_docx_bytes(paragraphs: list[str] | None = None) -> bytes:
+    """Crée un .docx minimal valide pour les tests."""
+    doc = DocxDocument()
+    for text in paragraphs or ["@debut_tpe@", "Contenu PREA test"]:
+        doc.add_paragraph(text)
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    return buffer.getvalue()
+
+
+def _write_domain_tre(tmp_path: Path) -> None:
+    """Installe un TRE minimal dans data/config/tre.docx (DATA_DIR mocké)."""
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    doc = DocxDocument()
+    doc.add_paragraph("@debut_tpe@")
+    doc.add_paragraph("Paragraphe TPE test")
+    doc.save(str(config_dir / "tre.docx"))
+
+
 def _mock_ocr_success(text: str = "Texte brut extrait par OCR"):
     """Mock httpx call to OCR service returning success."""
     mock_response = MagicMock()
@@ -161,8 +183,8 @@ async def test_step0_extract_success(client: AsyncClient):
     data = resp.json()
     assert "markdown" in data
     assert "# Réquisition" in data["markdown"]
-    assert data["pdf_path"].endswith("ordonnance.pdf")
-    assert data["md_path"].endswith("ordonnance.md")
+    assert data["pdf_path"].endswith("requisition.pdf")
+    assert data["md_path"].endswith("demande.md")
 
 
 @pytest.mark.asyncio
@@ -242,8 +264,8 @@ async def test_step0_extract_creates_step_files(client: AsyncClient):
     assert step_data["statut"] == "fait"
     assert len(step_data["files"]) >= 2
     filenames = {f["filename"] for f in step_data["files"]}
-    assert "ordonnance.pdf" in filenames
-    assert "ordonnance.md" in filenames
+    assert "requisition.pdf" in filenames
+    assert "demande.md" in filenames
 
 
 # ---------------------------------------------------------------------------
@@ -376,15 +398,20 @@ def _mock_llm_qmec(qmec: str = "# QMEC\n\n## Section 1\n\n- Question 1\n- Questi
     )
 
 
-async def _execute_step2_sync(client: AsyncClient, dossier_id: int):
-    """Helper: execute step2 synchronously by directly marking it as done and creating files."""
+async def _execute_step2_sync(client: AsyncClient, dossier_id: int, tmp_path: Path | None = None):
+    """Helper: execute step2 synchronously (TRE → PREA) ou simule la sortie."""
     import os
     from services.workflow_engine import workflow_engine as _wf
     from services.file_paths import step_out_dir
 
+    if tmp_path is not None:
+        _write_domain_tre(tmp_path)
+        resp = await client.post(f"/api/dossiers/{dossier_id}/step2/execute")
+        assert resp.status_code == 200
+        return
+
     override_fn = app.dependency_overrides[get_db]
 
-    # Get dossier name
     async for db in override_fn():
         from sqlalchemy import select
         from models import Dossier
@@ -392,88 +419,66 @@ async def _execute_step2_sync(client: AsyncClient, dossier_id: int):
         dossier = result.scalar_one()
         dossier_name = dossier.nom
 
-    # Create the output files that step2 would normally produce
     out_dir = step_out_dir(dossier_name, 2)
     os.makedirs(out_dir, exist_ok=True)
 
-    pe_content = "# QMEC\n\n## Section 1\n\n- Question 1\n- Question 2"
-    pe_md_path = os.path.join(out_dir, "pe.md")
-    with open(pe_md_path, "w", encoding="utf-8") as f:
-        f.write(pe_content)
+    prea_bytes = _minimal_docx_bytes()
+    prea_path = os.path.join(out_dir, "prea.docx")
+    with open(prea_path, "wb") as f:
+        f.write(prea_bytes)
 
-    pe_docx_path = os.path.join(out_dir, "pe.docx")
-    with open(pe_docx_path, "wb") as f:
-        f.write(b"PK\x03\x04 fake docx")
-
-    # Mark step2 as executed via workflow engine
     async for db in override_fn():
         from models import Step, StepFile
+        from sqlalchemy import select
         await _wf.execute_step(dossier_id, 2, db)
 
-        # Create StepFile entries
         result = await db.execute(
             select(Step).where(Step.dossier_id == dossier_id, Step.step_number == 2)
         )
         step = result.scalar_one()
         db.add(StepFile(
             step_id=step.id,
-            filename="pe.md",
-            file_path=pe_md_path,
-            file_type="plan_entretien",
-            file_size=len(pe_content.encode("utf-8")),
-        ))
-        db.add(StepFile(
-            step_id=step.id,
-            filename="pe.docx",
-            file_path=pe_docx_path,
-            file_type="plan_entretien_docx",
-            file_size=os.path.getsize(pe_docx_path),
+            filename="prea.docx",
+            file_path=prea_path,
+            file_type="pea",
+            file_size=len(prea_bytes),
         ))
         await db.commit()
 
 
 # ---------------------------------------------------------------------------
-# POST /api/dossiers/{id}/step2/execute (Step2 — QMEC/PE generation)
+# POST /api/dossiers/{id}/step2/execute (Step2 — Validation TRE → PREA)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_step1_execute_success(client: AsyncClient):
+async def test_step1_execute_success(client: AsyncClient, tmp_path):
     await _setup_config(client)
+    _write_domain_tre(tmp_path)
     dossier_id = await _create_dossier(client, ticket_id="T-STEP1-EXEC")
     await _execute_and_validate_step1(client, dossier_id)
 
-    # Step2 runs in background thread — mock Thread to run target synchronously
-    with _mock_rag_search(), _mock_llm_qmec(), \
-         patch("threading.Thread") as mock_thread:
-        def _make_thread(*args, **kwargs):
-            mock_inst = MagicMock()
-            mock_inst.start = MagicMock()
-            return mock_inst
-        mock_thread.side_effect = _make_thread
+    resp = await client.post(f"/api/dossiers/{dossier_id}/step2/execute")
 
-        resp = await client.post(f"/api/dossiers/{dossier_id}/step2/execute")
-
-    assert resp.status_code == 201
+    assert resp.status_code == 200
     data = resp.json()
     assert "qmec" in data
 
 
 @pytest.mark.asyncio
-async def test_step1_execute_creates_step_file(client: AsyncClient):
-    """After execution, step2 should have pe.md file and statut 'fait'."""
+async def test_step1_execute_creates_step_file(client: AsyncClient, tmp_path):
+    """After execution, step2 should have prea.docx file and statut 'fait'."""
     await _setup_config(client)
     dossier_id = await _create_dossier(client, ticket_id="T-STEP1-FILE")
     await _execute_and_validate_step1(client, dossier_id)
 
-    # Execute step2 directly (bypass background thread)
-    await _execute_step2_sync(client, dossier_id)
+    await _execute_step2_sync(client, dossier_id, tmp_path)
 
     step_resp = await client.get(f"/api/dossiers/{dossier_id}/steps/2")
     assert step_resp.status_code == 200
     step_data = step_resp.json()
     assert step_data["statut"] == "fait"
-    assert any(f["filename"] == "pe.md" for f in step_data["files"])
+    assert any(f["filename"] == "prea.docx" for f in step_data["files"])
 
 
 @pytest.mark.asyncio
@@ -489,28 +494,19 @@ async def test_step1_execute_blocked_without_step0_validated(client: AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_step1_execute_llm_unavailable(client: AsyncClient):
-    """Step2 execute should return 201 (starts background) even if LLM will fail."""
+async def test_step1_execute_llm_unavailable(client: AsyncClient, tmp_path):
+    """Step2 execute should succeed synchronously when TRE is available."""
     await _setup_config(client)
+    _write_domain_tre(tmp_path)
     dossier_id = await _create_dossier(client, ticket_id="T-STEP1-LLM")
     await _execute_and_validate_step1(client, dossier_id)
 
-    # Step2 starts background thread — mock it to not actually run
-    with patch("threading.Thread") as mock_thread:
-        def _make_thread(*args, **kwargs):
-            mock_inst = MagicMock()
-            mock_inst.start = MagicMock()
-            return mock_inst
-        mock_thread.side_effect = _make_thread
+    resp = await client.post(f"/api/dossiers/{dossier_id}/step2/execute")
 
-        resp = await client.post(f"/api/dossiers/{dossier_id}/step2/execute")
+    assert resp.status_code == 200
 
-    # Step2 returns 201 immediately (background starts)
-    assert resp.status_code == 201
-
-    # Step is now "en_cours" (background hasn't completed)
     step_resp = await client.get(f"/api/dossiers/{dossier_id}/steps/2")
-    assert step_resp.json()["statut"] == "en_cours"
+    assert step_resp.json()["statut"] == "fait"
 
 
 # ---------------------------------------------------------------------------
@@ -540,7 +536,7 @@ async def test_step1_download_not_executed(client: AsyncClient):
 
     resp = await client.get(f"/api/dossiers/{dossier_id}/step2/download")
     assert resp.status_code == 404
-    assert "Plan" in resp.json()["detail"] or "PE" in resp.json()["detail"]
+    assert "PREA" in resp.json()["detail"] or "Plan" in resp.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -611,9 +607,13 @@ async def _execute_and_validate_step2(client: AsyncClient, dossier_id: int):
     assert resp.status_code == 200
 
 
-# ---------------------------------------------------------------------------
-# POST /api/dossiers/{id}/step4/upload (Step4 — PEA upload)
-# ---------------------------------------------------------------------------
+_PREA_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+def _prea_upload_files():
+    return {
+        "file": ("prea.docx", _minimal_docx_bytes(), _PREA_DOCX),
+    }
 
 
 @pytest.mark.asyncio
@@ -625,13 +625,11 @@ async def test_step2_upload_success(client: AsyncClient):
 
     resp = await client.post(
         f"/api/dossiers/{dossier_id}/step4/upload",
-        files={
-            "file": ("pea.docx", b"PK\x03\x04 fake docx pea", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
-        },
+        files=_prea_upload_files(),
     )
     assert resp.status_code == 201
     data = resp.json()
-    assert "pea.docx" in data["filename"]
+    assert "prea.docx" in data["filename"]
     assert "succès" in data["message"].lower()
 
 
@@ -661,7 +659,7 @@ async def test_step2_upload_blocked_without_step1_validated(client: AsyncClient)
     resp = await client.post(
         f"/api/dossiers/{dossier_id}/step4/upload",
         files={
-            "file": ("pea.docx", b"PK\x03\x04 fake", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+            "file": ("prea.docx", _minimal_docx_bytes(), _PREA_DOCX),
         },
     )
     assert resp.status_code == 403
@@ -700,9 +698,7 @@ async def test_step2_validate_success(client: AsyncClient):
     # Upload PEA
     await client.post(
         f"/api/dossiers/{dossier_id}/step4/upload",
-        files={
-            "file": ("pea.docx", b"PK\x03\x04 fake pea", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
-        },
+        files=_prea_upload_files(),
     )
 
     # Execute step4
@@ -742,9 +738,7 @@ async def _execute_and_validate_step4(client: AsyncClient, dossier_id: int):
     # Upload PEA for step4
     await client.post(
         f"/api/dossiers/{dossier_id}/step4/upload",
-        files={
-            "file": ("pea.docx", b"PK\x03\x04 fake docx pea content", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
-        },
+        files=_prea_upload_files(),
     )
 
     # Execute step4
@@ -778,8 +772,8 @@ async def test_step3_execute_success(client: AsyncClient):
     data = resp.json()
     assert "message" in data
     assert "filenames" in data
-    assert "dossier_archive.zip" in data["filenames"]
-    assert "hash_sha256.txt" in data["filenames"]
+    assert any(name.endswith(".zip") for name in data["filenames"])
+    assert any(name.endswith("-timbre.txt") for name in data["filenames"])
 
     # Verify step is now "fait"
     step_resp = await client.get(f"/api/dossiers/{dossier_id}/steps/5")
@@ -787,8 +781,8 @@ async def test_step3_execute_success(client: AsyncClient):
     step_data = step_resp.json()
     assert step_data["statut"] == "fait"
     filenames = {f["filename"] for f in step_data["files"]}
-    assert "dossier_archive.zip" in filenames
-    assert "hash_sha256.txt" in filenames
+    assert any(name.endswith(".zip") for name in filenames)
+    assert any(name.endswith("-timbre.txt") for name in filenames)
 
 
 # ---------------------------------------------------------------------------

@@ -13,12 +13,14 @@ Teste les endpoints POST /api/revision/upload et POST /api/revision/text :
 Valide : Exigences 2.1, 2.2, 2.4, 2b.3, 2b.4, 7.1, 7.2
 """
 
+import io
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
+from docx import Document as DocxDocument
 from httpx import ASGITransport, AsyncClient
 
 # Backend sur le path
@@ -29,7 +31,19 @@ sys.path.insert(
 
 from main import app
 from services.llm_service import LLMConnectionError, LLMTimeoutError
-from services.revision_models import DocumentParseError
+from services.revision_service import RevisionResult
+
+
+def _docx_with_text(text: str) -> bytes:
+    doc = DocxDocument()
+    doc.add_paragraph(text)
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    return buffer.getvalue()
+
+
+def _revision_result(text: str) -> RevisionResult:
+    return RevisionResult(corrected_text=text, corrections=[], verbatim_count=0)
 
 
 # ---------------------------------------------------------------------------
@@ -109,31 +123,33 @@ class TestFileSizeValidation:
 
 
 class TestDocxUploadSuccess:
-    """Vérifie qu'un upload .docx valide retourne un FileResponse."""
+    """Vérifie qu'un upload .docx valide retourne une réponse JSON."""
 
     @pytest.mark.asyncio
     @patch("routers.revision._get_revision_service")
     async def test_docx_upload_returns_file_response(
         self, mock_get_service, client: AsyncClient
     ):
-        """Un .docx valide retourne un fichier avec le bon content-type."""
+        """Un .docx valide retourne le texte corrigé en JSON."""
         mock_service = AsyncMock()
-        mock_service.revise_document.return_value = b"PK\x03\x04fake docx bytes"
+        mock_service.revise = AsyncMock(return_value=_revision_result("Texte corrigé."))
         mock_get_service.return_value = mock_service
 
         resp = await client.post(
             "/api/revision/upload",
-            files={"file": ("rapport.docx", b"fake docx content", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+            files={
+                "file": (
+                    "rapport.docx",
+                    _docx_with_text("Texte original avec fotes."),
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ),
+            },
         )
         assert resp.status_code == 200
-        assert "wordprocessingml" in resp.headers.get("content-type", "")
-        # Vérifier le nom du fichier dans content-disposition
-        content_disp = resp.headers.get("content-disposition", "")
-        assert "fichier-revu.docx" in content_disp
-
-        mock_service.revise_document.assert_called_once()
-        call_args = mock_service.revise_document.call_args
-        assert call_args[0][1] == ".docx"
+        data = resp.json()
+        assert data["corrected_text"] == "Texte corrigé."
+        assert data["filename"] == "fichier-revu.txt"
+        mock_service.revise.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +167,7 @@ class TestTxtUploadSuccess:
     ):
         """Un .txt valide retourne du JSON avec corrected_text et filename."""
         mock_service = AsyncMock()
-        mock_service.revise_document.return_value = "Texte corrigé par le LLM."
+        mock_service.revise = AsyncMock(return_value=_revision_result("Texte corrigé par le LLM."))
         mock_get_service.return_value = mock_service
 
         resp = await client.post(
@@ -170,7 +186,7 @@ class TestTxtUploadSuccess:
     ):
         """Un .md valide retourne du JSON avec corrected_text et filename."""
         mock_service = AsyncMock()
-        mock_service.revise_document.return_value = "# Titre corrigé"
+        mock_service.revise = AsyncMock(return_value=_revision_result("# Titre corrigé"))
         mock_get_service.return_value = mock_service
 
         resp = await client.post(
@@ -198,7 +214,7 @@ class TestTextSubmissionSuccess:
     ):
         """Un texte valide retourne du JSON avec corrected_text."""
         mock_service = AsyncMock()
-        mock_service.revise_text.return_value = "Texte corrigé."
+        mock_service.revise = AsyncMock(return_value=_revision_result("Texte corrigé."))
         mock_get_service.return_value = mock_service
 
         resp = await client.post(
@@ -274,7 +290,7 @@ class TestLLMUnavailable:
     ):
         """Un timeout LLM lors de l'upload retourne HTTP 503."""
         mock_service = AsyncMock()
-        mock_service.revise_document.side_effect = LLMTimeoutError("LLM timeout")
+        mock_service.revise = AsyncMock(side_effect=LLMTimeoutError("LLM timeout"))
         mock_get_service.return_value = mock_service
 
         resp = await client.post(
@@ -291,7 +307,7 @@ class TestLLMUnavailable:
     ):
         """Une erreur de connexion LLM lors de l'upload retourne HTTP 503."""
         mock_service = AsyncMock()
-        mock_service.revise_document.side_effect = LLMConnectionError("Connection refused")
+        mock_service.revise = AsyncMock(side_effect=LLMConnectionError("Connection refused"))
         mock_get_service.return_value = mock_service
 
         resp = await client.post(
@@ -308,7 +324,7 @@ class TestLLMUnavailable:
     ):
         """Un timeout LLM lors de la soumission de texte retourne HTTP 503."""
         mock_service = AsyncMock()
-        mock_service.revise_text.side_effect = LLMTimeoutError("LLM timeout")
+        mock_service.revise = AsyncMock(side_effect=LLMTimeoutError("LLM timeout"))
         mock_get_service.return_value = mock_service
 
         resp = await client.post(
@@ -325,7 +341,7 @@ class TestLLMUnavailable:
     ):
         """Une erreur de connexion LLM sur texte retourne HTTP 503."""
         mock_service = AsyncMock()
-        mock_service.revise_text.side_effect = LLMConnectionError("Connection refused")
+        mock_service.revise = AsyncMock(side_effect=LLMConnectionError("Connection refused"))
         mock_get_service.return_value = mock_service
 
         resp = await client.post(

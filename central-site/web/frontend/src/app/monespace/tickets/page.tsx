@@ -34,14 +34,20 @@ function formatDate(iso: string): string {
   });
 }
 
-function computeStatutLabel(t: TicketItem): { label: string; className: string } {
+function computeStatutLabel(t: TicketItem): { label: string; className: string; isUsable: boolean } {
+  if (t.statut === "en_attente") {
+    return { label: "En attente paiement", className: styles.statusPending, isUsable: false };
+  }
   if (t.statut === "utilisé") {
-    return { label: "Utilisé", className: styles.statusUtilise };
+    return { label: "Utilisé", className: styles.statusUtilise, isUsable: false };
   }
   if (t.expires_at && new Date(t.expires_at) < new Date()) {
-    return { label: "Périmé", className: styles.statusPerime };
+    return { label: "Périmé", className: styles.statusPerime, isUsable: false };
   }
-  return { label: "Valide", className: styles.statusActif };
+  if (t.statut === "actif") {
+    return { label: "Valide", className: styles.statusActif, isUsable: true };
+  }
+  return { label: t.statut, className: styles.statusPerime, isUsable: false };
 }
 
 export default function TicketsPage() {
@@ -64,8 +70,12 @@ export default function TicketsPage() {
       ]);
       setTickets(ticketData);
       setPriceInfo(price);
-    } catch {
-      setLoadError("Impossible de charger vos tickets.");
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setLoadError(err.message);
+      } else {
+        setLoadError("Impossible de charger vos tickets.");
+      }
     } finally {
       setLoading(false);
     }
@@ -183,8 +193,7 @@ export default function TicketsPage() {
           </thead>
           <tbody>
             {tickets.map((t) => {
-              const { label, className } = computeStatutLabel(t);
-              const isUsable = label === "Valide";
+              const { label, className, isUsable } = computeStatutLabel(t);
               return (
                 <tr key={t.id} className={!isUsable ? styles.rowInactive : ""}>
                   <td>

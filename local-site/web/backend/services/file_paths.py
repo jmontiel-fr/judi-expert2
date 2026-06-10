@@ -72,13 +72,13 @@ def step_out_dir(dossier_name: str, step_number: int) -> str:
     return os.path.join(step_dir(dossier_name, step_number), "out")
 
 
-def create_dossier_tree(dossier_name: str) -> str:
-    """Crée l'arborescence complète d'un dossier (step1-5/in + out).
+def create_dossier_tree(dossier_name: str, step_count: int = STEP_COUNT) -> str:
+    """Crée l'arborescence d'un dossier (step1..N/in + out).
 
     Retourne le chemin racine du dossier créé.
     """
     root = dossier_root(dossier_name)
-    for n in range(1, STEP_COUNT + 1):
+    for n in range(1, step_count + 1):
         os.makedirs(step_in_dir(dossier_name, n), exist_ok=True)
         os.makedirs(step_out_dir(dossier_name, n), exist_ok=True)
     return root

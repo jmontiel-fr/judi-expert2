@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { StepFileItem } from "@/lib/api";
-import { step1Api, step3Api, step4Api, step5Api, getErrorMessage } from "@/lib/api";
+import type { StepFileItem, WorkflowType } from "@/lib/api";
+import { step1Api, step2Api, step3Api, step4Api, step5Api, getErrorMessage } from "@/lib/api";
 import { getInputFiles } from "@/lib/stepConfig";
 import FileList from "@/components/FileList";
 import styles from "./InputSection.module.css";
@@ -17,6 +17,7 @@ interface InputSectionProps {
   files: StepFileItem[];
   isLocked: boolean;
   dossierStatut: string;
+  workflowType?: WorkflowType;
   mode?: "entretien" | "analyse";
   onFileUploaded: () => Promise<void>;
 }
@@ -43,10 +44,12 @@ export default function InputSection({
   files,
   isLocked,
   dossierStatut,
+  workflowType = "standard",
   mode,
   onFileUploaded,
 }: InputSectionProps) {
-  const inputFiles = getInputFiles(stepNumber, files);
+  const inputFiles = getInputFiles(stepNumber, files, workflowType);
+  const isSimple = workflowType === "simple";
   const isDossierClosed = dossierStatut === "fermé";
   const canUpload = !isLocked && !isDossierClosed;
 
@@ -89,8 +92,14 @@ export default function InputSection({
       )}
 
       {/* Upload controls for steps that accept uploads */}
-      {canUpload && stepNumber === 1 && (
+      {canUpload && stepNumber === 1 && isSimple && (
+        <Step1SimpleUpload dossierId={dossierId} onFileUploaded={onFileUploaded} />
+      )}
+      {canUpload && stepNumber === 1 && !isSimple && (
         <Step1Upload dossierId={dossierId} onFileUploaded={onFileUploaded} />
+      )}
+      {canUpload && stepNumber === 2 && isSimple && (
+        <Step2SimpleArchiveUpload dossierId={dossierId} onFileUploaded={onFileUploaded} />
       )}
       {canUpload && stepNumber === 3 && (
         <Step3Upload dossierId={dossierId} onFileUploaded={onFileUploaded} />
@@ -307,6 +316,127 @@ function Step1Upload({
   );
 }
 
+function Step1SimpleUpload({
+  dossierId,
+  onFileUploaded,
+}: {
+  dossierId: string;
+  onFileUploaded: () => Promise<void>;
+}) {
+  const [preFile, setPreFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const handleUpload = async () => {
+    if (!preFile) return;
+    setUploading(true);
+    setError("");
+    setSuccess("");
+    try {
+      await step1Api.upload(dossierId, preFile);
+      setSuccess("PRE importé avec succès.");
+      setPreFile(null);
+      await onFileUploaded();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erreur lors de l'import du PRE."));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className={styles.uploadArea}>
+      <h3 className={styles.uploadTitle}>Import du Pré-Rapport (PRE)</h3>
+      <p style={{ fontSize: "0.85rem", color: "#555", marginBottom: 12 }}>
+        Importez le fichier <strong>pre.docx</strong> à mettre en forme linguistique.
+      </p>
+      {error && <p role="alert" style={{ fontSize: "0.875rem", color: "#dc2626", marginBottom: 12 }}>{error}</p>}
+      {success && <p style={{ fontSize: "0.875rem", color: "#166534", marginBottom: 12 }}>{success}</p>}
+      <div className={styles.field}>
+        <label className={styles.label} htmlFor="input-pre-upload">PRE (.docx) *</label>
+        <input
+          id="input-pre-upload"
+          type="file"
+          accept=".docx"
+          className={styles.fileInput}
+          onChange={(e) => setPreFile(e.target.files?.[0] ?? null)}
+          disabled={uploading}
+        />
+      </div>
+      <button
+        type="button"
+        className={styles.btnSecondary}
+        onClick={handleUpload}
+        disabled={!preFile || uploading}
+        style={{ fontWeight: 600 }}
+      >
+        {uploading ? "Import en cours…" : "Importer le PRE"}
+      </button>
+    </div>
+  );
+}
+
+function Step2SimpleArchiveUpload({
+  dossierId,
+  onFileUploaded,
+}: {
+  dossierId: string;
+  onFileUploaded: () => Promise<void>;
+}) {
+  const [prefFile, setPrefFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const handleArchive = async () => {
+    setUploading(true);
+    setError("");
+    setSuccess("");
+    try {
+      await step2Api.archive(dossierId, prefFile ?? undefined);
+      setSuccess("Archive générée avec succès.");
+      setPrefFile(null);
+      await onFileUploaded();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erreur lors de l'archivage."));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className={styles.uploadArea}>
+      <h3 className={styles.uploadTitle}>Archivage du dossier</h3>
+      <p style={{ fontSize: "0.85rem", color: "#555", marginBottom: 12 }}>
+        Le PREF du Step 1 est utilisé par défaut. Vous pouvez optionnellement importer une version ajustée.
+      </p>
+      {error && <p role="alert" style={{ fontSize: "0.875rem", color: "#dc2626", marginBottom: 12 }}>{error}</p>}
+      {success && <p style={{ fontSize: "0.875rem", color: "#166534", marginBottom: 12 }}>{success}</p>}
+      <div className={styles.field}>
+        <label className={styles.label} htmlFor="input-pref-archive">PREF ajusté (.docx, optionnel)</label>
+        <input
+          id="input-pref-archive"
+          type="file"
+          accept=".docx"
+          className={styles.fileInput}
+          onChange={(e) => setPrefFile(e.target.files?.[0] ?? null)}
+          disabled={uploading}
+        />
+      </div>
+      <button
+        type="button"
+        className={styles.btnSecondary}
+        onClick={handleArchive}
+        disabled={uploading}
+        style={{ fontWeight: 600 }}
+      >
+        {uploading ? "Archivage en cours…" : "Archiver le dossier"}
+      </button>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Step3Upload — Diligence response files upload
 // ---------------------------------------------------------------------------
@@ -416,11 +546,11 @@ function Step4Upload({
         const data = await res.json();
         throw new Error(data.detail || "Erreur lors de l'import");
       }
-      setSuccess("PEA/PAA importé avec succès.");
+      setSuccess("PREA importé avec succès.");
       setPeaFile(null);
       await onFileUploaded();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erreur lors de l'import du PEA/PAA.");
+      setError(err instanceof Error ? err.message : "Erreur lors de l'import du PREA.");
     } finally {
       setUploading(false);
     }
@@ -428,9 +558,9 @@ function Step4Upload({
 
   return (
     <div className={styles.uploadArea}>
-      <h3 className={styles.uploadTitle}>Import du Plan Annoté (PEA ou PAA)</h3>
+      <h3 className={styles.uploadTitle}>Import du PREA (PREA complété)</h3>
       <p style={{ fontSize: "0.85rem", color: "#555", marginBottom: 12 }}>
-        Importez le plan d&apos;entretien ou d&apos;analyse annoté avec vos observations
+        Importez le PREA annoté par l&apos;expert lors du Step E/A
         (balises @dires, @analyse, @verbatim, @question, @reference).
       </p>
 
@@ -439,7 +569,7 @@ function Step4Upload({
 
       <div className={styles.field}>
         <label className={styles.label} htmlFor="input-pea-upload">
-          Plan annoté (.docx) *
+          PREA (.docx) *
         </label>
         <input
           id="input-pea-upload"
@@ -458,7 +588,7 @@ function Step4Upload({
         disabled={!peaFile || uploading}
         style={{ fontWeight: 600 }}
       >
-        {uploading ? "Import en cours…" : "Importer le PEA/PAA"}
+        {uploading ? "Import en cours…" : "Importer le PREA"}
       </button>
     </div>
   );

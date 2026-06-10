@@ -7,6 +7,7 @@ import {
   dossiersApi,
   getErrorMessage,
   type DossierListItem,
+  type WorkflowType,
 } from "@/lib/api";
 
 const SITE_CENTRAL_URL = process.env.NEXT_PUBLIC_SITE_CENTRAL_URL || "http://localhost:3001";
@@ -37,6 +38,7 @@ export default function HomePage() {
   const [showModal, setShowModal] = useState(false);
   const [nom, setNom] = useState("");
   const [ticketId, setTicketId] = useState("");
+  const [workflowType, setWorkflowType] = useState<WorkflowType>("standard");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
 
@@ -68,6 +70,7 @@ export default function HomePage() {
   function openModal() {
     setNom("");
     setTicketId("");
+    setWorkflowType("standard");
     setCreateError("");
     setShowModal(true);
   }
@@ -91,7 +94,7 @@ export default function HomePage() {
 
     setCreating(true);
     try {
-      await dossiersApi.create(nom.trim(), ticketId.trim());
+      await dossiersApi.create(nom.trim(), ticketId.trim(), workflowType);
       setShowModal(false);
       fetchDossiers();
     } catch (err: unknown) {
@@ -187,6 +190,11 @@ export default function HomePage() {
                   >
                     {d.domaine}
                   </span>
+                  {d.workflow_type === "simple" && (
+                    <span className={`${styles.badge} ${styles.badgeSimple}`}>
+                      Simple
+                    </span>
+                  )}
                   <span
                     className={`${styles.badge} ${
                       d.statut === "actif"
@@ -273,6 +281,36 @@ export default function HomePage() {
                   placeholder="Collez le token reçu par email (JE-...)"
                   required
                 />
+              </div>
+
+              <div className={styles.field}>
+                <span className={styles.label}>Type de workflow</span>
+                <div className={styles.workflowChoices} role="radiogroup" aria-label="Type de workflow">
+                  <label className={styles.workflowChoice}>
+                    <input
+                      type="radio"
+                      name="workflow-type"
+                      value="standard"
+                      checked={workflowType === "standard"}
+                      onChange={() => setWorkflowType("standard")}
+                    />
+                    <span>
+                      <strong>Standard</strong> — 5 étapes (TRE → PREA → PRE → archivage)
+                    </span>
+                  </label>
+                  <label className={styles.workflowChoice}>
+                    <input
+                      type="radio"
+                      name="workflow-type"
+                      value="simple"
+                      checked={workflowType === "simple"}
+                      onChange={() => setWorkflowType("simple")}
+                    />
+                    <span>
+                      <strong>Simple</strong> — 2 étapes (PRE → PREF → archivage)
+                    </span>
+                  </label>
+                </div>
               </div>
 
               {createError && (

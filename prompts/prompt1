@@ -112,7 +112,7 @@ Poruit le RAF et RAFAUX. à téléchargéer. et un bouton 'Valider'.
 Une fois le step3 validé, on ne peut plus rien exécuter ni revenir en arrire? La parocédure avec ses divers ficheirs intermédiaire finalisés est archivées dans un répertoi en format zip.
 
 1.5 ChatBot :
-Un chatBot sera intégrée à l'application locale, il utilisera le LLM avec le RG qui sera complété avec : contenu site, Mentions légales, CGU, user-guide.md
+Un chatBot sera intégrée à l'application locale, il utilisera le LLM avec le RG qui sera complété avec : contenu site, Mentions légales, CGU, guide-utilisateur.md
 
 1.6 : FAQ/CGU/Mentieons légale
 L'application local connetient des leins vers le site central pour FAQ,  mentions légales et CGU

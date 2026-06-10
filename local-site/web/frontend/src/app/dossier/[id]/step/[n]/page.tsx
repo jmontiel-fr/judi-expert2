@@ -15,8 +15,9 @@ import {
   isStepLocked,
   type StepDetail,
   type DossierDetail,
+  type WorkflowType,
 } from "@/lib/api";
-import { STEP_CONFIG } from "@/lib/stepConfig";
+import { getStepConfig, getMaxStepNumber } from "@/lib/stepConfig";
 import ActionBanner from "@/components/ActionBanner";
 import InputSection from "@/components/InputSection";
 import OperationSection from "@/components/OperationSection";
@@ -36,9 +37,9 @@ export default function StepViewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const fetchStep = useCallback(async () => {
+  const fetchStep = useCallback(async (options?: { preserveError?: boolean }) => {
     setLoading(true);
-    setError("");
+    if (!options?.preserveError) setError("");
     try {
       const [stepData, dossierData] = await Promise.all([
         dossiersApi.getStep(dossierId, stepNumber),
@@ -54,13 +55,29 @@ export default function StepViewPage() {
   }, [dossierId, stepNumber]);
 
   useEffect(() => {
-    if (!isNaN(stepNumber) && stepNumber >= 1 && stepNumber <= 5) {
-      fetchStep();
-    } else {
+    if (isNaN(stepNumber) || stepNumber < 1) {
       setLoading(false);
       setError("Numéro d'étape invalide.");
+      return;
     }
+    fetchStep();
   }, [fetchStep, stepNumber]);
+
+  const workflowType: WorkflowType = dossier?.workflow_type ?? "standard";
+  const maxStep = getMaxStepNumber(workflowType);
+  const isValidStep = !isNaN(stepNumber) && stepNumber >= 1 && stepNumber <= maxStep;
+  const config = getStepConfig(stepNumber, workflowType);
+  const stepName = config?.name ?? `Étape ${stepNumber}`;
+  const locked = step ? isStepLocked(step) : false;
+  const dossierStatut = dossier?.statut ?? "actif";
+  const isDossierClosed = dossierStatut === "fermé";
+  const dossierName = dossier?.nom ?? "";
+
+  useEffect(() => {
+    if (dossier && (stepNumber > maxStep || stepNumber < 1)) {
+      setError("Numéro d'étape invalide pour ce type de workflow.");
+    }
+  }, [dossier, stepNumber, maxStep]);
 
   // Poll when step is "en_cours" to detect completion and update progress
   useEffect(() => {
@@ -70,7 +87,6 @@ export default function StepViewPage() {
         const stepData = await dossiersApi.getStep(dossierId, stepNumber);
         setStep(stepData);
         if (stepData.statut !== "en_cours") {
-          // Also refresh dossier when completed
           const dossierData = await dossiersApi.get(dossierId);
           setDossier(dossierData);
         }
@@ -79,42 +95,38 @@ export default function StepViewPage() {
     return () => clearInterval(interval);
   }, [step?.statut, dossierId, stepNumber]);
 
-  const isValidStep = !isNaN(stepNumber) && stepNumber >= 1 && stepNumber <= 5;
-  const config = STEP_CONFIG[stepNumber];
-  const stepName = config?.name ?? `Étape ${stepNumber}`;
-  const locked = step ? isStepLocked(step) : false;
-  const dossierStatut = dossier?.statut ?? "actif";
-  const isDossierClosed = dossierStatut === "fermé";
-  const dossierName = dossier?.nom ?? "";
-
   /* ---------------------------------------------------------------- */
   /* Execute / Cancel handlers                                         */
   /* ---------------------------------------------------------------- */
 
   const handleExecute = useCallback(async () => {
+    const isSimple = workflowType === "simple";
     try {
       if (stepNumber === 1) {
         if (step?.statut === "fait") {
           await step1Api.validate(dossierId);
           await fetchStep();
         } else if (step?.statut === "initial") {
-          // Mettre à jour l'UI immédiatement pour afficher le sablier
           setStep((prev) => prev ? { ...prev, statut: "en_cours", executed_at: new Date().toISOString(), progress_current: null, progress_total: null, progress_message: null } : prev);
-          // Lancer l'extraction en fire-and-forget — le polling détectera la fin
           step1Api.execute(dossierId).then(() => fetchStep()).catch((err) => {
             setError(getErrorMessage(err, "Erreur lors de l'exécution."));
-            fetchStep();
+            fetchStep({ preserveError: true });
           });
         }
       } else if (stepNumber === 2) {
-        if (step?.statut === "fait") {
+        if (isSimple) {
+          if (step?.statut === "fait") {
+            await step2Api.validate(dossierId);
+            await fetchStep();
+          }
+        } else if (step?.statut === "fait") {
           await step2Api.validate(dossierId);
           await fetchStep();
         } else if (step?.statut === "initial") {
           setStep((prev) => prev ? { ...prev, statut: "en_cours", executed_at: new Date().toISOString(), progress_current: null, progress_total: null, progress_message: null } : prev);
           step2Api.execute(dossierId).then(() => fetchStep()).catch((err) => {
             setError(getErrorMessage(err, "Erreur lors de l'exécution."));
-            fetchStep();
+            fetchStep({ preserveError: true });
           });
         }
       } else if (stepNumber === 3) {
@@ -125,7 +137,7 @@ export default function StepViewPage() {
           setStep((prev) => prev ? { ...prev, statut: "en_cours", executed_at: new Date().toISOString(), progress_current: null, progress_total: null, progress_message: null } : prev);
           step3Api.execute(dossierId).then(() => fetchStep()).catch((err) => {
             setError(getErrorMessage(err, "Erreur lors de l'exécution."));
-            fetchStep();
+            fetchStep({ preserveError: true });
           });
         }
       } else if (stepNumber === 4) {
@@ -136,7 +148,7 @@ export default function StepViewPage() {
           setStep((prev) => prev ? { ...prev, statut: "en_cours", executed_at: new Date().toISOString(), progress_current: null, progress_total: null, progress_message: null } : prev);
           step4Api.execute(dossierId).then(() => fetchStep()).catch((err) => {
             setError(getErrorMessage(err, "Erreur lors de l'exécution."));
-            fetchStep();
+            fetchStep({ preserveError: true });
           });
         }
       } else if (stepNumber === 5) {
@@ -147,9 +159,20 @@ export default function StepViewPage() {
       }
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Erreur lors de l'exécution."));
-      await fetchStep();
+      await fetchStep({ preserveError: true });
     }
-  }, [dossierId, stepNumber, step?.statut, fetchStep]);
+  }, [dossierId, stepNumber, step?.statut, fetchStep, workflowType]);
+
+  const handleRerunSimpleStep1 = useCallback(async () => {
+    setStep((prev) => prev ? { ...prev, statut: "en_cours" } : prev);
+    try {
+      await step1Api.execute(dossierId);
+      await fetchStep();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erreur lors de la relance."));
+      await fetchStep({ preserveError: true });
+    }
+  }, [dossierId, fetchStep]);
 
   const handleCancel = useCallback(async () => {
     if (confirm("Réinitialiser cette étape ? Le traitement en cours sera abandonné.")) {
@@ -223,13 +246,13 @@ export default function StepViewPage() {
         </div>
       )}
 
-      {/* Error */}
+      {/* Error (affiché au-dessus du contenu, pas en remplacement) */}
       {!loading && error && (
         <p className={styles.error} role="alert">{error}</p>
       )}
 
       {/* Step detail */}
-      {!loading && !error && step && isValidStep && (
+      {!loading && step && isValidStep && (
         <>
           {/* Header */}
           <div className={styles.header}>
@@ -244,40 +267,41 @@ export default function StepViewPage() {
           </div>
 
           {/* Action Banner */}
-          <ActionBanner stepNumber={stepNumber} dossierName={dossierName} />
+          <ActionBanner stepNumber={stepNumber} dossierName={dossierName} workflowType={workflowType} />
 
           {/* Tripartite sections */}
           <div className={styles.tripartiteLayout}>
-            {/* Input Section */}
             <InputSection
               stepNumber={stepNumber}
               dossierId={dossierId}
               files={step.files}
               isLocked={locked}
               dossierStatut={dossierStatut}
+              workflowType={workflowType}
               onFileUploaded={fetchStep}
             />
 
-            {/* Operation Section */}
             <OperationSection
               stepNumber={stepNumber}
               dossierId={dossierId}
               step={step}
               isLocked={locked}
               isDossierClosed={isDossierClosed}
+              workflowType={workflowType}
               onExecute={handleExecute}
               onCancel={handleCancel}
+              onRerunSimpleStep1={workflowType === "simple" && stepNumber === 1 ? handleRerunSimpleStep1 : undefined}
               onSkip={stepNumber === 3 ? handleSkip : undefined}
               onRefresh={fetchStep}
               executionDuration={step.execution_duration_seconds}
             />
 
-            {/* Output Section */}
             <OutputSection
               stepNumber={stepNumber}
               dossierId={dossierId}
               files={step.files}
               isLocked={locked}
+              workflowType={workflowType}
             />
           </div>
         </>

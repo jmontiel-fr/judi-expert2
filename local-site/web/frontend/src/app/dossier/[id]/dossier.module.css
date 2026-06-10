@@ -66,6 +66,11 @@
   color: #1e40af;
 }
 
+.badgeSimple {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
 /* Section title */
 .sectionTitle {
   font-size: 1.1rem;

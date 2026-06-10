@@ -18,10 +18,7 @@ from sqlalchemy.orm import selectinload
 from models.dossier import Dossier
 from models.step import Step
 from models.step_file import StepFile
-
-# Nombre total d'étapes dans le workflow
-_TOTAL_STEPS = 5
-_VALID_STEP_NUMBERS = frozenset(range(1, _TOTAL_STEPS + 1))  # {1, 2, 3, 4, 5}
+from services.workflow_config import step_count_for
 
 # Statuts possibles d'une étape
 STATUT_INITIAL = "initial"
@@ -61,12 +58,18 @@ class WorkflowEngine:
         return dossier
 
     @staticmethod
+    def _total_steps(dossier: Dossier) -> int:
+        """Nombre d'étapes du dossier selon son type de workflow."""
+        return step_count_for(dossier.workflow_type)
+
+    @staticmethod
     def _get_step(dossier: Dossier, step_number: int) -> Step:
         """Retourne l'étape demandée ou lève 404."""
-        if step_number not in _VALID_STEP_NUMBERS:
+        total = WorkflowEngine._total_steps(dossier)
+        if step_number < 1 or step_number > total:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Le numéro d'étape doit être entre 1 et 5",
+                detail=f"Le numéro d'étape doit être entre 1 et {total}",
             )
         for s in dossier.steps:
             if s.step_number == step_number:

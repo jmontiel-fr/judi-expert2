@@ -256,13 +256,13 @@ L'expert doit conserver les éléments permettant de **justifier ses conclusions
 |----------|:-----------:|---------------|
 | **Rapport d'expertise final** (REF) | ✅ Oui | Document remis au tribunal — preuve du travail réalisé |
 | **Ordonnance / réquisition** | ✅ Oui | Cadre de la mission (questions posées, parties, dates) |
-| **Notes d'entretien** (PEA annoté) | ✅ Oui | Justifie les observations cliniques et les dires rapportés |
+| **Notes d'entretien / analyse** (PREA complété) | ✅ Oui | Justifie les observations cliniques et les dires rapportés |
 | **Pièces consultées** (diligences) | ✅ Oui | Justifie les éléments factuels utilisés dans le rapport |
 | **Correspondances** (courriers de diligence) | ✅ Oui | Preuve du respect du contradictoire |
 | **Tests psychométriques** (protocoles bruts) | ✅ Oui | Justifie les résultats et interprétations |
 | **Consentement éclairé** (si recueilli par écrit) | ✅ Oui | Preuve déontologique |
 | Fichiers intermédiaires (demande.md, brouillons) | ❌ Non | Documents de travail sans valeur probante |
-| Fichiers techniques (placeholders.csv, pe.docx) | ❌ Non | Artefacts de l'application, pas du dossier d'expertise |
+| Fichiers techniques (placeholders.csv, prea.docx vierge) | ❌ Non | Artefacts de l'application, pas du dossier d'expertise |
 
 ### Contenu de l'archive ZIP
 
@@ -270,7 +270,7 @@ L'archive générée au Step 5 contient **tout le dossier** (fichiers d'entrée 
 
 - `ref.docx` — Rapport d'Expertise Final
 - `demande.pdf` — Ordonnance/réquisition originale
-- `pea.docx` — Notes d'entretien annotées
+- `prea.docx` — Projet de rapport annoté (notes d'entretien / analyse)
 - `diligence-*.pdf` — Pièces consultées
 - `timbre.txt` — Horodatage technique (intégrité)
 

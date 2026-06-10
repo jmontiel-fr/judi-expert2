@@ -82,7 +82,7 @@ judi-expert/
     ├── developpement.md                # Dev setup, conventions, commands
     ├── exploitation.md                 # Operations guide
     ├── methodologie.md                 # Legal/regulatory methodology
-    ├── user-guide.md                   # End-user guide
+    ├── guide-utilisateur.md              # End-user guide
     └── ...                             # CGU, mentions légales, FAQ, licences, Stripe, costs
 ```
 
