@@ -75,10 +75,17 @@ export default function PolitiqueConfidentialitePage() {
       </section>
 
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Cookies</h2>
+        <h2 className={styles.sectionTitle}>Cookies et mesure d&apos;audience</h2>
         <p className={styles.paragraph}>
           Ce site utilise uniquement des cookies techniques nécessaires à son fonctionnement
           (authentification, session). Aucun cookie publicitaire ou de suivi n&apos;est utilisé.
+        </p>
+        <p className={styles.paragraph}>
+          Nous utilisons Matomo, une solution de mesure d&apos;audience hébergée en Europe
+          (matomo.itechsource.fr), configurée en mode <strong>sans cookie</strong> (cookieless).
+          Aucun cookie n&apos;est déposé sur votre navigateur à des fins de suivi.
+          Les données collectées sont anonymisées et utilisées uniquement pour améliorer
+          le service. Aucune donnée n&apos;est transmise à des tiers.
         </p>
       </section>
 
