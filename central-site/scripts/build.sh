@@ -85,11 +85,18 @@ if [ -z "$GITHUB_TOKEN" ] && [ -n "${GH_TOKEN:-}" ]; then
   GITHUB_TOKEN="$GH_TOKEN"
 fi
 
+# Copier le fichier VERSION dans le contexte Docker du backend
+cp "$VERSION_FILE" "$AWS_DIR/web/backend/VERSION"
+
 docker build \
   -t "${BACKEND_IMAGE}:${TAG}" \
   --build-arg GITHUB_TOKEN="${GITHUB_TOKEN}" \
   -f "$AWS_DIR/web/backend/Dockerfile" \
   "$AWS_DIR/web/backend"
+
+# Nettoyer la copie temporaire du VERSION
+rm -f "$AWS_DIR/web/backend/VERSION"
+
 echo -e "${GREEN}  ✔ Backend built: ${BACKEND_IMAGE}:${TAG}${NC}"
 echo ""
 

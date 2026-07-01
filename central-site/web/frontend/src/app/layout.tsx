@@ -4,6 +4,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ChatBot from "@/components/ChatBot";
+import MatomoTracker from "@/components/MatomoTracker";
 import {
   DEFAULT_DESCRIPTION,
   DEFAULT_KEYWORDS,
@@ -70,6 +71,7 @@ export default function RootLayout({
         style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}
       >
         <AuthProvider>
+          <MatomoTracker />
           <Header />
           <main style={{ flex: 1, maxWidth: 1200, margin: "0 auto", padding: "24px", width: "100%" }}>
             {children}
@@ -84,7 +86,7 @@ export default function RootLayout({
             _paq.push(['trackPageView']);
             _paq.push(['enableLinkTracking']);
             (function() {
-              var u="//matomo.itechsource.fr/";
+              var u="https://matomo.itechsource.fr/";
               _paq.push(['setTrackerUrl', u+'matomo.php']);
               _paq.push(['setSiteId', '3']);
               var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];

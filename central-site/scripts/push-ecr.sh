@@ -48,13 +48,17 @@ echo ""
 
 # ── Push Backend ───────────────────────────────────────
 echo -e "${YELLOW}[2/3]${NC} Push de ${GREEN}central-backend:${TAG}${NC}..."
+docker tag "${BACKEND_IMAGE}:${TAG}" "${BACKEND_IMAGE}:latest"
 docker push "${BACKEND_IMAGE}:${TAG}"
+docker push "${BACKEND_IMAGE}:latest"
 echo -e "${GREEN}  ✔ Backend pushed${NC}"
 echo ""
 
 # ── Push Frontend ──────────────────────────────────────
 echo -e "${YELLOW}[3/3]${NC} Push de ${GREEN}central-frontend:${TAG}${NC}..."
+docker tag "${FRONTEND_IMAGE}:${TAG}" "${FRONTEND_IMAGE}:latest"
 docker push "${FRONTEND_IMAGE}:${TAG}"
+docker push "${FRONTEND_IMAGE}:latest"
 echo -e "${GREEN}  ✔ Frontend pushed${NC}"
 echo ""
 
