@@ -179,6 +179,7 @@ export default function TicketsPage() {
           Vous n&apos;avez pas encore de tickets. Achetez votre premier ticket pour créer un dossier d&apos;expertise.
         </p>
       ) : (
+        <div className={styles.tableScroll}>
         <table className={styles.table}>
           <thead>
             <tr>
@@ -232,6 +233,7 @@ export default function TicketsPage() {
             })}
           </tbody>
         </table>
+        </div>
       )}
     </>
   );

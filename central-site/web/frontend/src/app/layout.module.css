@@ -1,0 +1,15 @@
+.main {
+  flex: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .main {
+    padding: 16px 12px;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+}

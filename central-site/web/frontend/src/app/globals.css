@@ -26,6 +26,14 @@ body {
   background-color: var(--color-bg);
   color: var(--color-text);
   line-height: 1.6;
+  overflow-x: hidden;
+}
+
+img,
+svg,
+video {
+  max-width: 100%;
+  height: auto;
 }
 
 a {

@@ -1,0 +1,33 @@
+{
+  "name": "Judi-Expert — Site Central",
+  "short_name": "Judi-Expert",
+  "description": "Solution d'assistance IA pour experts judiciaires — tickets, corpus et espace expert.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f7fafc",
+  "theme_color": "#1a365d",
+  "lang": "fr",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

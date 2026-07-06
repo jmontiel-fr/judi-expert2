@@ -1,10 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ChatBot from "@/components/ChatBot";
 import MatomoTracker from "@/components/MatomoTracker";
+import PwaRegister from "@/components/PwaRegister";
 import {
   DEFAULT_DESCRIPTION,
   DEFAULT_KEYWORDS,
@@ -14,6 +15,14 @@ import {
   SITE_URL,
 } from "@/lib/seo";
 import "./globals.css";
+import layoutStyles from "./layout.module.css";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#1a365d",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -28,6 +37,12 @@ export const metadata: Metadata = {
   publisher: SITE_NAME,
   formatDetection: { email: false, address: false, telephone: false },
   alternates: { canonical: SITE_URL },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: SITE_NAME,
+  },
   openGraph: {
     type: "website",
     locale: "fr_FR",
@@ -57,6 +72,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
 };
 
@@ -71,9 +87,10 @@ export default function RootLayout({
         style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}
       >
         <AuthProvider>
+          <PwaRegister />
           <MatomoTracker />
           <Header />
-          <main style={{ flex: 1, maxWidth: 1200, margin: "0 auto", padding: "24px", width: "100%" }}>
+          <main className={layoutStyles.main}>
             {children}
           </main>
           <Footer />

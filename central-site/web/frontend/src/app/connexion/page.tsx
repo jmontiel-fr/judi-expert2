@@ -166,6 +166,12 @@ export default function ConnexionPage() {
 
   return (
     <div className={styles.container}>
+      <p className={styles.registerBanner}>
+        Si vous n&apos;êtes pas encore enregistré, veuillez vous inscrire{" "}
+        <Link href="/inscription" className={styles.registerBannerLink}>
+          ici 👉
+        </Link>
+      </p>
       <h1 className={styles.title}>Connexion</h1>
       <p className={styles.subtitle}>Accédez à votre espace Judi-expert</p>
 
