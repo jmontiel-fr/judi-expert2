@@ -4,7 +4,7 @@
 contenu:
   # --- Templates ---
 
-  - nom: TPE_psychologie.tpl
+  - nom: TPE_psychologie.tpl.md
     description: >
       Trame de plan d'entretien par défaut pour le domaine psychologie judiciaire.
       Structurée selon les bonnes pratiques : identification, motif de l'expertise,

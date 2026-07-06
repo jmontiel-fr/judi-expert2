@@ -29,8 +29,8 @@ function DomainAccordion({
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
-  /** Remplace .tpl par .md dans les noms affichés. */
-  const displayName = (nom: string) => nom.replace(/\.tpl$/i, ".md");
+  /** Remplace .tpl.md ou .tpl par .md dans les noms affichés. */
+  const displayName = (nom: string) => nom.replace(/\.tpl(\.md)?$/i, ".md");
 
   const loadContent = useCallback(async () => {
     if (loaded || loading) return;

@@ -109,8 +109,8 @@ export default function HomePage() {
             <div className={styles.stepNumber}>3</div>
             <p className={styles.stepLabel}>Configuration</p>
             <p className={styles.stepDesc}>
-              Configurez votre domaine, importez votre trame d&apos;entretien et
-              votre template de rapport.
+              Configurez votre domaine, importez votre/vos trame(s) de rapport
+              d&apos;expertise incluant les notes d&apos;entretien.
             </p>
           </div>
           <div className={styles.stepItem}>

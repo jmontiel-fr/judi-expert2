@@ -8,6 +8,21 @@ Guide rapide des commandes essentielles pour le développement et le déploiemen
 
 Toutes les commandes depuis la racine du repo.
 
+### Script tout-en-un (recommandé)
+
+```bash
+# Build complet + démarrage
+bash scripts-dev/build-and-deploy-local.sh
+
+# Avec rebuild sans cache Docker
+bash scripts-dev/build-and-deploy-local.sh --no-cache
+
+# Avec téléchargement du modèle LLM
+bash scripts-dev/build-and-deploy-local.sh --pull-llm
+```
+
+### Scripts individuels
+
 ```bash
 # Démarrer l'Application Locale (5 conteneurs : frontend, backend, OCR, LLM, RAG)
 bash scripts-dev/dev-local-start.sh
@@ -65,7 +80,20 @@ bash scripts-dev/dev-central-status.sh
 
 ## 3. Déploiement Production (AWS Lightsail)
 
-Les 3 étapes, depuis la racine du repo :
+### Script tout-en-un (recommandé)
+
+```bash
+# Déploiement complet : Terraform + Build + Push + Deploy
+bash scripts-dev/build-and-deploy-aws.sh
+
+# Sans Terraform (infra déjà à jour)
+bash scripts-dev/build-and-deploy-aws.sh --skip-terraform
+
+# Sans rebuild (images déjà buildées)
+bash scripts-dev/build-and-deploy-aws.sh --skip-build
+```
+
+### Étapes individuelles
 
 ```bash
 # 1. Build des images Docker (backend + frontend)
@@ -82,6 +110,7 @@ bash central-site/scripts/push-deploy.sh
 - Docker Desktop lancé
 - AWS CLI configuré (`aws configure`)
 - GitHub CLI authentifié (`gh auth login`) — pour le token des dépendances privées
+- Terraform installé (si --skip-terraform n'est pas utilisé)
 
 ---
 
@@ -162,13 +191,37 @@ En production, les migrations sont exécutées automatiquement par `push-deploy.
 
 ---
 
-## 7. Versions
+## 7. Gestion des versions
 
-Les fichiers VERSION sont à la racine de chaque site :
-- `local-site/VERSION` — version de l'Application Locale
-- `central-site/VERSION` — version du Site Central
+### Format du fichier VERSION
+
+Chaque site possède un fichier `VERSION` à sa racine :
+- `local-site/VERSION`
+- `central-site/VERSION`
+
+**Format strict (2 lignes) :**
+
+```
+1.0.1
+6 juillet 2026
+```
+
+- **Ligne 1** : numéro de version sémantique uniquement (`x.y.z`). Pas de texte, pas d'espaces, pas de date. Ce numéro est utilisé comme tag Docker — tout caractère spécial ou espace provoquera une erreur de build.
+- **Ligne 2** : date de publication en texte libre (ex: `6 juillet 2026`, `2026-07-06`, `Juin 2026`). Ce champ est affiché dans l'API `/health` et dans le footer, mais n'est pas utilisé par Docker.
+
+### Règles
+
+- Ne jamais mettre la date sur la ligne 1
+- Ne jamais mettre d'espace ou de tiret dans le numéro de version
+- Formats valides pour la ligne 1 : `1.0.0`, `2.1.3`, `0.9.0-beta`
+- Formats invalides : `1.0.1 - 6 juillet 2026`, `v1.0.1`, `1.0.1 (2026)`
+
+### Lecture au démarrage
 
 Le backend lit `/app/VERSION` au démarrage (copié dans l'image Docker par `build.sh`).
+Le service `version_reader.py` parse les 2 lignes et expose :
+- `APP_VERSION` → ligne 1 (numéro)
+- `APP_VERSION_DATE` → ligne 2 (date texte)
 
 ---
 
