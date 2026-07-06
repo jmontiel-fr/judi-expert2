@@ -1,7 +1,8 @@
 # Trame de Plan d'Entretien — Expertise Psychologique Judiciaire
 # TPE par défaut — Domaine Psychologie
 # Version : 1.0
-# Ce fichier sert de base à la génération du plan d'entretien pour une plaignant ou un une personne mise en cause.
+# Ce fichier sert de base à la génération du plan d'entretien pour une plaignant 
+# ou un une personne mise en cause.
 # L'expert peut le personnaliser selon sa pratique.
 
 ---
