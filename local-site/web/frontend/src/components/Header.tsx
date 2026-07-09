@@ -93,6 +93,14 @@ export default function Header() {
             </Link>
           </li>
           <li>
+            <Link
+              href="/guide"
+              className={`${styles.link} ${pathname === "/guide" ? styles.active : ""}`}
+            >
+              Guide
+            </Link>
+          </li>
+          <li>
             <a
               href={SITE_CENTRAL_URL}
               target="_blank"

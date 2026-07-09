@@ -2,6 +2,7 @@
 
 ## Règles d'exécution des commandes
 
+- **Toujours utiliser `bash` pour exécuter les scripts shell** (ex: `bash scripts-dev/dev-local-start.sh`, `bash central-site/app_locale_package/package.sh`). Ne jamais utiliser `sh`, `./`, ou d'autres shells.
 - **Ne JAMAIS lancer les commandes en arrière-plan** (pas de `control_pwsh_process` / background process)
 - Toujours exécuter les commandes en **foreground** avec `execute_pwsh` et un `timeout` suffisant
 - Les **traces d'exécution doivent être visibles** dans la sortie (pas de `skipPruning: true` sauf si nécessaire pour debug)

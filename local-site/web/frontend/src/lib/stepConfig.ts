@@ -22,6 +22,7 @@ export interface StepConfig {
   /** Description structurée affichée dans le bloc frontal de chaque step */
   description: {
     objectif: string;
+    preparation: string[];
     entrees: string[];
     operation: string;
     sorties: string[];
@@ -35,7 +36,7 @@ export interface StepConfig {
 
 export const STEP_CONFIG: Record<number, StepConfig> = {
   1: {
-    name: "Création dossier",
+    name: "Initialisation dossier",
     bannerText: (dossierName: string) =>
       `Import de l'ordonnance (PDF) et des pièces complémentaires. Extraction OCR → Markdown structuré. Identification des questions du tribunal (Q1…Qn) et extraction des valeurs de placeholders. Fichiers stockés dans C:\\judi-expert\\${dossierName}\\step1`,
     buttonLabel: "Extraire et structurer",
@@ -43,6 +44,7 @@ export const STEP_CONFIG: Record<number, StepConfig> = {
     outputFileTypes: ["markdown", "docx", "questions", "place_holders", "complementary_ocr"],
     description: {
       objectif: "Importer les fichiers du dossier, extraire le texte par OCR, identifier les questions du tribunal et les valeurs de placeholders.",
+      preparation: ["Scanner l'ordonnance de commission d'expert (réquisition) en PDF", "Scanner les pièces complémentaires jointes (rapports, courriers, etc.)", "S'assurer que les PDF scannés sont lisibles (résolution ≥ 300 dpi)"],
       entrees: ["ordonnance.pdf (PDF-scan de la réquisition)", "piece-xxx.* (pièces complémentaires : PDF, DOCX, images)"],
       operation: "OCR → conversion en Markdown structuré. Extraction des questions numérotées Q1…Qn. Extraction des valeurs de placeholders depuis l'ordonnance.",
       sorties: ["ordonnance.md (texte structuré)", "piece-xxx.md (texte extrait des pièces)", "questions.md (liste Q1…Qn)", "place_holders.csv (valeurs extraites)"],
@@ -58,6 +60,7 @@ export const STEP_CONFIG: Record<number, StepConfig> = {
     outputFileTypes: ["pea", "plan_entretien_docx"],
     description: {
       objectif: "Valider la syntaxe du TRE et produire le PREA (Projet de Rapport d'Expertise Annoté).",
+      preparation: ["Vérifier que le TRE (Template de Rapport d'Expertise) est configuré (page Configuration ou upload ici)", "S'assurer que le Step 1 est validé (placeholders et questions disponibles)"],
       entrees: ["tre.docx (uploadé ici ou depuis la Configuration)", "placeholders.csv (métadonnées et questions du Step 1)"],
       operation: "Validation syntaxique du TRE (annotations, placeholders) puis copie en prea.docx.",
       sorties: ["prea.docx (PREA — document de travail pour le Step E/A)"],
@@ -73,6 +76,7 @@ export const STEP_CONFIG: Record<number, StepConfig> = {
     outputFileTypes: ["diligence_ocr"],
     description: {
       objectif: "Importer les pièces complémentaires issues des diligences et les convertir en Markdown exploitable.",
+      preparation: ["Rassembler les pièces reçues en réponse aux diligences (courriers, rapports médicaux, résultats d'examens, etc.)", "Scanner en PDF les documents papier reçus", "Nommer les fichiers de façon descriptive (ex: diligence-medecin-rapport.pdf)"],
       entrees: ["diligence-xxx-piece-yyy.* (pièces reçues en réponse aux diligences : PDF, DOCX, images)"],
       operation: "OCR → extraction du texte en format .md pour chaque pièce PDF/scan.",
       sorties: ["diligence-xxx-piece-yyy.md (texte extrait de chaque pièce)"],
@@ -88,6 +92,7 @@ export const STEP_CONFIG: Record<number, StepConfig> = {
     outputFileTypes: ["re_projet", "re_projet_auxiliaire"],
     description: {
       objectif: "Produire le Pré-Rapport d'Expertise (PRE) à partir du PREA complété au Step E/A.",
+      preparation: ["Finaliser le PREA : compléter toutes les annotations @dires et @analyse", "Vérifier que les @verbatim sont entre guillemets", "S'assurer que les @conclusion contiennent les réponses aux questions du tribunal", "Importer le PREA finalisé dans le Step 4"],
       entrees: ["prea.docx (PREA annoté par l'expert — balises @dires, @analyse, @verbatim, etc.)", "placeholders.csv (valeurs extraites au Step 1)"],
       operation: "1. Validation syntaxique des annotations — 2. Reformulation LLM des @dires et @analyse ⏳ — 3. Résolution des @resume ⏳ — 4. Résolution des @question, @reference, @cite — 5. Substitution in-place dans le .docx (annotations → texte, <<placeholders>> → valeurs). Le document conserve sa structure, styles et table des matières. Optionnel : génération du DAC.",
       sorties: ["pre.docx (Pré-Rapport d'Expertise)", "dac.docx (Document d'Analyse Contradictoire — optionnel)"],
@@ -103,6 +108,7 @@ export const STEP_CONFIG: Record<number, StepConfig> = {
     outputFileTypes: ["archive_zip", "timbre"],
     description: {
       objectif: "Importer le rapport final ajusté et archiver l'ensemble du dossier avec horodatage technique.",
+      preparation: ["Relire et ajuster le PRE produit au Step 4 pour obtenir le REF définitif", "Vérifier l'intégralité du rapport (conclusions, mise en forme, signatures)", "Enregistrer le document final en .docx"],
       entrees: ["ref.docx (Rapport d'Expertise Final — pré-rapport ajusté et validé par l'expert)"],
       operation: "Création d'une archive ZIP immuable contenant tous les fichiers du dossier. Génération d'un fichier timbre (date + hash SHA-256 du ZIP). Stockage du timbre sur S3.",
       sorties: ["<dossier-xxx>.zip (archive immuable)", "<dossier-xxx>-timbre.txt (horodatage technique SHA-256)"],
@@ -122,6 +128,7 @@ export const SIMPLE_STEP_CONFIG: Record<number, StepConfig> = {
     outputFileTypes: ["re_projet", "re_projet_auxiliaire"],
     description: {
       objectif: "Appliquer une révision linguistique au PRE pour produire le PREF, avec préservation des verbatim.",
+      preparation: ["Rédiger le PRE (Pré-Rapport d'Expertise) dans Word", "Encadrer les citations exactes entre guillemets (protégées de la révision)", "Enregistrer le document final en .docx"],
       entrees: ["pre.docx (Pré-Rapport d'Expertise rédigé par l'expert)"],
       operation: "Révision linguistique LLM (orthographe, grammaire, syntaxe) avec préservation des textes entre guillemets. Option : génération du DAC.",
       sorties: ["pref.docx (Projet de Rapport d'Expertise Final)", "dac.docx (optionnel)"],
@@ -137,6 +144,7 @@ export const SIMPLE_STEP_CONFIG: Record<number, StepConfig> = {
     outputFileTypes: ["archive_zip", "timbre"],
     description: {
       objectif: "Archiver l'ensemble du dossier avec horodatage technique.",
+      preparation: ["Vérifier le PREF produit au Step 1 (ou uploader une version ajustée)", "S'assurer que le rapport est dans sa version définitive"],
       entrees: ["pref.docx (depuis Step 1, ou version ajustée uploadée ici)"],
       operation: "Création d'une archive ZIP + fichier timbre (date + hash SHA-256). Stockage du timbre (S3 lorsque configuré).",
       sorties: ["<dossier>.zip (archive immuable)", "<dossier>-timbre.txt (horodatage SHA-256)"],

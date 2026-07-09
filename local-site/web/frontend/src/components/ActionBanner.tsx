@@ -51,6 +51,18 @@ export default function ActionBanner({ stepNumber, dossierName, workflowType = "
             <p className={styles.text}>{description.objectif}</p>
           </div>
 
+          {/* Préparation */}
+          {description.preparation && description.preparation.length > 0 && (
+            <div className={styles.block}>
+              <span className={styles.blockLabel}>📋 Préparation (avant déclenchement)</span>
+              <ul className={styles.fileList}>
+                {description.preparation.map((item, i) => (
+                  <li key={i} className={styles.fileItem}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Entrées */}
           <div className={styles.block}>
             <span className={styles.blockLabel}>📥 Fichiers d&apos;entrée</span>

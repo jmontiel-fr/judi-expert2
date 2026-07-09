@@ -34,21 +34,21 @@ success() { echo -e "${GREEN}✔ ${NC} $1"; }
 warn()    { echo -e "${YELLOW}⚠ ${NC} $1"; }
 error()   { echo -e "${RED}✖ ${NC} $1"; exit 1; }
 
-# Read version from local-site/VERSION file (first line = semver)
+# Read version from local-site/VERSION file (first line, extract semver only)
 VERSION_FILE="$PROJECT_ROOT/local-site/VERSION"
 if [ ! -f "$VERSION_FILE" ]; then
     error "Fichier VERSION introuvable : $VERSION_FILE"
 fi
-VERSION=$(head -n 1 "$VERSION_FILE" | tr -d '[:space:]')
+VERSION=$(head -n 1 "$VERSION_FILE" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
 if [ -z "$VERSION" ]; then
-    error "Version vide dans $VERSION_FILE"
+    error "Version vide ou invalide dans $VERSION_FILE"
 fi
 
 print_banner() {
     echo ""
     echo -e "${CYAN}${BOLD}╔══════════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}${BOLD}║   Judi-Expert — Packaging des installateurs     ║${NC}"
-    echo -e "${CYAN}${BOLD}║   Version : ${VERSION}                                ║${NC}"
+    echo -e "${CYAN}${BOLD}║   Version : ${VERSION}  |  Mode : ${PACKAGE_MODE}              ║${NC}"
     echo -e "${CYAN}${BOLD}╚══════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -63,14 +63,19 @@ usage() {
     echo "  all        Génère les installateurs pour tous les OS (défaut)"
     echo ""
     echo "Options :"
+    echo "  --mode MODE     Mode de déploiement : prod | local (défaut: prod)"
+    echo "                    prod  → SITE_CENTRAL_URL=https://www.judi-expert.fr"
+    echo "                    local → SITE_CENTRAL_URL=http://host.docker.internal:8002"
     echo "  --version VER   Version du package (défaut: lu depuis local-site/VERSION)"
     echo "  --skip-build    Ne pas reconstruire les images Docker"
     echo "  --skip-export   Ne pas ré-exporter les images Docker (utiliser le cache)"
     echo "  --help           Afficher cette aide"
     echo ""
     echo "Exemples :"
-    echo "  $0                    # Tous les OS"
-    echo "  $0 linux macos        # Linux et macOS uniquement"
+    echo "  $0                              # Tous les OS, mode prod"
+    echo "  $0 --mode local windows         # Windows, communication avec site central local"
+    echo "  $0 --skip-build --mode local windows  # Rapide, sans rebuild"
+    echo "  $0 linux macos                  # Linux et macOS, mode prod"
     echo "  $0 --version 2.0.0 windows"
     exit 0
 }
@@ -80,17 +85,25 @@ usage() {
 TARGETS=()
 SKIP_BUILD=false
 SKIP_EXPORT=false
+PACKAGE_MODE="prod"  # prod | local
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --version)  VERSION="$2"; shift 2 ;;
         --skip-build)  SKIP_BUILD=true; shift ;;
         --skip-export) SKIP_EXPORT=true; shift ;;
+        --mode)     PACKAGE_MODE="$2"; shift 2 ;;
         --help)     usage ;;
         windows|macos|linux|all) TARGETS+=("$1"); shift ;;
         *) error "Argument inconnu : $1. Utilisez --help pour l'aide." ;;
     esac
 done
+
+# Valider le mode
+case "$PACKAGE_MODE" in
+    prod|local) ;;
+    *) error "Mode invalide : $PACKAGE_MODE. Utilisez 'prod' ou 'local'." ;;
+esac
 
 # Défaut : tous les OS
 if [ ${#TARGETS[@]} -eq 0 ] || [[ " ${TARGETS[*]} " == *" all "* ]]; then
@@ -112,10 +125,20 @@ check_build_prerequisites() {
 
     # Vérifier NSIS si Windows est ciblé
     if [[ " ${TARGETS[*]} " == *" windows "* ]]; then
-        if ! command -v makensis &>/dev/null; then
+        if command -v makensis &>/dev/null; then
+            MAKENSIS="makensis"
+        elif [ -f "/c/Program Files (x86)/NSIS/makensis.exe" ]; then
+            MAKENSIS="/c/Program Files (x86)/NSIS/makensis.exe"
+        elif [ -f "/c/Program Files/NSIS/makensis.exe" ]; then
+            MAKENSIS="/c/Program Files/NSIS/makensis.exe"
+        else
             warn "NSIS (makensis) non trouvé. L'installateur Windows ne sera pas généré."
             warn "Installez NSIS : https://nsis.sourceforge.io/ (gratuit, open-source)"
             TARGETS=("${TARGETS[@]/windows/}")
+            MAKENSIS=""
+        fi
+        if [ -n "${MAKENSIS:-}" ]; then
+            success "NSIS trouvé : $MAKENSIS"
         fi
     fi
 
@@ -131,7 +154,7 @@ build_docker_images() {
     fi
 
     info "Construction des images Docker locales..."
-    bash "$LOCAL_DIR/scripts/build.sh"
+    docker compose -f "$LOCAL_DIR/docker-compose.yml" build
     success "Images Docker construites."
 }
 
@@ -176,7 +199,7 @@ export_docker_images() {
 # ── Préparation du répertoire de staging ──────────────────
 
 prepare_staging() {
-    info "Préparation du répertoire de staging..."
+    info "Préparation du répertoire de staging (mode: ${PACKAGE_MODE})..."
 
     rm -rf "$STAGING_DIR"
     mkdir -p "$STAGING_DIR"/{docker-images,config,scripts}
@@ -184,6 +207,17 @@ prepare_staging() {
     # Copier les fichiers de configuration par défaut
     cp "$LOCAL_DIR/.env" "$STAGING_DIR/config/default.env"
     cp "$SCRIPT_DIR/common/default.env" "$STAGING_DIR/config/default.env" 2>/dev/null || true
+
+    # ── Injection du SITE_CENTRAL_URL selon le mode ───────
+    if [ "$PACKAGE_MODE" = "local" ]; then
+        local CENTRAL_URL="http://host.docker.internal:8002"
+        info "  Mode local → SITE_CENTRAL_URL=${CENTRAL_URL}"
+    else
+        local CENTRAL_URL="https://www.judi-expert.fr"
+        info "  Mode prod → SITE_CENTRAL_URL=${CENTRAL_URL}"
+    fi
+    # Remplacer la valeur dans le default.env copié
+    sed -i "s|^SITE_CENTRAL_URL=.*|SITE_CENTRAL_URL=${CENTRAL_URL}|" "$STAGING_DIR/config/default.env"
 
     # Copier le docker-compose.yml (version installee, sans build)
     if [ -f "$SCRIPT_DIR/common/docker-compose.installed.yml" ]; then
@@ -204,7 +238,7 @@ prepare_staging() {
         cp "$LOCAL_DIR/ollama-entrypoint.sh" "$STAGING_DIR/config/ollama-entrypoint.sh"
     fi
 
-    success "Staging préparé."
+    success "Staging préparé (mode: ${PACKAGE_MODE})."
 }
 
 # ── Génération de l'installateur Windows (NSIS) ──────────
@@ -219,7 +253,7 @@ build_windows_installer() {
 
     mkdir -p "$OUTPUT_DIR"
 
-    makensis \
+    "$MAKENSIS" \
         -DVERSION="$VERSION" \
         -DSTAGING_DIR="$STAGING_DIR" \
         -DOUTPUT_DIR="$OUTPUT_DIR" \
