@@ -5,7 +5,7 @@
 
 project_name = "judi-expert"
 environment  = "production"
-aws_region   = "eu-west-1"
+aws_region   = "eu-west-3"
 
 # --- Lightsail ---
 # Plans: nano_3_0 (512MB/$5), micro_3_0 (1GB/$10), small_3_0 (2GB/$12), medium_3_0 (4GB/$24)
@@ -20,3 +20,9 @@ db_password       = "JudiExpert2026!Prod"
 # --- DNS ---
 domain_name = "judi-expert.fr"
 google_site_verification = "google-site-verification=lFLgHBmAUdCh_QlzxIW9bGY2cgt7jv_qVLx18NBCK_Q"
+
+# --- Cognito Users ---
+admin_email               = "admin@judi-expert.fr"
+admin_temporary_password  = "Admin$123!"
+expert_email              = "jacky.montiel@gmail.com"
+expert_temporary_password = "Jack$123!"

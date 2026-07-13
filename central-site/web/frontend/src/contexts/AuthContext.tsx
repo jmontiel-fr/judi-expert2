@@ -56,7 +56,6 @@ export interface RegisterParams {
   acceptNewsletter: boolean;
 }
 
-const ADMIN_EMAIL = "admin@judi-expert.fr";
 const TOKEN_KEY = "judi_access_token";
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -193,7 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     setUser(u);
     setAccessToken(token);
-    setIsAdmin(profile.email === ADMIN_EMAIL);
+    setIsAdmin(profile.is_admin ?? false);
     localStorage.setItem(TOKEN_KEY, token);
     startExpirationTimer(token);
     setLoading(false);

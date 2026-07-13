@@ -40,7 +40,7 @@ export default function HomePage() {
               Internet.
             </p>
             <span className={styles.heroBadge}>
-              🕐 Le site est ouvert pendant les horaires bureau de 8h à 20h
+              🕐 Service accessible en continu 24/7
             </span>
           </div>
         </div>
@@ -101,8 +101,8 @@ export default function HomePage() {
             <div className={styles.stepNumber}>2</div>
             <p className={styles.stepLabel}>Téléchargement</p>
             <p className={styles.stepDesc}>
-              Téléchargez et installez l&apos;application locale sur votre PC.
-              Elle fonctionne de manière autonome.
+              Téléchargez et installez le Site Client sur votre PC.
+              Il fonctionne de manière autonome.
             </p>
           </div>
           <div className={styles.stepItem}>

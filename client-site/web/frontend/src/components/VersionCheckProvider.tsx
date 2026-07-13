@@ -1,0 +1,73 @@
+"use client";
+
+import { useState, useEffect, ReactNode } from "react";
+import axios from "axios";
+import UpdateScreen from "./UpdateScreen";
+import FullUpdateScreen from "./FullUpdateScreen";
+import { useSessionGuard } from "../hooks/useSessionGuard";
+
+interface VersionCheckProviderProps {
+  children: ReactNode;
+}
+
+interface VersionCheckResponse {
+  current_version: string;
+  current_date: string;
+  update_available: boolean;
+  latest_version?: string | null;
+  download_url?: string | null;
+  mandatory?: boolean | null;
+  update_type?: "images" | "full" | null;
+  release_notes?: string | null;
+}
+
+export default function VersionCheckProvider({ children }: VersionCheckProviderProps) {
+  // Proactive session guard: checks token on tab focus & every 60s
+  useSessionGuard();
+
+  const [updateInfo, setUpdateInfo] = useState<VersionCheckResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkVersion();
+  }, []);
+
+  async function checkVersion() {
+    try {
+      const { data } = await axios.get<VersionCheckResponse>("/api/version");
+      if (data.update_available && data.mandatory) {
+        setUpdateInfo(data);
+      }
+    } catch {
+      // Ignore errors — start normally
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (loading) return null;
+
+  if (updateInfo && updateInfo.download_url && updateInfo.latest_version) {
+    // Full reinstallation required — show download link instead of in-place update
+    if (updateInfo.update_type === "full") {
+      return (
+        <FullUpdateScreen
+          downloadUrl={updateInfo.download_url}
+          targetVersion={updateInfo.latest_version}
+          releaseNotes={updateInfo.release_notes}
+        />
+      );
+    }
+
+    // Image-only update — apply in-place (existing behavior)
+    return (
+      <UpdateScreen
+        downloadUrl={updateInfo.download_url}
+        targetVersion={updateInfo.latest_version}
+        releaseNotes={updateInfo.release_notes}
+      />
+    );
+  }
+
+  return <>{children}</>;
+}

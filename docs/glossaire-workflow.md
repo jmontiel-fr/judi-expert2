@@ -42,7 +42,7 @@ Le **TRE** (Template de Rapport d'Expertise, fichier `tre.docx`) est le **docume
 </tr>
 <tr><td colspan="6" style="text-align: center; padding: 4px;">↓ ticket</td></tr>
 <tr style="background-color: #f5f5f5;">
-  <td colspan="6" style="text-align: center; font-weight: bold; padding: 8px;">APPLICATION LOCALE (PC Expert)</td>
+  <td colspan="6" style="text-align: center; font-weight: bold; padding: 8px;">SITE CLIENT (PC Expert)</td>
 </tr>
 <tr>
   <th style="width: 16%; background-color: #e8f5e9; text-align: center;">Step 1<br/><small>Création dossier</small></th>
@@ -133,7 +133,7 @@ Pour les expertises où l'expert a **déjà rédigé son Pré-Rapport** (`pre.do
 ### Prérequis avant le workflow
 
 1. L'expert s'inscrit sur le **Site Central** et achète un **ticket** via Stripe
-2. L'expert installe l'**Application Locale** sur son PC et configure :
+2. L'expert installe le **Site Client** sur son PC et configure :
    - Son **identifiant** (le mot de passe est celui du Site Central — une connexion Internet est nécessaire pour l'authentification)
    - Son **domaine d'expertise** (psychologie, psychiatrie, etc.)
 3. L'expert peut personnaliser :
@@ -374,9 +374,9 @@ Création (ticket valide)
 </tr>
 </thead>
 <tbody>
-<tr><td>Application Locale</td><td>Application desktop conteneurisée (Docker Compose, 4 conteneurs). Toutes les données restent en local.</td></tr>
+<tr><td>Site Client</td><td>Application desktop conteneurisée (Docker Compose, 4 conteneurs). Toutes les données restent en local.</td></tr>
 <tr><td>Site Central</td><td>Plateforme web AWS (inscriptions, paiements Stripe, distribution corpus RAG, administration).</td></tr>
-<tr><td>Amorce</td><td>Lanceur de l'Application Locale. Démarre Docker puis les 4 conteneurs et ouvre le navigateur.</td></tr>
+<tr><td>Amorce</td><td>Lanceur du Site Client. Démarre Docker puis les 4 conteneurs et ouvre le navigateur.</td></tr>
 </tbody>
 </table>
 

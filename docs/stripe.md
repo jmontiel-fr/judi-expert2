@@ -211,7 +211,7 @@ async def stripe_webhook(request: Request):
 
 ## Vérification des tickets
 
-Lorsque l'Application Locale crée un dossier, elle envoie le ticket au Site Central pour vérification :
+Lorsque le Site Client crée un dossier, il envoie le ticket au Site Central pour vérification :
 
 ```
 POST /api/tickets/verify

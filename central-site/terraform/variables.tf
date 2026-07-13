@@ -13,7 +13,7 @@ variable "environment" {
 variable "aws_region" {
   description = "AWS region"
   type        = string
-  default     = "eu-west-1"
+  default     = "eu-west-3"
 }
 
 # --- Lightsail ---
@@ -65,4 +65,30 @@ variable "google_site_verification" {
   type        = string
   default     = ""
   sensitive   = false
+}
+
+# --- Cognito Users ---
+
+variable "admin_email" {
+  description = "Email du compte administrateur Cognito"
+  type        = string
+  default     = "admin@itechsource.fr"
+}
+
+variable "admin_temporary_password" {
+  description = "Mot de passe temporaire admin (changement forcé à la 1re connexion)"
+  type        = string
+  sensitive   = true
+}
+
+variable "expert_email" {
+  description = "Email du compte expert initial"
+  type        = string
+  default     = "jacky.montiel@gmail.com"
+}
+
+variable "expert_temporary_password" {
+  description = "Mot de passe temporaire expert (changement forcé à la 1re connexion)"
+  type        = string
+  sensitive   = true
 }

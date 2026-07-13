@@ -264,6 +264,7 @@ async def logout(request: LogoutRequest):
 
 class ForgotPasswordRequest(BaseModel):
     email: str
+    captcha_token: str = ""
 
 
 @router.post("/forgot-password")
@@ -272,18 +273,73 @@ async def forgot_password(request: ForgotPasswordRequest, db: AsyncSession = Dep
 
     Retourne toujours un succès pour ne pas révéler si l'email existe.
     En mode dev, log simplement la demande.
-    En production, déclenche le flux Cognito ForgotPassword.
+    En production, vérifie le captcha puis déclenche le flux Cognito ForgotPassword.
     """
     if IS_DEV:
         logger.info("Demande de réinitialisation de mot de passe pour: %s (mode dev — pas d'email envoyé)", request.email)
-        return {"message": "Si un compte existe avec cet email, un lien de réinitialisation a été envoyé."}
+        return {"message": "Si un compte existe avec cet email, un code de réinitialisation a été envoyé."}
+
+    # Vérification du captcha
+    captcha_valid = await captcha_service.verify_captcha(request.captcha_token)
+    if not captcha_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Captcha invalide",
+        )
 
     try:
         cognito_service.forgot_password(email=request.email)
     except ClientError:
         pass  # Ne pas révéler si l'email existe
 
-    return {"message": "Si un compte existe avec cet email, un lien de réinitialisation a été envoyé."}
+    return {"message": "Si un compte existe avec cet email, un code de réinitialisation a été envoyé."}
+
+
+class ConfirmForgotPasswordRequest(BaseModel):
+    email: str
+    code: str
+    new_password: str
+
+
+@router.post("/confirm-forgot-password")
+async def confirm_forgot_password(request: ConfirmForgotPasswordRequest):
+    """Confirme la réinitialisation du mot de passe avec le code + nouveau mot de passe.
+
+    Retourne un message de succès ou une erreur explicite.
+    """
+    if IS_DEV:
+        logger.info("Confirmation reset mot de passe pour: %s (mode dev)", request.email)
+        return {"message": "Mot de passe réinitialisé avec succès."}
+
+    try:
+        cognito_service.confirm_forgot_password(
+            email=request.email,
+            confirmation_code=request.code,
+            new_password=request.new_password,
+        )
+        return {"message": "Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter."}
+    except ClientError as e:
+        error_code = e.response["Error"]["Code"]
+        if error_code == "CodeMismatchException":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Code de vérification invalide.",
+            )
+        if error_code == "ExpiredCodeException":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Code expiré. Veuillez refaire une demande de réinitialisation.",
+            )
+        if error_code == "InvalidPasswordException":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Le mot de passe ne respecte pas les critères de sécurité (min. 8 caractères, majuscule, minuscule, chiffre, caractère spécial).",
+            )
+        logger.error("Erreur Cognito confirm_forgot_password: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Erreur lors de la réinitialisation. Veuillez réessayer.",
+        )
 
 
 class ConfirmSignUpRequest(BaseModel):

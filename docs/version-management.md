@@ -1,6 +1,6 @@
 # Gestion des Versions — Judi-Expert
 
-Ce document décrit le système complet de gestion des versions pour Judi-Expert, couvrant le versionnage de l'Application Locale, du Site Central, et du modèle LLM.
+Ce document décrit le système complet de gestion des versions pour Judi-Expert, couvrant le versionnage du Site Client, du Site Central, et du modèle LLM.
 
 ---
 
@@ -24,11 +24,11 @@ YYYY-MM-DD
 
 | Fichier | Composant | Description |
 |---------|-----------|-------------|
-| `local-site/VERSION` | Application Locale | Version de l'application installée sur le PC de l'expert |
+| `client-site/VERSION` | Site Client | Version de l'application installée sur le PC de l'expert |
 | `central-site/VERSION` | Site Central | Version du Site Central déployé sur AWS |
-| `central-site/app_locale_package/VERSION` | Package installateur | Copie de `local-site/VERSION`, synchronisée à chaque release |
+| `central-site/app_client_package/VERSION` | Package installateur | Copie de `client-site/VERSION`, synchronisée à chaque release |
 
-> **Important** : Le fichier `central-site/app_locale_package/VERSION` doit **toujours** être synchronisé avec `local-site/VERSION`. Le script `package.sh` effectue cette copie automatiquement lors de la génération de l'installateur.
+> **Important** : Le fichier `central-site/app_client_package/VERSION` doit **toujours** être synchronisé avec `client-site/VERSION`. Le script `package.sh` effectue cette copie automatiquement lors de la génération de l'installateur.
 
 ### Exemple concret
 
@@ -60,7 +60,7 @@ Le projet suit le [Semantic Versioning 2.0.0](https://semver.org/) :
 
 - La version initiale est `1.0.0`
 - Les versions de pré-release ne sont pas utilisées en production
-- L'Application Locale et le Site Central ont des versions **indépendantes**
+- Le Site Client et le Site Central ont des versions **indépendantes**
 - Le format est strictement `X.Y.Z` (3 nombres entiers non-négatifs séparés par des points)
 
 ---
@@ -69,7 +69,7 @@ Le projet suit le [Semantic Versioning 2.0.0](https://semver.org/) :
 
 ### Qui publie ?
 
-Seul un **Administrateur Central** (authentifié via AWS Cognito) peut publier une nouvelle version de l'Application Locale.
+Seul un **Administrateur Central** (authentifié via AWS Cognito) peut publier une nouvelle version du Site Client.
 
 ### Comment publier ?
 
@@ -81,7 +81,7 @@ curl -X POST https://central.judi-expert.fr/api/admin/versions \
   -H "Content-Type: application/json" \
   -d '{
     "version": "1.1.0",
-    "download_url": "https://s3.eu-west-1.amazonaws.com/judi-expert-production-assets/packages/local/judi-expert-local-1.1.0.tar.gz",
+    "download_url": "https://s3.eu-west-1.amazonaws.com/judi-expert-production-assets/packages/client/judi-expert-client-1.1.0.tar.gz",
     "mandatory": true,
     "release_notes": "Ajout du workflow psychiatrie et corrections de bugs OCR"
   }'
@@ -122,7 +122,7 @@ Réponse :
 ```json
 {
   "latest_version": "1.1.0",
-  "download_url": "https://s3.eu-west-1.amazonaws.com/judi-expert-production-assets/packages/local/judi-expert-local-1.1.0.tar.gz",
+  "download_url": "https://s3.eu-west-1.amazonaws.com/judi-expert-production-assets/packages/client/judi-expert-client-1.1.0.tar.gz",
   "mandatory": true,
   "release_notes": "Ajout du workflow psychiatrie et corrections de bugs OCR"
 }
@@ -134,7 +134,7 @@ Réponse :
 
 ### Déclenchement
 
-Au démarrage, l'Application Locale effectue les vérifications suivantes :
+Au démarrage, le Site Client effectue les vérifications suivantes :
 
 1. **Vérification des heures ouvrables** : la communication avec le Site Central n'est autorisée qu'entre 8h et 20h (Europe/Paris). En dehors de cette plage, l'application démarre normalement.
 2. **Interrogation du Site Central** : `GET /api/version` via le `SiteCentralClient` (avec retry et backoff exponentiel).
@@ -264,7 +264,7 @@ Les mois sont affichés en français :
 
 ### Exemples
 
-- **Application Locale** : `App Locale V1.0.0 - 8 mai 2026`
+- **Site Client** : `Site Client V1.0.0 - 8 mai 2026`
 - **Site Central** : `Site Central V1.0.0 - 8 mai 2026`
 
 ### Emplacement
@@ -277,7 +277,7 @@ La version est affichée dans le **footer** (pied de page) de toutes les pages :
 
 | Site | Endpoint | Champ |
 |------|----------|-------|
-| Application Locale | `GET /api/version` | `current_version` + `current_date` |
+| Site Client | `GET /api/version` | `current_version` + `current_date` |
 | Site Central | `GET /api/health` | `version` |
 
 ---
@@ -303,7 +303,7 @@ curl -X POST https://central.judi-expert.fr/api/admin/versions \
   -H "Content-Type: application/json" \
   -d '{
     "version": "1.1.0",
-    "download_url": "https://s3.eu-west-1.amazonaws.com/judi-expert-production-assets/packages/local/judi-expert-local-1.1.0.tar.gz",
+    "download_url": "https://s3.eu-west-1.amazonaws.com/judi-expert-production-assets/packages/client/judi-expert-client-1.1.0.tar.gz",
     "mandatory": true,
     "release_notes": "## Nouveautés\n- Ajout du domaine psychiatrie\n- Amélioration de l OCR\n\n## Corrections\n- Fix crash au step 3"
   }'
@@ -315,7 +315,7 @@ Réponse :
 {
   "id": 2,
   "version": "1.1.0",
-  "download_url": "https://s3.eu-west-1.amazonaws.com/judi-expert-production-assets/packages/local/judi-expert-local-1.1.0.tar.gz",
+  "download_url": "https://s3.eu-west-1.amazonaws.com/judi-expert-production-assets/packages/client/judi-expert-client-1.1.0.tar.gz",
   "mandatory": true,
   "release_notes": "## Nouveautés\n- Ajout du domaine psychiatrie\n- Amélioration de l OCR\n\n## Corrections\n- Fix crash au step 3",
   "published_at": "2026-06-15T14:30:00Z"
@@ -333,7 +333,7 @@ Réponse :
 ```json
 {
   "latest_version": "1.1.0",
-  "download_url": "https://s3.eu-west-1.amazonaws.com/judi-expert-production-assets/packages/local/judi-expert-local-1.1.0.tar.gz",
+  "download_url": "https://s3.eu-west-1.amazonaws.com/judi-expert-production-assets/packages/client/judi-expert-client-1.1.0.tar.gz",
   "mandatory": true,
   "release_notes": "## Nouveautés\n- Ajout du domaine psychiatrie\n- Amélioration de l OCR\n\n## Corrections\n- Fix crash au step 3"
 }

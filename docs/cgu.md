@@ -10,7 +10,7 @@
 Les présentes Conditions Générales d'Utilisation (ci-après « CGU ») définissent les modalités et conditions d'accès et d'utilisation des services proposés par la société ITechSource (ci-après « l'Éditeur ») à travers :
 
 - Le **Site Central** accessible à l'adresse [https://judi-expert.fr](https://judi-expert.fr), déployé sur l'infrastructure AWS (région eu-west-3, Paris) ;
-- L'**Application Locale** installée sur le poste de travail de l'utilisateur, fonctionnant via des conteneurs Docker en environnement local.
+- Le **Site Client** installé sur le poste de travail de l'utilisateur, fonctionnant via des conteneurs Docker en environnement local.
 
 L'ensemble de ces deux composants constitue la solution **Judi-Expert**, destinée à assister les experts judiciaires dans la production de leurs rapports d'expertise.
 
@@ -22,7 +22,7 @@ En accédant ou en utilisant les services Judi-Expert, l'utilisateur reconnaît 
 
 ### 2.1 Accès au Site Central
 
-L'accès au Site Central est ouvert à tout visiteur. Certaines fonctionnalités (achat de tickets, téléchargement de l'Application Locale, accès à l'espace personnel) nécessitent une inscription préalable et une connexion authentifiée.
+L'accès au Site Central est ouvert à tout visiteur. Certaines fonctionnalités (achat de tickets, téléchargement du Site Client, accès à l'espace personnel) nécessitent une inscription préalable et une connexion authentifiée.
 
 Le Site Central est disponible pendant les horaires bureau, de 8h à 20h (heure de Paris), du lundi au vendredi. En dehors de ces horaires, une page de maintenance informe les visiteurs de l'indisponibilité temporaire du service.
 
@@ -38,24 +38,24 @@ Une case optionnelle permet d'accepter la réception d'emails et de newsletters.
 
 L'authentification est gérée par AWS Cognito.
 
-### 2.3 Accès à l'Application Locale
+### 2.3 Accès au Site Client
 
-L'Application Locale est téléchargeable depuis la page `/downloads` du Site Central après inscription. Son utilisation nécessite un poste de travail satisfaisant les prérequis techniques (CPU, RAM, espace disque, chiffrement du disque) et la création d'un dossier d'expertise requiert un Ticket valide acheté sur le Site Central.
+Le Site Client est téléchargeable depuis la page `/downloads` du Site Central après inscription. Son utilisation nécessite un poste de travail satisfaisant les prérequis techniques (CPU, RAM, espace disque, chiffrement du disque) et la création d'un dossier d'expertise requiert un Ticket valide acheté sur le Site Central.
 
 ---
 
 ## 3. Description des services
 
-### 3.1 Application Locale
+### 3.1 Site Client
 
-L'Application Locale permet à l'expert judiciaire de gérer ses dossiers d'expertise selon un workflow en 4 étapes séquentielles :
+Le Site Client permet à l'expert judiciaire de gérer ses dossiers d'expertise selon un workflow en 4 étapes séquentielles :
 
 1. **Step0 — Extraction** : conversion d'un document PDF-scan de réquisition en fichier Markdown exploitable via OCR (Tesseract) et structuration par un LLM local (Mistral 7B) ;
 2. **Step1 — PEMEC** : génération d'un plan d'entretien (QMEC) à partir des questions du tribunal et de la trame d'entretien configurée par l'expert ;
 3. **Step2 — Upload** : collecte des notes d'entretien (NE) et du rapport d'expertise brut (REB) au format .docx ;
 4. **Step3 — REF** : génération du rapport d'expertise final (REF) et du rapport auxiliaire (RAUX) comprenant une analyse de contestations et une version révisée.
 
-L'Application Locale intègre également un ChatBot conversationnel utilisant le LLM local et la base RAG du domaine d'expertise.
+Le Site Client intègre également un ChatBot conversationnel utilisant le LLM local et la base RAG du domaine d'expertise.
 
 ### 3.2 Site Central
 
@@ -63,14 +63,14 @@ Le Site Central propose les services suivants :
 
 - Inscription et gestion du compte expert ;
 - Achat de tickets d'expertise via Stripe ;
-- Téléchargement de l'Application Locale et des modules RAG par domaine ;
+- Téléchargement du Site Client et des modules RAG par domaine ;
 - Consultation des corpus disponibles par domaine ;
 - Accès à la documentation (FAQ, méthodologie, mentions légales, CGU) ;
 - Formulaire de contact.
 
 ### 3.3 Tickets d'expertise
 
-Un Ticket est un fichier électronique à usage unique, acheté sur le Site Central via Stripe, nécessaire à la création d'un dossier d'expertise dans l'Application Locale. Chaque Ticket est associé au domaine d'expertise de l'expert. Une fois utilisé, le Ticket ne peut être réutilisé.
+Un Ticket est un fichier électronique à usage unique, acheté sur le Site Central via Stripe, nécessaire à la création d'un dossier d'expertise dans le Site Client. Chaque Ticket est associé au domaine d'expertise de l'expert. Une fois utilisé, le Ticket ne peut être réutilisé.
 
 ### 3.4 Modules RAG
 
@@ -103,7 +103,7 @@ L'ensemble des éléments constituant la solution Judi-Expert (code source, inte
 
 ### 5.2 Droits de l'utilisateur
 
-L'utilisateur conserve l'intégralité des droits de propriété intellectuelle sur les documents qu'il produit, importe ou génère via l'Application Locale (réquisitions, notes d'entretien, rapports d'expertise).
+L'utilisateur conserve l'intégralité des droits de propriété intellectuelle sur les documents qu'il produit, importe ou génère via le Site Client (réquisitions, notes d'entretien, rapports d'expertise).
 
 ### 5.3 Composants open-source
 
@@ -136,7 +136,7 @@ La collecte et le traitement des données personnelles sont régis par la Politi
 L'utilisateur est informé que :
 
 - Les données d'expertise restent exclusivement sur le poste local de l'expert et ne sont jamais transmises au Site Central ;
-- Seuls les tickets transitent entre l'Application Locale et le Site Central pour vérification ;
+- Seuls les tickets transitent entre le Site Client et le Site Central pour vérification ;
 - Les données personnelles collectées lors de l'inscription sont hébergées sur AWS dans la région eu-west-3 (Paris), sans transfert hors de l'Union Européenne.
 
 ---

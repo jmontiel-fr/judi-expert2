@@ -17,6 +17,10 @@ async def verify_captcha(captcha_token: str) -> bool:
     Returns:
         True si le captcha est valide, False sinon.
     """
+    # Bypass pour l'application locale (Site Client) qui n'a pas de captcha
+    if captcha_token == "local-app-bypass":
+        return True
+
     if not RECAPTCHA_SECRET_KEY:
         # En développement sans clé configurée, on accepte tout
         return True

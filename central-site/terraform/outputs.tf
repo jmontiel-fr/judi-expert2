@@ -58,3 +58,32 @@ output "cron_secret_name" {
   description = "Nom du secret Secrets Manager contenant le token cron"
   value       = module.cron.cron_secret_name
 }
+
+# --- S3 (packages Site Client) ---
+output "s3_assets_bucket_name" {
+  description = "Nom du bucket S3 pour les packages Site Client"
+  value       = module.s3.bucket_name
+}
+
+output "s3_backend_access_key_id" {
+  description = "Access Key ID pour le backend (presigned URLs S3)"
+  value       = module.s3.backend_s3_access_key_id
+  sensitive   = true
+}
+
+output "s3_backend_secret_access_key" {
+  description = "Secret Access Key pour le backend (presigned URLs S3)"
+  value       = module.s3.backend_s3_secret_access_key
+  sensitive   = true
+}
+
+# --- ECR (Docker Registry, eu-west-1) ---
+output "ecr_backend_repository_url" {
+  description = "ECR backend repository URL"
+  value       = module.ecr.backend_repository_url
+}
+
+output "ecr_frontend_repository_url" {
+  description = "ECR frontend repository URL"
+  value       = module.ecr.frontend_repository_url
+}

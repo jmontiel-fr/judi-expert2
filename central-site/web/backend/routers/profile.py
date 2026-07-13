@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 IS_DEV = os.environ.get("APP_ENV", "production") == "development"
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@judi-expert.fr")
 
 
 async def get_current_expert(
@@ -78,6 +79,27 @@ async def get_current_expert(
         select(Expert).where(Expert.cognito_sub == cognito_sub, Expert.is_deleted == False)
     )
     expert = result.scalar_one_or_none()
+
+    # Si pas trouvé par cognito_sub, tenter par email et mettre à jour le sub
+    # (cas de la première connexion après seed admin en prod)
+    if not expert:
+        # Récupérer l'email depuis les attributs Cognito
+        email = None
+        for attr in user_info.get("UserAttributes", []):
+            if attr["Name"] == "email":
+                email = attr["Value"]
+                break
+        if email:
+            result = await db.execute(
+                select(Expert).where(Expert.email == email, Expert.is_deleted == False)
+            )
+            expert = result.scalar_one_or_none()
+            if expert:
+                # Mettre à jour le cognito_sub en BDD
+                expert.cognito_sub = cognito_sub
+                await db.commit()
+                logger.info("cognito_sub mis à jour pour %s", email)
+
     if not expert:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -93,7 +115,9 @@ async def get_profile(
 ):
     """Récupère le profil de l'expert connecté."""
     expert, _ = current
-    return expert
+    response = ProfileResponse.model_validate(expert)
+    response.is_admin = (expert.email == ADMIN_EMAIL)
+    return response
 
 
 @router.put("", response_model=ProfileResponse)

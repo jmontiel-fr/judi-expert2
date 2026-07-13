@@ -11,7 +11,7 @@ import httpx
 import pytest
 
 sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "local-site" / "web" / "backend")
+    0, str(Path(__file__).resolve().parents[2] / "client-site" / "web" / "backend")
 )
 
 from services.update_service import UpdateService, UpdateError

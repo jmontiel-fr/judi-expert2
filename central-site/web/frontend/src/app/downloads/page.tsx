@@ -2,19 +2,28 @@
 
 import { useState, useEffect } from "react";
 import { apiGetDownloadInfo, type DownloadInfo } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import styles from "./downloads.module.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 export default function DownloadsPage() {
+  const { accessToken, loading: authLoading } = useAuth();
   const [downloadInfo, setDownloadInfo] = useState<DownloadInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (authLoading) return; // Wait for auth context to initialize
+
     async function load() {
+      if (!accessToken) {
+        setError("Veuillez vous connecter pour accéder aux téléchargements.");
+        setLoading(false);
+        return;
+      }
       try {
-        const info = await apiGetDownloadInfo();
+        const info = await apiGetDownloadInfo(accessToken);
         setDownloadInfo(info);
       } catch {
         setError("Impossible de charger les informations de téléchargement.");
@@ -23,13 +32,13 @@ export default function DownloadsPage() {
       }
     }
     load();
-  }, []);
+  }, [accessToken, authLoading]);
 
   return (
     <div className={styles.container}>
       <h1 className={styles.title}>Téléchargements</h1>
       <p className={styles.subtitle}>
-        Téléchargez l&apos;application locale et la documentation associée.
+        Téléchargez le Site Client et la documentation associée.
       </p>
 
       {loading && <p>Chargement…</p>}
@@ -37,7 +46,7 @@ export default function DownloadsPage() {
 
       <div className={styles.card}>
         <div className={styles.cardIcon}>💻</div>
-        <h2 className={styles.cardTitle}>Application Locale Judi-expert</h2>
+        <h2 className={styles.cardTitle}>Site Client Judi-expert</h2>
         {downloadInfo?.version && (
           <p style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--color-primary)", marginBottom: 8 }}>
             Version : {downloadInfo.version}
@@ -46,7 +55,7 @@ export default function DownloadsPage() {
         <p className={styles.cardDesc}>
           {downloadInfo
             ? downloadInfo.description
-            : "Package d'installation de l'Application Locale. Contient l'ensemble des conteneurs Docker nécessaires."}
+            : "Package d'installation du Site Client. Contient l'ensemble des conteneurs Docker nécessaires."}
         </p>
         {downloadInfo?.file_size && (
           <p style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", marginBottom: 12 }}>
@@ -57,7 +66,7 @@ export default function DownloadsPage() {
           href={
             downloadInfo?.download_url?.startsWith("/")
               ? `${API_BASE}${downloadInfo.download_url}`
-              : downloadInfo?.download_url ?? `${API_BASE}/api/downloads/app/file`
+              : downloadInfo?.download_url ?? "#"
           }
           className={styles.downloadBtn}
         >
@@ -78,7 +87,7 @@ export default function DownloadsPage() {
       </div>
 
       <div className={styles.notice}>
-        🔒 L&apos;application locale fonctionne entièrement sur votre PC.
+        🔒 Le Site Client fonctionne entièrement sur votre PC.
         Aucune donnée d&apos;expertise ne transite par nos serveurs.
       </div>
     </div>

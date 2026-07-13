@@ -114,9 +114,17 @@ export default function TicketsPage() {
     setIsPurchasing(true);
     try {
       const result = await apiPurchaseTicket(accessToken);
-      // Always redirect to Stripe Checkout (dev with test keys, prod with live keys)
-      setPurchaseMsg("Redirection vers Stripe Checkout…");
-      window.location.href = result.checkout_url;
+      // Check if the URL is internal (whitelist bypass) or external (Stripe Checkout)
+      const isInternal = result.checkout_url.includes("/monespace/tickets?success=true");
+      if (isInternal) {
+        // Whitelist: ticket already active, just refresh the list
+        setPurchaseMsg("Ticket activé !");
+        await loadData();
+      } else {
+        // Stripe Checkout: redirect externally
+        setPurchaseMsg("Redirection vers Stripe Checkout…");
+        window.location.href = result.checkout_url;
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         setPurchaseError(err.message);
@@ -210,7 +218,7 @@ export default function TicketsPage() {
                         type="button"
                         className={styles.copyBtn}
                         onClick={() => handleCopyToken(t)}
-                        title="Copier le token pour l'application locale"
+                        title="Copier le token pour le Site Client"
                       >
                         {copiedId === t.id ? "✓ Copié" : "Copier"}
                       </button>

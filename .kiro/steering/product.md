@@ -4,7 +4,7 @@ Judi-Expert is an AI-assisted platform for French judicial experts (experts judi
 
 ## Two-Component Architecture
 
-- **Application Locale**: Desktop app (Docker Compose, 4 containers) installed on the expert's PC. Handles the full expertise workflow — OCR extraction, interview plan generation, document collection, and report generation. All case data stays local (GDPR/AI Act compliant).
+- **Site Client**: Desktop app (Docker Compose, 4 containers) installed on the expert's PC. Handles the full expertise workflow — OCR extraction, interview plan generation, document collection, and report generation. All case data stays local (GDPR/AI Act compliant).
 - **Site Central**: AWS-hosted web platform managing expert registration, ticket-based payments (Stripe), RAG corpus distribution, and administration.
 
 ## Expertise Workflow (4 Steps)
@@ -25,7 +25,7 @@ Five expertise domains defined in `domaines/domaines.yaml`: psychologie (active)
 ## Key Constraints
 
 - All expertise data must remain on the expert's PC — never transmitted to the cloud
-- Only tickets transit between local app and Site Central
+- Only tickets transit between client app and Site Central
 - The LLM (Mistral 7B via Ollama) runs entirely locally, no internet required for inference
 - Disk encryption (BitLocker/FileVault) is mandatory
 - Documentation and UI are in French

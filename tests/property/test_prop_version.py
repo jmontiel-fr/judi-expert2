@@ -18,10 +18,10 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 # ---------------------------------------------------------------------------
-# Module isolation: load local-site backend services
+# Module isolation: load client-site backend services
 # ---------------------------------------------------------------------------
 _local_backend = str(
-    Path(__file__).resolve().parents[2] / "local-site" / "web" / "backend"
+    Path(__file__).resolve().parents[2] / "client-site" / "web" / "backend"
 )
 
 _modules_to_isolate = [
@@ -443,7 +443,7 @@ def test_data_isolation_in_version_requests(version: str):
 
 def build_installer_filename(version: str) -> str:
     """Construit le nom de fichier de l'installateur avec la version."""
-    return f"judi-expert-local-{version}.exe"
+    return f"judi-expert-client-{version}.exe"
 
 
 @settings(max_examples=100, deadline=None)
@@ -456,5 +456,5 @@ def test_installer_filename_includes_version(version: str):
     """
     filename = build_installer_filename(version)
     assert version in filename
-    assert filename.startswith("judi-expert-local-")
+    assert filename.startswith("judi-expert-client-")
     assert filename.endswith(".exe")

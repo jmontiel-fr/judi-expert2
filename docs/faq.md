@@ -13,7 +13,7 @@
 
 Judi-Expert est une solution d'assistance aux experts judiciaires multi-domaines. Elle se compose de deux parties :
 
-- Une **Application Locale** installée sur votre PC, qui gère le workflow d'expertise en 4 étapes (extraction OCR, plan d'entretien, collecte de données, génération de rapport final) en s'appuyant sur un LLM local et une base de connaissances RAG spécifique à votre domaine ;
+- Un **Site Client** installé sur votre PC, qui gère le workflow d'expertise en 4 étapes (extraction OCR, plan d'entretien, collecte de données, génération de rapport final) en s'appuyant sur un LLM local et une base de connaissances RAG spécifique à votre domaine ;
 - Un **Site Central** (judi-expert.fr) qui gère votre inscription, la distribution des modules domaine, la vente de tickets d'expertise et la documentation.
 
 Toutes vos données d'expertise restent exclusivement sur votre PC.
@@ -30,7 +30,7 @@ Le domaine psychologie est le premier domaine pleinement opérationnel avec un c
 
 ### Combien coûte Judi-Expert ?
 
-L'Application Locale est gratuite à télécharger et à installer. Pour créer un dossier d'expertise, vous devez acheter un **Ticket** sur le Site Central via Stripe. Chaque Ticket est à usage unique et correspond à un dossier d'expertise. Le tarif des tickets est affiché sur le Site Central lors de l'achat.
+Le Site Client est gratuit à télécharger et à installer. Pour créer un dossier d'expertise, vous devez acheter un **Ticket** sur le Site Central via Stripe. Chaque Ticket est à usage unique et correspond à un dossier d'expertise. Le tarif des tickets est affiché sur le Site Central lors de l'achat.
 
 ### Judi-Expert remplace-t-il l'expert judiciaire ?
 
@@ -40,7 +40,7 @@ Non. Judi-Expert est un outil d'assistance à la rédaction. Les rapports géné
 
 ## Installation
 
-### Quels sont les prérequis pour installer l'Application Locale ?
+### Quels sont les prérequis pour installer le Site Client ?
 
 Votre PC doit satisfaire les conditions minimales suivantes :
 
@@ -52,17 +52,17 @@ Votre PC doit satisfaire les conditions minimales suivantes :
 
 Le programme d'installation vérifie automatiquement ces prérequis.
 
-### Comment installer l'Application Locale ?
+### Comment installer le Site Client ?
 
 1. Inscrivez-vous sur [judi-expert.fr](https://judi-expert.fr) ;
 2. Connectez-vous et accédez à la page **Téléchargements** (`/downloads`) ;
 3. Téléchargez le package d'installation correspondant à votre système d'exploitation ;
 4. Lancez l'installateur qui vérifiera les prérequis, installera Docker et déploiera les conteneurs ;
-5. L'Application Locale sera accessible comme une application standard via l'Amorce.
+5. Le Site Client sera accessible comme une application standard via l'Amorce.
 
 ### Que fait le premier lancement ?
 
-Au premier lancement, l'Application Locale vous demande de :
+Au premier lancement, le Site Client vous demande de :
 
 1. Définir un **mot de passe local** pour protéger l'accès ;
 2. Sélectionner votre **domaine d'expertise** ;
@@ -75,7 +75,7 @@ Au premier lancement, l'Application Locale vous demande de :
 
 ### Comment créer un nouveau dossier d'expertise ?
 
-1. Depuis la page d'accueil de l'Application Locale, cliquez sur **Créer un dossier** ;
+1. Depuis la page d'accueil du Site Client, cliquez sur **Créer un dossier** ;
 2. Saisissez un **nom de dossier** ;
 3. Fournissez un **Ticket valide** acheté sur le Site Central ;
 4. Le ticket est vérifié auprès du Site Central. Si valide, le dossier est créé avec les 4 étapes au statut « initial ».
@@ -97,7 +97,7 @@ Un Ticket est un fichier électronique à usage unique acheté sur le Site Centr
 
 ### Comment fonctionne le ChatBot ?
 
-Le ChatBot est accessible depuis l'interface principale de l'Application Locale. Il utilise le LLM local (Mistral 7B) avec la base de connaissances RAG de votre domaine pour répondre à vos questions sur le contenu du domaine et l'utilisation du système.
+Le ChatBot est accessible depuis l'interface principale du Site Client. Il utilise le LLM local (Mistral 7B) avec la base de connaissances RAG de votre domaine pour répondre à vos questions sur le contenu du domaine et l'utilisation du système.
 
 ---
 
@@ -105,7 +105,27 @@ Le ChatBot est accessible depuis l'interface principale de l'Application Locale.
 
 ### Où sont stockées mes données d'expertise ?
 
-Toutes vos données d'expertise (réquisitions, notes d'entretien, rapports) sont stockées **exclusivement sur votre PC**, dans les conteneurs Docker de l'Application Locale. Aucune donnée d'expertise n'est transmise au Site Central ni à un serveur tiers.
+Toutes vos données d'expertise (réquisitions, notes d'entretien, rapports) sont stockées **exclusivement sur votre PC**, dans les conteneurs Docker du Site Client. Aucune donnée d'expertise n'est transmise au Site Central ni à un serveur tiers.
+
+### Où sont stockés mes dossiers ?
+
+Vos dossiers sont stockés sur votre PC dans le répertoire `C:\judi-expert\` (par défaut). Chaque dossier d'expertise correspond à un sous-répertoire portant son nom, avec les fichiers organisés par étape :
+
+```
+C:\judi-expert\
+├── judi-expert.db              ← base de données locale (métadonnées)
+├── config\                     ← TRE, templates personnalisés
+├── Expertise Dupont 2026\      ← un dossier d'expertise
+│   ├── step1\in\               ← fichiers d'entrée (upload)
+│   ├── step1\out\              ← fichiers de sortie (générés par l'IA)
+│   ├── step2\in\
+│   ├── step2\out\
+│   └── archive\                ← archive ZIP finale
+└── Expertise Martin 2026\
+    └── ...
+```
+
+Aucune donnée ne quitte votre machine. Seul le token du ticket transite vers le Site Central lors de la création d'un dossier, pour vérification de sa validité.
 
 ### Mes données sont-elles chiffrées ?
 
@@ -147,7 +167,7 @@ Rendez-vous sur [judi-expert.fr/connexion](https://judi-expert.fr/connexion), sa
 
 ### Quels sont les horaires d'ouverture du Site Central ?
 
-Le Site Central est disponible de **8h à 20h** (heure de Paris), du lundi au vendredi. En dehors de ces horaires, une page de maintenance vous informe de l'indisponibilité temporaire. L'Application Locale continue de fonctionner normalement pour les étapes d'expertise locales.
+Le Site Central est disponible de **8h à 20h** (heure de Paris), du lundi au vendredi. En dehors de ces horaires, une page de maintenance vous informe de l'indisponibilité temporaire. Le Site Client continue de fonctionner normalement pour les étapes d'expertise locales.
 
 ---
 
@@ -155,7 +175,7 @@ Le Site Central est disponible de **8h à 20h** (heure de Paris), du lundi au ve
 
 ### Comment mettre à jour le module RAG ?
 
-1. Ouvrez l'Application Locale et accédez à la page **Configuration** ;
+1. Ouvrez le Site Client et accédez à la page **Configuration** ;
 2. Consultez la liste des versions RAG disponibles pour votre domaine ;
 3. Sélectionnez la nouvelle version souhaitée ;
 4. Le module RAG est téléchargé depuis le Site Central et remplace la version précédente.
@@ -174,7 +194,7 @@ Le système indique un score de confiance après l'extraction. Vous pouvez toujo
 
 ### Quel LLM est utilisé ?
 
-L'Application Locale utilise **Mistral 7B Instruct v0.3**, un modèle de langage open-source (licence Apache 2.0) optimisé pour le français. Il fonctionne entièrement en local via Ollama, sans appel à un service cloud. Le modèle nécessite environ 8 Go de RAM dédiée.
+Le Site Client utilise **Mistral 7B Instruct v0.3**, un modèle de langage open-source (licence Apache 2.0) optimisé pour le français. Il fonctionne entièrement en local via Ollama, sans appel à un service cloud. Le modèle nécessite environ 8 Go de RAM dédiée.
 
 ### Pourquoi Docker ?
 

@@ -1,0 +1,59 @@
+# Judi-Expert - Site Client (mode installé)
+# Utilise les images Docker pré-buildées.
+
+services:
+  judi-llm:
+    image: ollama/ollama:latest
+    container_name: judi-llm
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./ollama-entrypoint.sh:/ollama-entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/ollama-entrypoint.sh"]
+    restart: unless-stopped
+
+  judi-rag:
+    image: qdrant/qdrant:latest
+    container_name: judi-rag
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+  judi-ocr:
+    image: judi-ocr:latest
+    container_name: judi-ocr
+    volumes:
+      - ocr_tmp:/tmp/ocr
+    restart: unless-stopped
+
+  judi-web-backend:
+    image: judi-web-backend:latest
+    container_name: judi-web-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ${JUDI_DATA_DIR:-C:/judi-expert}:/app/data
+    env_file:
+      - .env
+    depends_on:
+      - judi-rag
+      - judi-ocr
+      - judi-llm
+    restart: unless-stopped
+
+  judi-web-frontend:
+    image: judi-web-frontend:latest
+    container_name: judi-web-frontend
+    ports:
+      - "3005:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://judi-web-backend:8000
+    depends_on:
+      - judi-web-backend
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+  qdrant_data:
+  ocr_tmp:

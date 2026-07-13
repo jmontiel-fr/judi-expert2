@@ -35,6 +35,7 @@ async def get_latest_version(db: AsyncSession = Depends(get_db)):
         latest_version=version.version,
         download_url=version.download_url,
         mandatory=version.mandatory,
+        update_type=version.update_type,
         release_notes=version.release_notes,
     )
 
@@ -58,6 +59,7 @@ async def publish_version(
         version=request.version,
         download_url=request.download_url,
         mandatory=request.mandatory,
+        update_type=request.update_type,
         release_notes=request.release_notes,
     )
     db.add(new_version)

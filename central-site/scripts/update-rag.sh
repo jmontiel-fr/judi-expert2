@@ -82,7 +82,7 @@ echo -e "${YELLOW}[1/3]${NC} Build de l'image RAG pour ${GREEN}${DOMAIN}${NC}...
 docker build \
   -t "${RAG_IMAGE}:${TAG}" \
   --build-arg DOMAIN="$DOMAIN" \
-  -f "$REPO_ROOT/local-site/rag/Dockerfile" \
+  -f "$REPO_ROOT/client-site/rag/Dockerfile" \
   "$CORPUS_DIR"
 echo -e "${GREEN}  ✔ Image RAG built: ${RAG_IMAGE}:${TAG}${NC}"
 echo ""

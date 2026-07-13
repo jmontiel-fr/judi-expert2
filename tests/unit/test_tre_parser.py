@@ -12,7 +12,7 @@ from docx import Document as DocxDocument
 
 # Ajouter le backend au path
 sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "local-site" / "web" / "backend")
+    0, str(Path(__file__).resolve().parents[2] / "client-site" / "web" / "backend")
 )
 
 from services.tre_parser import Annotation, Placeholder, TREParser, TREParseResult

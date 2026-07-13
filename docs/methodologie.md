@@ -56,7 +56,7 @@ Judi-Expert est un système d'assistance aux experts judiciaires qui automatise 
 
 Le système se compose de deux parties :
 
-- **Application Locale** : installée sur le PC de l'expert, elle propose deux workflows — **standard** (5 étapes + Step E/A hors application) ou **simple** (2 étapes : mise en forme linguistique du PRE puis archivage). Le choix est effectué à la création du dossier. Toutes les données d'expertise restent exclusivement sur le PC de l'expert. L'authentification utilise les identifiants du Site Central (connexion Internet requise).
+- **Site Client** : installée sur le PC de l'expert, elle propose deux workflows — **standard** (5 étapes + Step E/A hors application) ou **simple** (2 étapes : mise en forme linguistique du PRE puis archivage). Le choix est effectué à la création du dossier. Toutes les données d'expertise restent exclusivement sur le PC de l'expert. L'authentification utilise les identifiants du Site Central (connexion Internet requise).
 
 - **Site Central** : plateforme web de gestion des inscriptions, des tickets d'expertise et de la distribution des modules de connaissances par domaine.
 
@@ -166,7 +166,7 @@ Judi-Expert est conçu dans le respect du RGPD :
 
 | Principe RGPD | Mise en œuvre |
 |---------------|--------------|
-| **Minimisation des données** | Seuls les tickets transitent entre l'Application Locale et le Site Central. Aucune donnée d'expertise n'est transmise. |
+| **Minimisation des données** | Seuls les tickets transitent entre le Site Client et le Site Central. Aucune donnée d'expertise n'est transmise. |
 | **Localisation des données** | Toutes les données d'expertise sont stockées exclusivement sur le PC de l'expert. |
 | **Chiffrement** | Le chiffrement du disque (BitLocker/FileVault) est exigé à l'installation. |
 | **Droit à l'effacement** | L'expert peut supprimer ses dossiers localement. Sur le Site Central, la suppression de compte est possible. |
@@ -233,7 +233,7 @@ L'utilisation de Judi-Expert ne modifie en rien la responsabilité de l'expert j
 
 ### Architecture sécurisée
 
-L'application locale Judi-Expert est conçue avec une architecture de sécurité en profondeur :
+Le Site Client Judi-Expert est conçu avec une architecture de sécurité en profondeur :
 
 - **Isolation réseau** : les conteneurs IA (LLM, OCR, RAG) fonctionnent dans un réseau Docker interne sans accès à Internet. Les données d'expertise ne peuvent physiquement pas fuiter vers l'extérieur.
 - **Chiffrement** : le disque du PC expert doit être chiffré (BitLocker sous Windows 11 Pro). Les communications avec le Site Central utilisent HTTPS/TLS 1.3.

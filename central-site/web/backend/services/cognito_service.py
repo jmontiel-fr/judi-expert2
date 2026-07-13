@@ -221,3 +221,51 @@ def change_password(
         PreviousPassword=old_password,
         ProposedPassword=new_password,
     )
+
+
+def forgot_password(email: str) -> dict[str, Any]:
+    """Déclenche le flux de réinitialisation de mot de passe Cognito.
+
+    Envoie un code de vérification à l'email de l'utilisateur.
+
+    Args:
+        email: Adresse email de l'utilisateur.
+
+    Returns:
+        Réponse Cognito forgot_password.
+
+    Raises:
+        ClientError: En cas d'erreur Cognito.
+    """
+    client = _get_cognito_client()
+    return client.forgot_password(
+        ClientId=COGNITO_APP_CLIENT_ID,
+        Username=email,
+    )
+
+
+def confirm_forgot_password(
+    email: str,
+    confirmation_code: str,
+    new_password: str,
+) -> dict[str, Any]:
+    """Confirme la réinitialisation du mot de passe avec le code reçu par email.
+
+    Args:
+        email: Adresse email de l'utilisateur.
+        confirmation_code: Code de vérification reçu par email.
+        new_password: Nouveau mot de passe choisi.
+
+    Returns:
+        Réponse Cognito confirm_forgot_password.
+
+    Raises:
+        ClientError: En cas de code invalide ou expiré.
+    """
+    client = _get_cognito_client()
+    return client.confirm_forgot_password(
+        ClientId=COGNITO_APP_CLIENT_ID,
+        Username=email,
+        ConfirmationCode=confirmation_code,
+        Password=new_password,
+    )

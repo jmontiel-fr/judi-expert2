@@ -25,11 +25,12 @@ out/
 *.dmg
 
 # ── Environment ──
-.env
 .env.aws
 .env.dev
-.env.local
 .env.*.local
+central-site/.env
+# client-site/.env est généré par les scripts dev/package (copie de .env.local ou .env.prod)
+client-site/.env
 
 # ── IDE ──
 .vscode/
@@ -51,9 +52,9 @@ htmlcov/
 .mypy_cache/
 
 # ── Build artifacts ──
-central-site/app_locale_package/.staging/
-central-site/app_locale_package/output/*.exe
-central-site/app_locale_package/output/*.sh
+central-site/app_client_package/.staging/
+central-site/app_client_package/output/*.exe
+central-site/app_client_package/output/*.sh
 
 # ── Data (local dev) ──
 *.db
@@ -64,4 +65,6 @@ data/
 *.tfstate
 *.tfstate.backup
 .terraform.lock.hcl
+secrets.auto.tfvars
 nul
+.env.publish

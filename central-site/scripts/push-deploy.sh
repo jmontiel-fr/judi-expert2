@@ -18,11 +18,12 @@ NC='\033[0m'
 
 # Config
 INSTANCE_NAME="judi-expert-production"
-REGION="eu-west-1"
+REGION="eu-west-3"
 SSH_USER="ec2-user"
 KEY_FILE="$SCRIPT_DIR/lightsail-key.pem"
 REMOTE_DIR="/opt/judi-expert"
 ECR_REGISTRY="059247592146.dkr.ecr.eu-west-1.amazonaws.com"
+ECR_REGION="eu-west-1"
 BACKEND_IMAGE="${ECR_REGISTRY}/judi-expert/central-backend"
 FRONTEND_IMAGE="${ECR_REGISTRY}/judi-expert/central-frontend"
 TAG="${1:-latest}"
@@ -86,7 +87,7 @@ echo ""
 
 # ── ECR login on instance ──────────────────────────────
 echo -e "${YELLOW}[3/5]${NC} Authentification ECR sur l'instance..."
-ECR_PASSWORD=$(aws ecr get-login-password --region "$REGION")
+ECR_PASSWORD=$(aws ecr get-login-password --region "$ECR_REGION")
 $SSH_CMD "echo '${ECR_PASSWORD}' | sudo docker login --username AWS --password-stdin ${ECR_REGISTRY}"
 echo -e "${GREEN}  ✔ ECR authentifié${NC}"
 echo ""

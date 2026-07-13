@@ -4,7 +4,7 @@
 
 ### Isolation réseau des conteneurs
 
-L'application locale utilise deux réseaux Docker distincts :
+Le Site Client utilise deux réseaux Docker distincts :
 
 - **Réseau interne** (`internal: true`) : LLM, OCR, RAG, frontend. Ces conteneurs n'ont **aucun accès à Internet**. Les données d'expertise ne peuvent pas fuiter vers l'extérieur.
 - **Réseau externe** : seul le backend y est connecté, exclusivement pour communiquer avec le Site Central (vérification de tickets, mises à jour).
@@ -50,11 +50,11 @@ Le backend ne communique qu'avec :
 - Toutes les données d'expertise restent sur le PC de l'expert
 - Les volumes Docker sont stockés dans le répertoire Docker local
 - Aucune donnée d'expertise n'est transmise au cloud
-- Seuls les tokens de tickets transitent entre l'application locale et le site central
+- Seuls les tokens de tickets transitent entre le Site Client et le site central
 
 ## 3. Authentification
 
-### Application locale
+### Site Client
 
 - JWT local (HS256) avec expiration configurable (24h par défaut)
 - Vérification des credentials via le Site Central (Cognito)

@@ -12,7 +12,7 @@ Les archives contiennent des **données de santé** (rapports d'expertise psycho
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  PC Expert (Application Locale)                             │
+│  PC Expert (Site Client)                                    │
 │                                                             │
 │  1. Génération du ZIP (Step 5)                              │
 │  2. Chiffrement AES-256-GCM côté client                    │
@@ -171,7 +171,7 @@ Le fichier .meta ne contient **aucune donnée de santé** — uniquement des mé
 
 ## Implémentation technique
 
-### Backend (Application Locale)
+### Backend (Site Client)
 
 - **Service** : `services/archive_cloud_service.py`
 - **Dépendances** : `boto3`, `cryptography`
@@ -182,10 +182,10 @@ Le fichier .meta ne contient **aucune donnée de santé** — uniquement des mé
 
 ### Authentification AWS
 
-L'Application Locale n'a pas de clés AWS permanentes. Le flux est :
-1. L'app locale demande un token temporaire au Site Central
+Le Site Client n'a pas de clés AWS permanentes. Le flux est :
+1. Le Site Client demande un token temporaire au Site Central
 2. Le Site Central génère des credentials STS (durée 1h, scope limité au bucket de l'expert)
-3. L'app locale utilise ces credentials pour l'upload/download
+3. Le Site Client utilise ces credentials pour l'upload/download
 
 ### Infrastructure (Terraform)
 

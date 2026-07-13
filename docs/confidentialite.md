@@ -36,9 +36,9 @@ Dans le cadre de l'utilisation du Site Central, les données personnelles suivan
 
 Les données de paiement (numéro de carte bancaire, etc.) sont traitées directement par Stripe et ne sont jamais stockées sur les serveurs de Judi-Expert.
 
-### 2.2 Application Locale
+### 2.2 Site Client
 
-L'Application Locale fonctionne entièrement sur le poste de travail de l'expert. **Aucune donnée d'expertise n'est transmise au Site Central ni à un serveur tiers.** Les seules communications entre l'Application Locale et le Site Central concernent :
+Le Site Client fonctionne entièrement sur le poste de travail de l'expert. **Aucune donnée d'expertise n'est transmise au Site Central ni à un serveur tiers.** Les seules communications entre le Site Client et le Site Central concernent :
 
 - La vérification des tickets d'expertise (transmission du code du ticket uniquement) ;
 - Le téléchargement des modules RAG (images Docker).

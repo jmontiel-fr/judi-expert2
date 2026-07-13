@@ -27,7 +27,7 @@ logger.setLevel(logging.INFO)
 # Configuration via variables d'environnement
 API_BASE_URL = os.environ.get("API_BASE_URL", "")
 CRON_TOKEN_SECRET_NAME = os.environ.get("CRON_TOKEN_SECRET_NAME", "")
-AWS_REGION = os.environ.get("AWS_REGION", "eu-west-1")
+AWS_REGION = os.environ.get("AWS_REGION", "eu-west-3")
 
 # Timeout pour l'appel HTTP (en secondes)
 HTTP_TIMEOUT = 30.0

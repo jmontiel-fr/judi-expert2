@@ -19,7 +19,7 @@ logger.setLevel(logging.INFO)
 def get_cron_token() -> str:
     """Récupère le token d'authentification depuis AWS Secrets Manager."""
     secret_name = os.environ["SECRET_NAME"]
-    region = os.environ.get("AWS_REGION_NAME", "eu-west-1")
+    region = os.environ.get("AWS_REGION_NAME", "eu-west-3")
 
     client = boto3.client("secretsmanager", region_name=region)
     response = client.get_secret_value(SecretId=secret_name)

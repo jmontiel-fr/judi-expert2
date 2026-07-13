@@ -15,9 +15,9 @@ import pytest
 # Repo root is 2 levels up from this test file (tests/smoke/test_version_smoke.py)
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# Add local backend to sys.path for imports
-LOCAL_BACKEND = REPO_ROOT / "local-site" / "web" / "backend"
-sys.path.insert(0, str(LOCAL_BACKEND))
+# Add client backend to sys.path for imports
+CLIENT_BACKEND = REPO_ROOT / "client-site" / "web" / "backend"
+sys.path.insert(0, str(CLIENT_BACKEND))
 
 # Semver pattern: MAJOR.MINOR.PATCH (non-negative integers)
 SEMVER_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
@@ -52,12 +52,12 @@ def _validate_version_file(path: Path) -> None:
 class TestVersionFileExists:
     """Verify VERSION files exist and have the correct format."""
 
-    def test_version_file_exists_local(self):
-        """Verify local-site/VERSION exists and has 2 lines (semver + ISO date).
+    def test_version_file_exists_client(self):
+        """Verify client-site/VERSION exists and has 2 lines (semver + ISO date).
 
         Validates: Requirement 1.1
         """
-        version_path = REPO_ROOT / "local-site" / "VERSION"
+        version_path = REPO_ROOT / "client-site" / "VERSION"
         _validate_version_file(version_path)
 
     def test_version_file_exists_central(self):
@@ -68,24 +68,24 @@ class TestVersionFileExists:
         version_path = REPO_ROOT / "central-site" / "VERSION"
         _validate_version_file(version_path)
 
-    def test_version_file_exists_app_locale_package(self):
-        """Verify central-site/app_locale_package/VERSION exists and matches local-site/VERSION.
+    def test_version_file_exists_app_client_package(self):
+        """Verify central-site/app_client_package/VERSION exists and matches client-site/VERSION.
 
         Validates: Requirements 1.1, 14.1
         """
-        package_version_path = REPO_ROOT / "central-site" / "app_locale_package" / "VERSION"
-        local_version_path = REPO_ROOT / "local-site" / "VERSION"
+        package_version_path = REPO_ROOT / "central-site" / "app_client_package" / "VERSION"
+        client_version_path = REPO_ROOT / "client-site" / "VERSION"
 
         _validate_version_file(package_version_path)
 
-        # The app_locale_package VERSION must be synchronized with local-site VERSION
+        # The app_client_package VERSION must be synchronized with client-site VERSION
         package_content = package_version_path.read_text(encoding="utf-8").strip()
-        local_content = local_version_path.read_text(encoding="utf-8").strip()
+        client_content = client_version_path.read_text(encoding="utf-8").strip()
 
-        assert package_content == local_content, (
-            f"central-site/app_locale_package/VERSION must match local-site/VERSION.\n"
+        assert package_content == client_content, (
+            f"central-site/app_client_package/VERSION must match client-site/VERSION.\n"
             f"Package: {package_content}\n"
-            f"Local:   {local_content}"
+            f"Client:  {client_content}"
         )
 
 

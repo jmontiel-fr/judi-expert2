@@ -15,10 +15,6 @@ terraform {
       version = "~> 2.4"
     }
   }
-
-  backend "local" {
-    path = "terraform.tfstate"
-  }
 }
 
 provider "aws" {
@@ -37,6 +33,20 @@ provider "aws" {
 provider "aws" {
   alias  = "us_east_1"
   region = "us-east-1"
+
+  default_tags {
+    tags = {
+      Project     = var.project_name
+      Environment = var.environment
+      ManagedBy   = "terraform"
+    }
+  }
+}
+
+# S3 bucket remains in eu-west-1 (bucket names are global)
+provider "aws" {
+  alias  = "eu_west_1"
+  region = "eu-west-1"
 
   default_tags {
     tags = {

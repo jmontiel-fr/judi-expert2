@@ -7,6 +7,7 @@ from decimal import Decimal
 
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, EmailStr
 from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +16,7 @@ from models.expert import Expert
 from models.news import News
 from models.ticket import Ticket
 from models.ticket_config import TicketConfig
+from models.whitelist import WhitelistEntry
 from routers.profile import get_current_expert
 from schemas.news import NewsCreate, NewsListItem, NewsResponse, NewsUpdate
 from schemas.admin import AdminTicketResponse, ExpertListResponse, MonthStats, TicketStatsResponse
@@ -418,3 +420,81 @@ async def admin_refund_ticket(
         "message": "Remboursement effectué",
         "refunded_at": ticket.refunded_at.isoformat(),
     }
+
+
+# ---------------------------------------------------------------------------
+# Admin — Whitelist management (tickets gratuits)
+# ---------------------------------------------------------------------------
+
+
+class WhitelistCreateRequest(BaseModel):
+    email: EmailStr
+    note: str = ""
+
+
+class WhitelistResponse(BaseModel):
+    id: int
+    email: str
+    note: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/whitelist", response_model=list[WhitelistResponse])
+async def list_whitelist(
+    _admin: Expert = Depends(get_admin_expert),
+    db: AsyncSession = Depends(get_db),
+):
+    """Liste tous les emails whitelistés (admin uniquement)."""
+    result = await db.execute(
+        select(WhitelistEntry).order_by(WhitelistEntry.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.post("/whitelist", response_model=WhitelistResponse, status_code=status.HTTP_201_CREATED)
+async def add_whitelist_entry(
+    request: WhitelistCreateRequest,
+    _admin: Expert = Depends(get_admin_expert),
+    db: AsyncSession = Depends(get_db),
+):
+    """Ajoute un email à la whitelist (admin uniquement)."""
+    # Vérifier si l'email est déjà whitelisté
+    existing = await db.execute(
+        select(WhitelistEntry).where(WhitelistEntry.email == request.email)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cet email est déjà dans la whitelist",
+        )
+
+    entry = WhitelistEntry(email=request.email, note=request.note)
+    db.add(entry)
+    await db.commit()
+    await db.refresh(entry)
+    logger.info("Whitelist: ajout de %s", request.email)
+    return entry
+
+
+@router.delete("/whitelist/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_whitelist_entry(
+    entry_id: int,
+    _admin: Expert = Depends(get_admin_expert),
+    db: AsyncSession = Depends(get_db),
+):
+    """Supprime un email de la whitelist (admin uniquement)."""
+    result = await db.execute(
+        select(WhitelistEntry).where(WhitelistEntry.id == entry_id)
+    )
+    entry = result.scalar_one_or_none()
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Entrée whitelist introuvable",
+        )
+
+    logger.info("Whitelist: suppression de %s", entry.email)
+    await db.delete(entry)
+    await db.commit()

@@ -36,12 +36,12 @@ from hypothesis import strategies as st
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-LOCAL_API_TS = REPO_ROOT / "local-site" / "web" / "frontend" / "src" / "lib" / "api.ts"
+LOCAL_API_TS = REPO_ROOT / "client-site" / "web" / "frontend" / "src" / "lib" / "api.ts"
 CENTRAL_API_TS = REPO_ROOT / "central-site" / "web" / "frontend" / "src" / "lib" / "api.ts"
 CENTRAL_AUTH_CONTEXT = (
     REPO_ROOT / "central-site" / "web" / "frontend" / "src" / "contexts" / "AuthContext.tsx"
 )
-LOCAL_AUTH_TS = REPO_ROOT / "local-site" / "web" / "frontend" / "src" / "lib" / "auth.ts"
+LOCAL_AUTH_TS = REPO_ROOT / "client-site" / "web" / "frontend" / "src" / "lib" / "auth.ts"
 CENTRAL_AUTH_TS = REPO_ROOT / "central-site" / "web" / "frontend" / "src" / "lib" / "auth.ts"
 
 
@@ -280,7 +280,7 @@ class TestIsTokenExpiredFunction:
         """
         assert is_bug_condition(session["token"], session["current_time"])
 
-        # Check local-site lib/auth.ts or lib/api.ts for isTokenExpired
+        # Check client-site lib/auth.ts or lib/api.ts for isTokenExpired
         local_auth_source = read_source(LOCAL_AUTH_TS)
         local_api_source = read_source(LOCAL_API_TS)
         combined_source = local_auth_source + local_api_source
@@ -339,7 +339,7 @@ class TestVisibilityChangeTokenCheck:
         local_auth_source = read_source(LOCAL_AUTH_TS)
 
         # Also check for a useSessionGuard hook
-        hooks_dir = REPO_ROOT / "local-site" / "web" / "frontend" / "src" / "hooks"
+        hooks_dir = REPO_ROOT / "client-site" / "web" / "frontend" / "src" / "hooks"
         hook_source = ""
         if hooks_dir.exists():
             for f in hooks_dir.glob("*.ts"):

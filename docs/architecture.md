@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Ce document décrit l'architecture technique complète du système Judi-Expert, composé de deux parties principales : l'**Application Locale** installée sur le PC de l'expert et le **Site Central** déployé sur AWS.
+Ce document décrit l'architecture technique complète du système Judi-Expert, composé de deux parties principales : le **Site Client** installé sur le PC de l'expert et le **Site Central** déployé sur AWS.
 
 > Pour la définition des termes et acronymes, consultez le [Glossaire & Workflow](glossaire-workflow.md).
 
@@ -12,10 +12,10 @@ Ce document décrit l'architecture technique complète du système Judi-Expert, 
 
 Judi-Expert est un système à deux composants :
 
-1. **Application Locale** — PWA conteneurisée (4 conteneurs Docker) installée sur le PC de l'expert, intégrant un LLM local, une base RAG, un moteur OCR et une base de données relationnelle.
+1. **Site Client** — PWA conteneurisée (4 conteneurs Docker) installée sur le PC de l'expert, intégrant un LLM local, une base RAG, un moteur OCR et une base de données relationnelle.
 2. **Site Central** — PWA déployée sur AWS, gérant l'authentification, les paiements, la distribution des modules RAG et l'administration.
 
-Les deux composants partagent la même stack technique : Python (FastAPI) pour le backend, React/Next.js pour le frontend PWA. Toutes les données d'expertise restent exclusivement sur le PC de l'expert ; seuls les tickets transitent entre l'Application Locale et le Site Central.
+Les deux composants partagent la même stack technique : Python (FastAPI) pour le backend, React/Next.js pour le frontend PWA. Toutes les données d'expertise restent exclusivement sur le PC de l'expert ; seuls les tickets transitent entre le Site Client et le Site Central.
 
 ---
 
@@ -23,7 +23,7 @@ Les deux composants partagent la même stack technique : Python (FastAPI) pour l
 
 ```mermaid
 graph TB
-    subgraph "PC Expert — Application Locale"
+    subgraph "PC Expert — Site Client"
         AMORCE[Amorce / Lanceur]
         subgraph "Docker Compose"
             WEB[judi-web<br/>Next.js + FastAPI + SQLite<br/>Ports 3000, 8000]
@@ -63,9 +63,9 @@ graph TB
 
 ---
 
-## Application Locale — 4 conteneurs Docker
+## Site Client — 4 conteneurs Docker
 
-L'Application Locale fonctionne via Docker Compose avec 4 conteneurs isolés :
+Le Site Client fonctionne via Docker Compose avec 4 conteneurs isolés :
 
 | Conteneur | Image | Rôle | Ports |
 |-----------|-------|------|-------|
@@ -201,7 +201,7 @@ sequenceDiagram
 
 ## Modèles de données
 
-### Base de données Application Locale (SQLite)
+### Base de données Site Client (SQLite)
 
 ```mermaid
 erDiagram
@@ -322,12 +322,12 @@ erDiagram
 
 ## Communication entre composants
 
-### Application Locale → Site Central
+### Site Client → Site Central
 
 | Flux | Protocole | Description |
 |------|-----------|-------------|
-| Vérification ticket | HTTPS (POST) | L'App Locale envoie le ticket au Site Central via l'ALB |
-| Téléchargement RAG | HTTPS (GET) | L'App Locale télécharge les images Docker depuis ECR |
+| Vérification ticket | HTTPS (POST) | Le Site Client envoie le ticket au Site Central via l'ALB |
+| Téléchargement RAG | HTTPS (GET) | Le Site Client télécharge les images Docker depuis ECR |
 
 ### Communication interne (Docker Compose)
 
@@ -340,7 +340,7 @@ erDiagram
 ### Isolation des données
 
 - Toutes les données d'expertise restent sur le PC de l'expert (SQLite + fichiers locaux)
-- Seuls les tickets transitent entre l'Application Locale et le Site Central
+- Seuls les tickets transitent entre le Site Client et le Site Central
 - Le Site Central ne stocke que les données d'inscription, les tickets et les métadonnées des corpus
 
 ---
@@ -368,7 +368,7 @@ erDiagram
 
 ### Isolation réseau
 
-L'application locale utilise deux réseaux Docker :
+L'application utilise deux réseaux Docker :
 
 - **Réseau interne** (`internal: true`) : LLM, OCR, RAG, frontend — aucun accès Internet
 - **Réseau externe** : backend uniquement — communication exclusive avec le Site Central

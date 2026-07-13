@@ -26,7 +26,7 @@ from httpx import ASGITransport, AsyncClient
 # Backend sur le path
 sys.path.insert(
     0,
-    str(Path(__file__).resolve().parents[2] / "local-site" / "web" / "backend"),
+    str(Path(__file__).resolve().parents[2] / "client-site" / "web" / "backend"),
 )
 
 from main import app

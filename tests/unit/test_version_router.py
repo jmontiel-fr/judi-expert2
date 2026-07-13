@@ -58,7 +58,7 @@ sys.path[:] = _saved_path
 # ===========================================================================
 
 _local_backend = str(
-    Path(__file__).resolve().parents[2] / "local-site" / "web" / "backend"
+    Path(__file__).resolve().parents[2] / "client-site" / "web" / "backend"
 )
 sys.path.insert(0, _local_backend)
 
@@ -163,7 +163,7 @@ class TestCentralGetVersion:
         async with central_session_factory() as session:
             version = _AppVersion(
                 version="1.2.0",
-                download_url="https://downloads.judi-expert.fr/judi-expert-local-1.2.0.exe",
+                download_url="https://downloads.judi-expert.fr/judi-expert-client-1.2.0.exe",
                 mandatory=True,
                 release_notes="Correction de bugs",
             )
@@ -202,7 +202,7 @@ class TestCentralPostAdminVersions:
         """POST /api/admin/versions avec semver valide retourne 201."""
         resp = await central_admin_client.post("/api/admin/versions", json={
             "version": "2.0.0",
-            "download_url": "https://downloads.judi-expert.fr/judi-expert-local-2.0.0.exe",
+            "download_url": "https://downloads.judi-expert.fr/judi-expert-client-2.0.0.exe",
             "mandatory": True,
             "release_notes": "Nouvelle version majeure",
         })
@@ -332,7 +332,7 @@ class TestLocalGetVersion:
             mock_response.status_code = 200
             mock_response.json.return_value = {
                 "latest_version": "2.0.0",
-                "download_url": "https://downloads.judi-expert.fr/judi-expert-local-2.0.0.exe",
+                "download_url": "https://downloads.judi-expert.fr/judi-expert-client-2.0.0.exe",
                 "mandatory": True,
                 "release_notes": "Mise à jour critique",
             }
@@ -428,13 +428,13 @@ class TestCentralDownloadsApp:
         async with central_session_factory() as session:
             v1 = _AppVersion(
                 version="1.0.0",
-                download_url="https://downloads.judi-expert.fr/judi-expert-local-1.0.0.exe",
+                download_url="https://downloads.judi-expert.fr/judi-expert-client-1.0.0.exe",
                 mandatory=True,
                 published_at=datetime(2026, 1, 1, 10, 0, 0),
             )
             v2 = _AppVersion(
                 version="1.1.0",
-                download_url="https://downloads.judi-expert.fr/judi-expert-local-1.1.0.exe",
+                download_url="https://downloads.judi-expert.fr/judi-expert-client-1.1.0.exe",
                 mandatory=True,
                 published_at=datetime(2026, 2, 1, 10, 0, 0),
             )
@@ -457,4 +457,4 @@ class TestCentralDownloadsApp:
         assert resp.status_code == 200
         data = resp.json()
         assert "version" in data
-        assert "1.0.0" in data["version"]
+        assert "1.0.1" in data["version"]

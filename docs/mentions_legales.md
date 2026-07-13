@@ -46,7 +46,7 @@ Services AWS utilisés : ECS Fargate (conteneurs), RDS PostgreSQL (base de donn�
 
 ## 4. Propriété intellectuelle
 
-L'ensemble des éléments constituant le site Judi-Expert et l'Application Locale (textes, graphismes, images, logos, icônes, sons, logiciels, code source, interfaces, documentation) est la propriété exclusive d'ITechSource ou de ses concédants de licence, et est protégé par les dispositions du Code de la propriété intellectuelle.
+L'ensemble des éléments constituant le site Judi-Expert et le Site Client (textes, graphismes, images, logos, icônes, sons, logiciels, code source, interfaces, documentation) est la propriété exclusive d'ITechSource ou de ses concédants de licence, et est protégé par les dispositions du Code de la propriété intellectuelle.
 
 Toute reproduction, représentation, modification, publication, adaptation, totale ou partielle, de ces éléments, par quelque moyen que ce soit, sans l'autorisation écrite préalable d'ITechSource, est interdite et constitue une contrefaçon sanctionnée par les articles L.335-2 et suivants du Code de la propriété intellectuelle.
 

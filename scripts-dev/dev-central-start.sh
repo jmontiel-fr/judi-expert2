@@ -30,10 +30,14 @@ if [ -f "$ROOT_DIR/central-site/.env.local" ]; then
 elif [ ! -f "$ENV_FILE" ]; then
   ENV_FILE=""
 fi
+
+# Nettoyer les conteneurs orphelins avant démarrage (évite les conflits de noms)
 if [ -n "$ENV_FILE" ]; then
-  docker compose -f "$COMPOSE" --env-file "$ENV_FILE" up -d $BUILD_FLAG
+  docker compose -f "$COMPOSE" --env-file "$ENV_FILE" down --remove-orphans 2>/dev/null || true
+  docker compose -f "$COMPOSE" --env-file "$ENV_FILE" up -d --remove-orphans $BUILD_FLAG
 else
-  docker compose -f "$COMPOSE" up -d $BUILD_FLAG
+  docker compose -f "$COMPOSE" down --remove-orphans 2>/dev/null || true
+  docker compose -f "$COMPOSE" up -d --remove-orphans $BUILD_FLAG
 fi
 echo ""
 echo -e "${GREEN}  ✔ Site Central démarré${NC}"

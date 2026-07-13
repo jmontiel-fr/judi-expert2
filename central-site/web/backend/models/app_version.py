@@ -18,5 +18,8 @@ class AppVersion(Base):
     version: Mapped[str] = mapped_column(String(20), nullable=False)
     download_url: Mapped[str] = mapped_column(String(500), nullable=False)
     mandatory: Mapped[bool] = mapped_column(default=True)
+    update_type: Mapped[str] = mapped_column(
+        String(20), default="images", server_default="images"
+    )  # "images" (léger) | "full" (réinstallation complète)
     release_notes: Mapped[Optional[str]] = mapped_column(Text)
     published_at: Mapped[datetime] = mapped_column(server_default=func.now())

@@ -37,7 +37,7 @@ from hypothesis import strategies as st
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-LOCAL_API_TS = REPO_ROOT / "local-site" / "web" / "frontend" / "src" / "lib" / "api.ts"
+LOCAL_API_TS = REPO_ROOT / "client-site" / "web" / "frontend" / "src" / "lib" / "api.ts"
 CENTRAL_API_TS = REPO_ROOT / "central-site" / "web" / "frontend" / "src" / "lib" / "api.ts"
 CENTRAL_AUTH_CONTEXT = (
     REPO_ROOT / "central-site" / "web" / "frontend" / "src" / "contexts" / "AuthContext.tsx"

@@ -66,7 +66,7 @@ sys.path[:] = _saved_path
 # ---------------------------------------------------------------------------
 
 _local_backend = str(
-    Path(__file__).resolve().parents[2] / "local-site" / "web" / "backend"
+    Path(__file__).resolve().parents[2] / "client-site" / "web" / "backend"
 )
 
 # Save current modules before loading local backend
@@ -259,7 +259,7 @@ async def test_publish_then_get_version(
     # 1. Publier une version en tant qu'admin
     publish_resp = await central_admin_client.post("/api/admin/versions", json={
         "version": "3.0.0",
-        "download_url": "https://downloads.judi-expert.fr/judi-expert-local-3.0.0.tar.gz",
+        "download_url": "https://downloads.judi-expert.fr/judi-expert-client-3.0.0.tar.gz",
         "mandatory": True,
         "release_notes": "Version majeure avec nouvelles fonctionnalités",
     })
@@ -272,7 +272,7 @@ async def test_publish_then_get_version(
     assert get_resp.status_code == 200
     data = get_resp.json()
     assert data["latest_version"] == "3.0.0"
-    assert data["download_url"] == "https://downloads.judi-expert.fr/judi-expert-local-3.0.0.tar.gz"
+    assert data["download_url"] == "https://downloads.judi-expert.fr/judi-expert-client-3.0.0.tar.gz"
     assert data["mandatory"] is True
     assert data["release_notes"] == "Version majeure avec nouvelles fonctionnalités"
 
@@ -331,7 +331,7 @@ async def test_forced_update_workflow(local_session_factory, seed_local_config):
         transport = ASGITransport(app=_local_app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             resp = await ac.post("/api/version/update", json={
-                "download_url": "https://downloads.judi-expert.fr/judi-expert-local-2.0.0.tar.gz",
+                "download_url": "https://downloads.judi-expert.fr/judi-expert-client-2.0.0.tar.gz",
                 "version": "2.0.0",
             })
 
@@ -415,7 +415,7 @@ async def test_rollback_on_update_failure(local_session_factory, seed_local_conf
         transport = ASGITransport(app=_local_app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             resp = await ac.post("/api/version/update", json={
-                "download_url": "https://downloads.judi-expert.fr/judi-expert-local-2.0.0.tar.gz",
+                "download_url": "https://downloads.judi-expert.fr/judi-expert-client-2.0.0.tar.gz",
                 "version": "2.0.0",
             })
 
@@ -485,7 +485,7 @@ async def test_volume_preservation(local_session_factory, seed_local_config):
         transport = ASGITransport(app=_local_app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             resp = await ac.post("/api/version/update", json={
-                "download_url": "https://downloads.judi-expert.fr/judi-expert-local-2.0.0.tar.gz",
+                "download_url": "https://downloads.judi-expert.fr/judi-expert-client-2.0.0.tar.gz",
                 "version": "2.0.0",
             })
 
@@ -538,13 +538,13 @@ async def test_downloads_uses_latest_version(
     async with central_session_factory() as session:
         v1 = _AppVersion(
             version="1.0.0",
-            download_url="https://downloads.judi-expert.fr/judi-expert-local-1.0.0.exe",
+            download_url="https://downloads.judi-expert.fr/judi-expert-client-1.0.0.exe",
             mandatory=True,
             published_at=datetime(2026, 1, 1, 10, 0, 0),
         )
         v2 = _AppVersion(
             version="1.5.0",
-            download_url="https://downloads.judi-expert.fr/judi-expert-local-1.5.0.exe",
+            download_url="https://downloads.judi-expert.fr/judi-expert-client-1.5.0.exe",
             mandatory=True,
             published_at=datetime(2026, 6, 1, 10, 0, 0),
         )

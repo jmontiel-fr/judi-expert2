@@ -53,6 +53,8 @@ export default function TarificationPage() {
               <li>Modèle de rapport pré-configuré</li>
               <li>Workflow complet en 5 étapes</li>
               <li>2 dossiers gratuits pour le premier dossier acheté</li>
+              <li>Démo de prise en main en visio (30 min) dès le premier achat</li>
+              <li>Support gratuit</li>
             </ul>
           </div>
 

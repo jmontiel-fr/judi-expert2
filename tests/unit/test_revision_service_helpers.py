@@ -11,7 +11,7 @@ import pytest
 
 # Ajouter le backend au path
 sys.path.insert(
-    0, str(Path(__file__).resolve().parents[2] / "local-site" / "web" / "backend")
+    0, str(Path(__file__).resolve().parents[2] / "client-site" / "web" / "backend")
 )
 
 from services.revision_service import Correction, RevisionService

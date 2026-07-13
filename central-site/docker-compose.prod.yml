@@ -36,6 +36,9 @@ services:
       CORPUS_BASE_PATH: "/data/corpus"
       DOCS_PATH: "/data/docs"
       AWS_REGION: "${AWS_REGION}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      S3_ASSETS_BUCKET: "${S3_ASSETS_BUCKET}"
       MISTRAL_API_KEY: "${MISTRAL_API_KEY}"
       MISTRAL_MODEL: "${MISTRAL_MODEL}"
       QDRANT_URL: "http://qdrant:6333"
@@ -67,3 +70,9 @@ services:
 volumes:
   app_data:
   qdrant_data:
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

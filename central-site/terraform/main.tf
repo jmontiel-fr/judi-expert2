@@ -38,12 +38,30 @@ module "rds" {
   depends_on = [module.vpc]
 }
 
+# --- SES (email sending for Cognito) ---
+module "ses" {
+  source = "./modules/ses"
+
+  project_name    = var.project_name
+  environment     = var.environment
+  domain_name     = var.domain_name
+  route53_zone_id = module.dns.zone_id
+}
+
 # --- Cognito ---
 module "cognito" {
   source = "./modules/cognito"
 
-  project_name = var.project_name
-  environment  = var.environment
+  project_name              = var.project_name
+  environment               = var.environment
+  admin_email               = var.admin_email
+  admin_temporary_password  = var.admin_temporary_password
+  expert_email              = var.expert_email
+  expert_temporary_password = var.expert_temporary_password
+  domain_name               = var.domain_name
+  ses_domain_identity_arn   = module.ses.domain_identity_arn
+
+  depends_on = [module.ses]
 }
 
 # --- Lightsail Instance ---
@@ -132,5 +150,25 @@ module "cron" {
   environment  = var.environment
   aws_region   = var.aws_region
   api_base_url = "https://origin.${var.domain_name}:8000"
+}
+
+# --- S3 Bucket (packages Site Client — eu-west-3) ---
+module "s3" {
+  source = "./modules/s3"
+
+  project_name = var.project_name
+  environment  = var.environment
+}
+
+# --- ECR (Docker registry — remains in eu-west-1) ---
+module "ecr" {
+  source = "./modules/ecr"
+
+  providers = {
+    aws = aws.eu_west_1
+  }
+
+  project_name = var.project_name
+  environment  = var.environment
 }
 

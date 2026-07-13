@@ -18,7 +18,7 @@ export default function SecuritePage() {
       </p>
 
       <section className={styles.section}>
-        <h2>🔒 Isolation réseau de l&apos;application locale</h2>
+        <h2>🔒 Isolation réseau du Site Client</h2>
         <p>
           Les conteneurs IA (LLM, OCR, RAG) fonctionnent dans un réseau Docker
           interne <strong>sans aucun accès à Internet</strong>. Les données
@@ -66,7 +66,7 @@ export default function SecuritePage() {
         <h2>🔐 Authentification</h2>
         <ul>
           <li><strong>Site Central</strong> : AWS Cognito (OAuth 2.0 / OpenID Connect), MFA recommandé</li>
-          <li><strong>Application locale</strong> : JWT local (HS256) avec vérification via le Site Central</li>
+          <li><strong>Site Client</strong> : JWT local (HS256) avec vérification via le Site Central</li>
           <li>Pas de stockage de mot de passe en local</li>
         </ul>
       </section>

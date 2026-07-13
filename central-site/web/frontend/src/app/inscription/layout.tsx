@@ -3,7 +3,7 @@ import { buildPageMetadata } from "@/lib/seo";
 export const metadata = buildPageMetadata({
   title: "Inscription",
   description:
-    "Créez votre compte expert sur Judi-Expert et accédez à l'application locale d'assistance aux dossiers d'expertise.",
+    "Créez votre compte expert sur Judi-Expert et accédez au Site Client d'assistance aux dossiers d'expertise.",
   path: "/inscription",
 });
 

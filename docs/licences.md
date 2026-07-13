@@ -7,7 +7,7 @@ Ce document recense l'ensemble des dépendances utilisées dans le projet Judi-E
 
 ---
 
-## Backend Python — Application Locale
+## Backend Python — Site Client
 
 | Nom | Version | Licence | URL |
 |---|---|---|---|
@@ -53,7 +53,7 @@ Ce document recense l'ensemble des dépendances utilisées dans le projet Judi-E
 | python-jose | 3.3.0 | MIT | https://github.com/mpdavis/python-jose |
 | Pydantic | 2.10.3 | MIT | https://github.com/pydantic/pydantic |
 
-## Frontend Node.js — Application Locale
+## Frontend Node.js — Site Client
 
 | Nom | Version | Licence | URL |
 |---|---|---|---|

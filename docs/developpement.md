@@ -16,10 +16,10 @@ En développement, vous ne passez **jamais** par le `.exe` installateur. Vous tr
 Modifier le code → build.sh → restart.sh → tester sur localhost → commit
 ```
 
-### Application Locale (http://localhost:3000)
+### Site Client (http://localhost:3000)
 
 ```bash
-cd local-site
+cd client-site
 
 # Modifier le code (backend, frontend, OCR, etc.)
 
@@ -44,8 +44,8 @@ docker compose -f central-site/docker-compose.dev.yml up -d --build
 Le `.exe` installateur n'est généré que pour la **distribution aux experts** (release). Le cycle est :
 
 1. Développer et tester localement (build.sh + restart.sh)
-2. Quand la version est prête → `bash central-site/app_locale_package/package.sh windows`
-3. Le `.exe` est produit dans `central-site/app_locale_package/output/`
+2. Quand la version est prête → `bash central-site/app_client_package/package.sh windows`
+3. Le `.exe` est produit dans `central-site/app_client_package/output/`
 4. Publier le `.exe` sur le Site Central (page Downloads)
 
 ---
@@ -56,7 +56,7 @@ Le `.exe` installateur n'est généré que pour la **distribution aux experts** 
 
 | Logiciel | Version minimale | Usage |
 |----------|-----------------|-------|
-| Python | 3.11+ | Backend FastAPI (Application Locale + Site Central) |
+| Python | 3.11+ | Backend FastAPI (Site Client + Site Central) |
 | Node.js | 18+ | Frontend Next.js PWA |
 | Docker | 24+ | Conteneurisation des services |
 | Docker Compose | 2.20+ | Orchestration des conteneurs locaux |
@@ -81,20 +81,20 @@ git clone <url-du-depot> judi-expert
 cd judi-expert
 ```
 
-### 2. Configurer le backend Application Locale
+### 2. Configurer le backend Site Client
 
 ```bash
-cd local-site/web/backend
+cd client-site/web/backend
 python -m venv venv
 source venv/bin/activate  # Linux/macOS
 # ou venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 ```
 
-### 3. Configurer le frontend Application Locale
+### 3. Configurer le frontend Site Client
 
 ```bash
-cd local-site/web/frontend
+cd client-site/web/frontend
 npm install
 ```
 
@@ -119,8 +119,8 @@ npm install
 Copier et adapter les fichiers `.env` :
 
 ```bash
-# Application Locale
-cp local-site/.env.example local-site/.env
+# Site Client
+cp client-site/.env.example client-site/.env
 
 # Site Central
 cp central-site/.env.example central-site/.env
@@ -128,7 +128,7 @@ cp central-site/.env.example central-site/.env
 
 Variables d'environnement principales :
 
-**Application Locale** (`local-site/.env`) :
+**Site Client** (`client-site/.env`) :
 ```env
 # Base de données
 DATABASE_URL=sqlite:///./data/judi.db
@@ -166,10 +166,10 @@ AWS_REGION=eu-west-3
 ECR_REGISTRY=<account-id>.dkr.ecr.eu-west-3.amazonaws.com
 ```
 
-### 7. Lancer l'Application Locale en développement
+### 7. Lancer le Site Client en développement
 
 ```bash
-cd local-site
+cd client-site
 docker compose up --build
 ```
 
@@ -186,7 +186,7 @@ L'application sera accessible sur :
 
 ```
 judi-expert/
-├── local-site/                     # Application Locale
+├── client-site/                     # Site Client
 │   ├── scripts/                # Scripts de gestion (build, start, stop, restart)
 │   │   ├── build.sh
 │   │   ├── start.sh
@@ -243,7 +243,7 @@ judi-expert/
 │   │       ├── package.json
 │   │       ├── next.config.js
 │   │       └── Dockerfile
-│   ├── app_locale_package/     # Script de packaging installateur
+│   ├── app_client_package/     # Script de packaging installateur
 │   └── .env
 │
 ├── corpus/                         # Corpus par domaine
@@ -325,14 +325,14 @@ judi-expert/
 
 ## Commandes de build et test
 
-### Build des images Docker (Application Locale)
+### Build des images Docker (Site Client)
 
 ```bash
-cd local-site
+cd client-site
 ./scripts/build.sh
 ```
 
-### Démarrage / Arrêt de l'Application Locale
+### Démarrage / Arrêt du Site Client
 
 ```bash
 ./scripts/start.sh    # Démarrage
@@ -376,21 +376,21 @@ pytest tests/smoke/ -v
 
 ```bash
 # Python
-black local-site/ central-site/
-isort local-site/ central-site/
-flake8 local-site/ central-site/
-mypy local-site/ central-site/
+black client-site/ central-site/
+isort client-site/ central-site/
+flake8 client-site/ central-site/
+mypy client-site/ central-site/
 
 # JavaScript
-cd local-site/web/frontend && npx eslint src/
+cd client-site/web/frontend && npx eslint src/
 cd central-site/web/frontend && npx eslint src/
 ```
 
 ### Migrations de base de données
 
 ```bash
-# Application Locale
-cd local-site/web/backend
+# Site Client (SQLite)
+cd client-site/web/backend
 alembic upgrade head          # Appliquer les migrations
 alembic revision --autogenerate -m "description"  # Nouvelle migration
 

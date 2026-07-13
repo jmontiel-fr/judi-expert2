@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from models.expert import Expert
 from models.ticket import Ticket
+from models.whitelist import WhitelistEntry
 from routers.profile import get_current_expert
 from schemas.tickets import (
     PurchaseRequest,
@@ -94,7 +95,7 @@ def _ticket_verify_error_message(ticket: Ticket | None, token_error: str | None)
         return "Ticket périmé (délai de 48 h dépassé)"
     if token_error == "format_invalide":
         return "Format de token invalide"
-    if token is None:
+    if ticket is None:
         return "Ticket inconnu sur le site central"
     if ticket.statut == "utilisé":
         return "Ticket déjà utilisé pour un autre dossier"
@@ -152,6 +153,35 @@ async def purchase_ticket(
     config = await _get_ticket_config(db)
     prix_ttc = _compute_ttc(config.prix_ht, config.tva_rate)
     amount_cents = int(prix_ttc * Decimal("100"))
+
+    # Whitelist : bypass Stripe pour les experts autorisés
+    wl_result = await db.execute(
+        select(WhitelistEntry).where(WhitelistEntry.email == expert.email)
+    )
+    if wl_result.scalar_one_or_none():
+        ticket_code = f"TKT-{uuid.uuid4().hex[:12].upper()}"
+        ticket, _token = _create_ticket_and_token(
+            ticket_code=ticket_code,
+            expert=expert,
+            montant=Decimal("0.00"),
+            stripe_payment_id=f"whitelist-{uuid.uuid4()}",
+        )
+        ticket.statut = "actif"
+        db.add(ticket)
+        await db.commit()
+        logger.info("Ticket gratuit (whitelist): %s pour %s", ticket_code, expert.email)
+        try:
+            email_service.send_ticket_email(
+                expert_email=expert.email,
+                ticket_code=ticket.ticket_token or ticket_code,
+                domaine=expert.domaine,
+            )
+        except Exception as e:
+            logger.warning("Envoi email ticket whitelist ignoré: %s", e)
+        app_url = os.environ.get("APP_URL", "http://localhost:3001")
+        return PurchaseResponse(
+            checkout_url=f"{app_url}/monespace/tickets?success=true&ticket_code={ticket_code}",
+        )
 
     description = (
         f"Ticket d'expertise Judi-Expert — "

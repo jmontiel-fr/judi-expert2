@@ -19,7 +19,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 # ---------------------------------------------------------------------------
-# Python mirror of the frontend formatFileSize (local-site/web/frontend/
+# Python mirror of the frontend formatFileSize (client-site/web/frontend/
 # src/lib/api.ts).
 #
 # Logic:

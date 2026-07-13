@@ -16,6 +16,9 @@ import {
   apiAdminChatbotStatus,
   apiAdminChatbotRefresh,
   apiAdminListTickets,
+  apiAdminListWhitelist,
+  apiAdminAddWhitelist,
+  apiAdminDeleteWhitelist,
   ApiError,
   type ExpertItem,
   type TicketStats,
@@ -26,13 +29,14 @@ import {
   type UrlItem,
   type ChatbotStatus,
   type AdminTicketItem,
+  type WhitelistEntry,
 } from "@/lib/api";
 import RefundButton from "@/components/RefundButton";
 import styles from "./admin.module.css";
 
 const DOMAINES = ["Tous", "psychologie", "psychiatrie", "medecine_legale", "batiment", "comptabilite"];
 
-type Tab = "stats" | "tickets" | "experts" | "news" | "corpus" | "chatbot";
+type Tab = "stats" | "tickets" | "experts" | "news" | "corpus" | "chatbot" | "whitelist";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("fr-FR");
@@ -670,7 +674,7 @@ function CorpusTab({ accessToken }: { accessToken: string | null }) {
                   {downloading ? "Téléchargement…" : "⬇ Télécharger auto (PDFs)"}
                 </button>
                 <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: "4px 0 0", gridColumn: "1 / -1" }}>
-                  Le pré-crawling télécharge le contenu textuel de chaque URL de référence pour l&apos;injecter dans le RAG des applications locales.
+                  Le pré-crawling télécharge le contenu textuel de chaque URL de référence pour l&apos;injecter dans le RAG des Sites Client.
                   Le téléchargement auto récupère les PDFs ayant un <code>download_url</code> dans contenu.yaml.
                 </p>
               </div>
@@ -995,6 +999,160 @@ function ChatbotTab({ accessToken }: { accessToken: string | null }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  WhitelistTab                                                        */
+/* ------------------------------------------------------------------ */
+
+function WhitelistTab({ accessToken }: { accessToken: string | null }) {
+  const [entries, setEntries] = useState<WhitelistEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newEmail, setNewEmail] = useState("");
+  const [newNote, setNewNote] = useState("");
+  const [error, setError] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  const fetchWhitelist = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const data = await apiAdminListWhitelist(accessToken);
+      setEntries(data);
+    } catch {
+      setError("Erreur lors du chargement de la whitelist");
+    } finally {
+      setLoading(false);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    fetchWhitelist();
+  }, [fetchWhitelist]);
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!accessToken || !newEmail.trim()) return;
+    setAdding(true);
+    setError("");
+    try {
+      await apiAdminAddWhitelist(accessToken, newEmail.trim(), newNote.trim());
+      setNewEmail("");
+      setNewNote("");
+      await fetchWhitelist();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("Erreur lors de l'ajout");
+      }
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function handleDelete(id: number) {
+    if (!accessToken) return;
+    if (!confirm("Supprimer cet email de la whitelist ?")) return;
+    try {
+      await apiAdminDeleteWhitelist(accessToken, id);
+      await fetchWhitelist();
+    } catch {
+      setError("Erreur lors de la suppression");
+    }
+  }
+
+  if (loading) return <p className={styles.loading}>Chargement…</p>;
+
+  return (
+    <>
+      <h2 className={styles.sectionTitle}>Whitelist — Tickets gratuits</h2>
+      <p style={{ color: "#666", marginBottom: 16 }}>
+        Les experts dont l&apos;email est dans cette liste obtiennent leurs tickets directement, sans passer par le paiement Stripe.
+      </p>
+
+      {error && <p style={{ color: "red", marginBottom: 12 }}>{error}</p>}
+
+      <form onSubmit={handleAdd} style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div style={{ flex: "1 1 250px" }}>
+          <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>Email</label>
+          <input
+            type="email"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            placeholder="expert@example.com"
+            required
+            style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd" }}
+          />
+        </div>
+        <div style={{ flex: "1 1 200px" }}>
+          <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>Note (optionnel)</label>
+          <input
+            type="text"
+            value={newNote}
+            onChange={(e) => setNewNote(e.target.value)}
+            placeholder="Raison, partenaire…"
+            style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd" }}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={adding}
+          style={{
+            padding: "8px 20px",
+            background: "var(--color-primary, #2563eb)",
+            color: "#fff",
+            border: "none",
+            borderRadius: 6,
+            fontWeight: 600,
+            cursor: adding ? "not-allowed" : "pointer",
+            opacity: adding ? 0.6 : 1,
+          }}
+        >
+          {adding ? "Ajout…" : "Ajouter"}
+        </button>
+      </form>
+
+      {entries.length === 0 ? (
+        <p style={{ color: "#888" }}>Aucun email dans la whitelist.</p>
+      ) : (
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Note</th>
+              <th>Ajouté le</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((entry) => (
+              <tr key={entry.id}>
+                <td>{entry.email}</td>
+                <td>{entry.note || "—"}</td>
+                <td>{formatDate(entry.created_at)}</td>
+                <td>
+                  <button
+                    onClick={() => handleDelete(entry.id)}
+                    style={{
+                      padding: "4px 12px",
+                      background: "#ef4444",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 4,
+                      cursor: "pointer",
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Supprimer
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  AdminPage (default export)                                         */
 /* ------------------------------------------------------------------ */
 
@@ -1045,6 +1203,7 @@ export default function AdminPage() {
     { key: "news", label: "News" },
     { key: "corpus", label: "Corpus" },
     { key: "chatbot", label: "Chatbot" },
+    { key: "whitelist", label: "Whitelist" },
   ];
 
   const handleTabClick = (t: Tab) => {
@@ -1087,6 +1246,7 @@ export default function AdminPage() {
           {tab === "experts" && <ExpertsTab experts={experts} />}
           {tab === "corpus" && <CorpusTab accessToken={accessToken} />}
           {tab === "chatbot" && <ChatbotTab accessToken={accessToken} />}
+          {tab === "whitelist" && <WhitelistTab accessToken={accessToken} />}
         </>
       )}
     </div>

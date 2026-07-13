@@ -1,0 +1,143 @@
+# Judi-Expert — Site Client Docker Compose
+# Orchestre les conteneurs du Site Client.
+# Sécurité : réseau interne isolé, seul le backend accède à Internet.
+
+services:
+  # ── judi-llm ─────────────────────────────────────────────
+  # LLM local : Ollama (modèle auto-sélectionné selon RAM disponible)
+  # SÉCURITÉ : réseau interne uniquement, pas d'accès Internet.
+  judi-llm:
+    image: ollama/ollama:latest
+    container_name: judi-llm
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./ollama-entrypoint.sh:/ollama-entrypoint.sh:ro
+    environment:
+      - LLM_MODEL=${LLM_MODEL:-mistral:7b-instruct-v0.3-q4_0}
+    entrypoint: ["/bin/bash", "/ollama-entrypoint.sh"]
+    restart: unless-stopped
+    mem_limit: ${LLM_MEM_LIMIT:-8g}
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q ':2CAA' /proc/net/tcp || grep -q ':2CAA' /proc/net/tcp6"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ── judi-rag ─────────────────────────────────────────────
+  # Base vectorielle Qdrant pour le corpus domaine
+  # SÉCURITÉ : réseau interne uniquement.
+  judi-rag:
+    image: qdrant/qdrant:latest
+    container_name: judi-rag
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+    mem_limit: ${RAG_MEM_LIMIT:-1g}
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q ':18BD' /proc/net/tcp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── judi-ocr ─────────────────────────────────────────────
+  # Service OCR : Tesseract + pdf2image + PyMuPDF
+  # SÉCURITÉ : réseau interne uniquement.
+  judi-ocr:
+    build:
+      context: ./ocr
+      dockerfile: Dockerfile
+    container_name: judi-ocr
+    volumes:
+      - ocr_tmp:/tmp/ocr
+    restart: unless-stopped
+    mem_limit: ${OCR_MEM_LIMIT:-512m}
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/api/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── judi-web (backend) ──────────────────────────────────
+  # Backend FastAPI — seul conteneur avec accès Internet (site central).
+  # SÉCURITÉ : connecté aux deux réseaux (interne + externe).
+  judi-web-backend:
+    build:
+      context: ./web/backend
+      dockerfile: Dockerfile
+    container_name: judi-web-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ${JUDI_DATA_DIR:-c:/judi-expert}:/app/data
+      - ./VERSION:/app/VERSION:ro
+      - ../corpus:/data/corpus:ro
+    env_file:
+      - .env
+    depends_on:
+      judi-llm:
+        condition: service_healthy
+      judi-rag:
+        condition: service_healthy
+      judi-ocr:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: ${BACKEND_MEM_LIMIT:-512m}
+    networks:
+      - internal
+      - external
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ── judi-web (frontend) ─────────────────────────────────
+  # Frontend Next.js — exposé en localhost.
+  # SÉCURITÉ : connecté aux deux réseaux pour permettre le port mapping.
+  # Le frontend ne fait aucun appel réseau sortant par lui-même.
+  judi-web-frontend:
+    build:
+      context: ./web/frontend
+      dockerfile: Dockerfile
+    container_name: judi-web-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=
+      - HOSTNAME=0.0.0.0
+    depends_on:
+      judi-web-backend:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: ${FRONTEND_MEM_LIMIT:-512m}
+    networks:
+      - internal
+      - external
+    dns: []
+
+networks:
+  internal:
+    driver: bridge
+    internal: true
+  external:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+
+volumes:
+  ollama_data:
+    driver: local
+  qdrant_data:
+    driver: local
+  ocr_tmp:
+    driver: local

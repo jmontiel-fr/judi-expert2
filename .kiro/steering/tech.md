@@ -1,8 +1,29 @@
 # Judi-Expert — Tech Stack & Commands
 
+## Autonomie d'exécution
+
+- **Exécuter toutes les commandes non-destructives sans attendre de confirmation** (pas de « Run » ou « >> » nécessaire)
+- Seules les commandes qui détruisent des données (suppression de fichiers, drop de tables, reset --hard, etc.) nécessitent une confirmation explicite de l'utilisateur
+
+## Infrastructure AWS — Règles absolues
+
+- **Ne JAMAIS créer, modifier ou supprimer des ressources AWS via la CLI** (`aws s3 mb`, `aws ec2 run-instances`, etc.)
+- **Toute modification d'infrastructure doit passer par Terraform** (fichiers dans `central-site/terraform/`)
+- Si une ressource n'existe pas, **ajouter le module/resource Terraform** correspondant, puis appliquer via le script de déploiement
+- Les seules commandes AWS CLI autorisées sont : lecture (`aws s3 ls`, `aws ecs describe-*`), upload de fichiers applicatifs (`aws s3 cp` pour des artefacts déjà gérés par un bucket Terraform), et opérations de déploiement encapsulées dans les scripts existants
+- **Jamais de patch CLI pour contourner un manque dans Terraform** — corriger Terraform à la place
+
+## Fiabilité des commandes et scripts
+
+- **Ne JAMAIS laisser une commande échouer silencieusement** — chaque commande doit vérifier son code retour (`set -euo pipefail` dans les scripts bash)
+- **Toujours tester les commandes après écriture** — exécuter le script ou la commande pour vérifier qu'il fonctionne avant de le considérer comme terminé
+- **Vérifier les prérequis avant exécution** — si un script dépend d'un bucket S3, d'un service, ou d'une config, vérifier qu'ils existent avant de lancer l'opération
+- **Afficher clairement les erreurs** — pas de `2>/dev/null` sur les commandes critiques, pas de `|| true` qui masque des échecs importants
+- **Valider le résultat** — après un upload S3, un docker push, ou un déploiement, vérifier que l'opération a réellement abouti (ex: `aws s3 ls` après upload, `docker images` après build)
+
 ## Règles d'exécution des commandes
 
-- **Toujours utiliser `bash` pour exécuter les scripts shell** (ex: `bash scripts-dev/dev-local-start.sh`, `bash central-site/app_locale_package/package.sh`). Ne jamais utiliser `sh`, `./`, ou d'autres shells.
+- **Toujours utiliser `bash` pour exécuter les scripts shell** (ex: `bash scripts-dev/dev-client-start.sh`, `bash central-site/app_client_package/package.sh`). Ne jamais utiliser `sh`, `./`, ou d'autres shells.
 - **Ne JAMAIS lancer les commandes en arrière-plan** (pas de `control_pwsh_process` / background process)
 - Toujours exécuter les commandes en **foreground** avec `execute_pwsh` et un `timeout` suffisant
 - Les **traces d'exécution doivent être visibles** dans la sortie (pas de `skipPruning: true` sauf si nécessaire pour debug)
@@ -10,7 +31,7 @@
 - Pour les builds Docker longs, utiliser `timeout: 300000` (5 min) ou plus
 - **Pour le déploiement, utiliser UNIQUEMENT les scripts `scripts-dev/`** — jamais de commandes Docker directes (`docker compose build`, `docker compose up`, etc.)
 - Si un script ne couvre pas un besoin (ex: rebuild d'un seul service), **ajouter une option au script existant** plutôt que de lancer une commande directe
-- Scripts disponibles : `dev-local-start.sh [--build] [--no-cache] [--pull-llm]`, `dev-local-stop.sh`, `dev-local-restart.sh`, `dev-local-status.sh`
+- Scripts disponibles : `dev-client-start.sh [--build] [--no-cache] [--pull-llm]`, `dev-client-stop.sh`, `dev-client-restart.sh`, `dev-client-status.sh`
 
 ## Backend (Python)
 
@@ -80,15 +101,15 @@
 ```bash
 # --- Dev Scripts (preferred — run from repo root) ---
 # IMPORTANT: All dev start/stop/restart scripts are in scripts-dev/ at repo root.
-# Do NOT use local-site/scripts/ or central-site/scripts/dev-* (deleted).
-# local-site/scripts/ only contains prerequisites.py.
+# Do NOT use client-site/scripts/ or central-site/scripts/dev-* (deleted).
+# client-site/scripts/ only contains prerequisites.py.
 # central-site/scripts/ contains only AWS prod deployment scripts.
-bash scripts-dev/dev-local-start.sh              # Start Application Locale
-bash scripts-dev/dev-local-start.sh --build      # Start + rebuild images
-bash scripts-dev/dev-local-start.sh --pull-llm   # Start + download LLM model if missing
-bash scripts-dev/dev-local-stop.sh               # Stop Application Locale
-bash scripts-dev/dev-local-restart.sh             # Restart Application Locale
-bash scripts-dev/dev-local-status.sh              # Check local containers status
+bash scripts-dev/dev-client-start.sh              # Start Site Client
+bash scripts-dev/dev-client-start.sh --build      # Start + rebuild images
+bash scripts-dev/dev-client-start.sh --pull-llm   # Start + download LLM model if missing
+bash scripts-dev/dev-client-stop.sh               # Stop Site Client
+bash scripts-dev/dev-client-restart.sh             # Restart Site Client
+bash scripts-dev/dev-client-status.sh              # Check client containers status
 bash scripts-dev/dev-central-start.sh             # Start Site Central
 bash scripts-dev/dev-central-start.sh --build     # Start + rebuild images
 bash scripts-dev/dev-central-stop.sh              # Stop Site Central
@@ -104,26 +125,26 @@ pytest tests/integration/ -v           # Integration tests
 pytest tests/smoke/ -v                 # Smoke tests
 
 # --- Linting / Formatting (Python) ---
-black local-site/ central-site/
-isort local-site/ central-site/
-flake8 local-site/ central-site/
-mypy local-site/ central-site/
+black client-site/ central-site/
+isort client-site/ central-site/
+flake8 client-site/ central-site/
+mypy client-site/ central-site/
 
 # --- Linting (Frontend) ---
-cd local-site/web/frontend && npx eslint src/
+cd client-site/web/frontend && npx eslint src/
 cd central-site/web/frontend && npx eslint src/
 
 # --- DB Migrations ---
-cd local-site/web/backend && alembic upgrade head
+cd client-site/web/backend && alembic upgrade head
 cd central-site/web/backend && alembic upgrade head
 # New migration: alembic revision --autogenerate -m "description"
 
 # --- AWS Deployment (from repo root) ---
 cd central-site/scripts
 ./build.sh && ./push-ecr.sh && ./deploy.sh
-# deploy.sh runs: terraform init → plan → apply (eu-west-1)
+# deploy.sh runs: terraform init → plan → apply (eu-west-3)
 # Config: central-site/terraform/terraform.tfvars
 
 # --- Packaging installer (.exe) ---
-bash central-site/app_locale_package/package.sh windows
+bash central-site/app_client_package/package.sh windows
 ```

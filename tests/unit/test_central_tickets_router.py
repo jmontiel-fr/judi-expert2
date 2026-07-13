@@ -279,7 +279,7 @@ async def test_verify_ticket_not_found(unauth_client: AsyncClient):
     assert resp.status_code == 200
     data = resp.json()
     assert data["success"] is False
-    assert data["error"] == "invalide"
+    assert data["error"] == "Ticket inconnu sur le site central"
 
 
 # ---------------------------------------------------------------------------

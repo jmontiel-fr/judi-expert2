@@ -1,6 +1,6 @@
 # Quick Start — Judi-Expert
 
-Guide de démarrage rapide pour lancer le Site Central (en local ou sur AWS) et installer/configurer l'Application Locale.
+Guide de démarrage rapide pour lancer le Site Central (en local ou sur AWS) et installer/configurer le Site Client.
 
 > Pour la définition des termes et acronymes, consultez le [Glossaire & Workflow](glossaire-workflow.md).
 
@@ -12,14 +12,14 @@ Le dépôt contient **deux applications distinctes** dans des dossiers de premie
 
 | Dossier | Application | Rôle | Tourne sur |
 |---------|-------------|------|------------|
-| `local-site/` | **Application Locale** | Workflow d'expertise (OCR, LLM, RAG, rapports). Toutes les données restent sur le PC. | PC de l'expert (Docker Compose) |
+| `client-site/` | **Site Client** | Workflow d'expertise (OCR, LLM, RAG, rapports). Toutes les données restent sur le PC. | PC de l'expert (Docker Compose) |
 | `central-site/` | **Site Central** | Inscription, paiements Stripe, distribution corpus, administration. | AWS (prod) **ou** en local via `docker-compose.dev.yml` (dev) |
 
 ### Les trois environnements exécutables
 
 | Environnement | Commande de lancement | URL |
 |---------------|----------------------|-----|
-| Application Locale | `local-site/scripts/start.sh` | `localhost:3000` (web) / `:8000` (api) |
+| Site Client | `client-site/scripts/start.sh` | `localhost:3000` (web) / `:8000` (api) |
 | Site Central — dev local | `docker compose -f central-site/docker-compose.dev.yml up -d` | `localhost:3001` |
 | Site Central — prod AWS | `central-site/scripts/deploy.sh` | Domaine AWS configuré |
 
@@ -30,7 +30,7 @@ Le dépôt contient **deux applications distinctes** dans des dossiers de premie
 1. [Prérequis](#1-prérequis)
 2. [Démarrer le Site Central en local](#2-démarrer-le-site-central-en-local)
 3. [Déployer le Site Central sur AWS](#3-déployer-le-site-central-sur-aws)
-4. [Installer l'Application Locale](#4-installer-lapplication-locale)
+4. [Installer le Site Client](#4-installer-le-site-client)
 5. [Configurer la communication Local ↔ Central](#5-configurer-la-communication-local--central)
 6. [Vérification de bout en bout](#6-vérification-de-bout-en-bout)
 7. [Commandes utiles](#7-commandes-utiles)
@@ -57,9 +57,9 @@ Le dépôt contient **deux applications distinctes** dans des dossiers de premie
 | Terraform | 1.5+ | `terraform --version` |
 | Compte AWS | — | `aws sts get-caller-identity` |
 
-### Prérequis PC pour l'Application Locale
+### Prérequis PC pour le Site Client
 
-L'Application Locale exige au minimum :
+Le Site Client exige au minimum :
 - **CPU** : 4 cœurs
 - **RAM** : 8 Go
 - **Disque** : 50 Go libres
@@ -106,7 +106,7 @@ RECAPTCHA_SECRET_KEY=6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe
 
 # Admin
 ADMIN_EMAIL=admin@judi-expert.fr
-ADMIN_DEFAULT_PASSWORD=change-me
+ADMIN_DEFAULT_PASSWORD=Admin$123!
 
 APP_ENV=development
 APP_URL=http://localhost:3000
@@ -249,12 +249,12 @@ Le scheduler EventBridge gère automatiquement l'arrêt à 20h et le démarrage 
 
 ---
 
-## 4. Installer l'Application Locale
+## 4. Installer le Site Client
 
 ### 4.1 Build des images Docker locales
 
 ```bash
-cd local-site/scripts
+cd client-site/scripts
 
 # Build des 3 images custom (judi-web-backend, judi-web-frontend, judi-ocr)
 ./build.sh
@@ -264,7 +264,7 @@ Les images `ollama/ollama:latest` (judi-llm) et `qdrant/qdrant:latest` (judi-rag
 
 ### 4.2 Configurer l'environnement local
 
-Éditer `local-site/.env` :
+Éditer `client-site/.env` :
 
 ```dotenv
 # Base de données locale (SQLite)
@@ -285,10 +285,10 @@ JWT_EXPIRATION_MINUTES=1440
 DOMAINE=psychologie
 ```
 
-### 4.3 Démarrer l'Application Locale
+### 4.3 Démarrer le Site Client
 
 ```bash
-cd local-site/scripts
+cd client-site/scripts
 
 # Démarrer les 4 conteneurs
 ./start.sh
@@ -316,7 +316,7 @@ Au premier démarrage, Ollama télécharge automatiquement le modèle Mistral 7B
 
 ## 5. Configurer la communication Local ↔ Central
 
-L'Application Locale communique avec le Site Central uniquement pour :
+Le Site Client communique avec le Site Central uniquement pour :
 - **Vérifier les tickets** lors de la création d'un dossier
 - **Télécharger les modules RAG** depuis ECR
 
@@ -324,7 +324,7 @@ Toutes les données d'expertise restent exclusivement en local.
 
 ### 5.1 Pointer vers le Site Central local (développement)
 
-Si le Site Central tourne en local, éditer `local-site/.env` :
+Si le Site Central tourne en local, éditer `client-site/.env` :
 
 ```dotenv
 # Pointer vers le Site Central local
@@ -344,7 +344,7 @@ services:
 
 ### 5.2 Pointer vers le Site Central AWS (production)
 
-Pour la production, éditer `local-site/.env` :
+Pour la production, éditer `client-site/.env` :
 
 ```dotenv
 # Pointer vers le Site Central AWS
@@ -354,7 +354,7 @@ SITE_CENTRAL_URL=https://www.judi-expert.fr
 ### 5.3 Redémarrer après modification
 
 ```bash
-cd local-site/scripts
+cd client-site/scripts
 ./restart.sh
 ```
 
@@ -373,7 +373,7 @@ Le Site Central fonctionne de 8h à 20h (heure de Paris). En dehors de ces horai
 
 1. **Site Central** : créer un compte expert sur http://localhost:3000 (ou l'URL AWS)
 2. **Site Central** : acheter un ticket via Stripe (mode test)
-3. **Application Locale** : créer un dossier avec le ticket reçu par email
+3. **Site Client** : créer un dossier avec le ticket reçu par email
 4. **Step0** : uploader un PDF-scan de réquisition → extraction OCR → Markdown
 5. **Step1** : générer le plan d'entretien (QMEC) → valider
 6. **Step2** : uploader NE.docx et REB.docx → valider
@@ -403,14 +403,14 @@ python -m pytest tests/smoke/ -v
 
 ## 7. Commandes utiles
 
-### Application Locale
+### Site Client
 
 | Commande | Description |
 |----------|-------------|
-| `local-site/scripts/build.sh` | Build des images Docker locales |
-| `local-site/scripts/start.sh` | Démarrer tous les conteneurs |
-| `local-site/scripts/stop.sh` | Arrêter tous les conteneurs |
-| `local-site/scripts/restart.sh` | Redémarrer tous les conteneurs |
+| `client-site/scripts/build.sh` | Build des images Docker locales |
+| `client-site/scripts/start.sh` | Démarrer tous les conteneurs |
+| `client-site/scripts/stop.sh` | Arrêter tous les conteneurs |
+| `client-site/scripts/restart.sh` | Redémarrer tous les conteneurs |
 | `docker logs judi-web-backend` | Logs du backend |
 | `docker logs judi-llm` | Logs du LLM (Ollama) |
 

@@ -33,6 +33,7 @@ class ProfileResponse(BaseModel):
     domaine: str
     accept_newsletter: bool
     created_at: datetime
+    is_admin: bool = False
     # Champs facturation
     entreprise: Optional[str] = None
     company_address: Optional[str] = None

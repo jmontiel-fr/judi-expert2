@@ -137,7 +137,7 @@ check_llm_model() {
     echo -e "  ${GREEN}✔${NC} Modèle LLM $LLM_MODEL — ${GREEN}disponible${NC}"
   else
     echo -e "  ${RED}✘${NC} Modèle LLM $LLM_MODEL — ${RED}non téléchargé${NC}"
-    echo -e "      Lancez : bash scripts-dev/dev-local-start.sh --pull-llm"
+    echo -e "      Lancez : bash scripts-dev/dev-client-start.sh --pull-llm"
     return 1
   fi
 }

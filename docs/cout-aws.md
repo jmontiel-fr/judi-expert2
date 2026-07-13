@@ -103,9 +103,9 @@ Terminaison HTTPS, cache des assets statiques, protection DDoS Shield Standard.
 - Après tier gratuit : ~0.50 $/mois pour ce trafic
 - **Total CloudFront : ~0 $/mois** (tier gratuit largement suffisant)
 
-### 7. S3 (Images Docker App Locale + package installateur)
+### 7. S3 (Images Docker Site Client + package installateur)
 
-Stockage des images Docker de l'Application Locale (.tar.gz) téléchargées par le package auto-installable, plus le package installateur lui-même.
+Stockage des images Docker du Site Client (.tar.gz) téléchargées par le package auto-installable, plus le package installateur lui-même.
 
 | Paramètre | Valeur |
 |-----------|--------|

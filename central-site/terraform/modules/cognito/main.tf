@@ -32,9 +32,11 @@ resource "aws_cognito_user_pool" "main" {
     allow_admin_create_user_only = false
   }
 
-  # --- Email par défaut Cognito ---
+  # --- Email via SES ---
   email_configuration {
-    email_sending_account = "COGNITO_DEFAULT"
+    email_sending_account = "DEVELOPER"
+    from_email_address    = "Judi-Expert <no-reply@${var.domain_name}>"
+    source_arn            = var.ses_domain_identity_arn
   }
 
   # --- Attributs personnalises ---
@@ -118,6 +120,26 @@ resource "aws_cognito_user" "admin" {
   }
 
   temporary_password = var.admin_temporary_password
+
+  lifecycle {
+    ignore_changes = [temporary_password]
+  }
+}
+
+# ==============================================
+# Expert user (force password change at first login)
+# ==============================================
+
+resource "aws_cognito_user" "expert" {
+  user_pool_id = aws_cognito_user_pool.main.id
+  username     = var.expert_email
+
+  attributes = {
+    email          = var.expert_email
+    email_verified = true
+  }
+
+  temporary_password = var.expert_temporary_password
 
   lifecycle {
     ignore_changes = [temporary_password]

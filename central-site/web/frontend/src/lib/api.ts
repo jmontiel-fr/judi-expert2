@@ -160,6 +160,7 @@ export interface Profile {
   domaine: string;
   accept_newsletter: boolean;
   created_at: string;
+  is_admin: boolean;
   // Billing profile fields
   entreprise: string | null;
   company_address: string | null;
@@ -374,9 +375,9 @@ export interface DownloadInfo {
   file_size: string | null;
 }
 
-export async function apiGetDownloadInfo(): Promise<DownloadInfo> {
+export async function apiGetDownloadInfo(token: string | null): Promise<DownloadInfo> {
   const res = await fetch(`${API_BASE}/api/downloads/app`, {
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(token),
   });
   return handleResponse(res);
 }
@@ -709,4 +710,42 @@ export async function apiResendCode(email: string): Promise<void> {
     body: JSON.stringify({ email }),
   });
   await handleResponse<unknown>(res);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Admin — Whitelist                                                  */
+/* ------------------------------------------------------------------ */
+
+export interface WhitelistEntry {
+  id: number;
+  email: string;
+  note: string;
+  created_at: string;
+}
+
+export async function apiAdminListWhitelist(token: string): Promise<WhitelistEntry[]> {
+  const res = await fetch(`${API_BASE}/api/admin/whitelist`, {
+    headers: authHeaders(token),
+  });
+  return handleResponse(res);
+}
+
+export async function apiAdminAddWhitelist(token: string, email: string, note: string = ""): Promise<WhitelistEntry> {
+  const res = await fetch(`${API_BASE}/api/admin/whitelist`, {
+    method: "POST",
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ email, note }),
+  });
+  return handleResponse(res);
+}
+
+export async function apiAdminDeleteWhitelist(token: string, id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/admin/whitelist/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, data.detail || "Erreur");
+  }
 }

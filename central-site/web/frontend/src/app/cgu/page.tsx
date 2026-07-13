@@ -28,7 +28,7 @@ export default function CGUPage() {
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>2. Accès au service</h2>
         <p className={styles.paragraph}>
-          Le Site est accessible pendant les horaires bureau, de 8h à 20h (heure de Paris), du lundi au vendredi. En dehors de ces horaires, le Site peut être indisponible pour des raisons de maintenance et d&apos;optimisation des coûts d&apos;hébergement.
+          Le Site est accessible en continu, 24 heures sur 24, 7 jours sur 7. Des interruptions ponctuelles peuvent survenir pour des raisons de maintenance.
         </p>
         <p className={styles.paragraph}>
           ITechSource se réserve le droit de suspendre temporairement l&apos;accès au Site pour des opérations de maintenance, sans préavis ni indemnité.
@@ -47,14 +47,14 @@ export default function CGUPage() {
           <li>Fournir des informations véridiques et complètes lors de l&apos;inscription</li>
           <li>Maintenir la confidentialité de ses identifiants de connexion</li>
           <li>Informer ITechSource de toute utilisation non autorisée de son compte</li>
-          <li>Disposer d&apos;un chiffrement de disque actif (BitLocker ou équivalent) sur le poste où l&apos;application locale est installée</li>
+          <li>Disposer d&apos;un chiffrement de disque actif (BitLocker ou équivalent) sur le poste où le Site Client est installé</li>
         </ul>
       </section>
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>4. Tickets d&apos;expertise</h2>
         <p className={styles.paragraph}>
-          La création d&apos;un dossier d&apos;expertise dans l&apos;application locale nécessite un ticket à usage unique, acheté sur le Site via la plateforme de paiement sécurisée Stripe.
+          La création d&apos;un dossier d&apos;expertise dans le Site Client nécessite un ticket à usage unique, acheté sur le Site via la plateforme de paiement sécurisée Stripe.
         </p>
         <ul className={styles.list}>
           <li>Chaque ticket est associé au domaine d&apos;expertise de l&apos;utilisateur</li>
@@ -83,7 +83,7 @@ export default function CGUPage() {
           Les données personnelles collectées lors de l&apos;inscription sont traitées conformément à notre <a href="/politique-confidentialite">Politique de confidentialité</a> et au Règlement Général sur la Protection des Données (RGPD).
         </p>
         <div className={styles.highlight}>
-          <strong>Principe fondamental :</strong> Toutes les données d&apos;expertise (dossiers, documents, rapports) restent exclusivement sur le PC de l&apos;expert. Aucune donnée d&apos;expertise ne transite par les serveurs d&apos;ITechSource. Seuls les tickets d&apos;expertise transitent entre l&apos;application locale et le Site pour vérification.
+          <strong>Principe fondamental :</strong> Toutes les données d&apos;expertise (dossiers, documents, rapports) restent exclusivement sur le PC de l&apos;expert. Aucune donnée d&apos;expertise ne transite par les serveurs d&apos;ITechSource. Seuls les tickets d&apos;expertise transitent entre le Site Client et le Site pour vérification.
         </div>
       </section>
 
