@@ -1,11 +1,8 @@
-# Modèle de Plan d'Entretien — Expertise Psychologique Judiciaire
-Domaine Psychologie - # Version : 1.0
-
-# Note
-Ce fichier est purement indicatif pour la conduite d'un entretien pour une personne
-plaignante ou mise en cause.
-L'expert adaptera son modèle de rapport (TRE), qui inclut les notes d'entretien,
-selon ses propre(s) trames(s) et le contexte de chaque expertise.
+# Trame de Plan d'Entretien — Expertise Psychologique Judiciaire
+# TPE par défaut — Domaine Psychologie
+# Version : 1.0
+# Ce fichier sert de base à la génération du plan d'entretien (QMEC).
+# L'expert peut le personnaliser selon sa pratique.
 
 ---
 

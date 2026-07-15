@@ -1,6 +1,6 @@
 """
 Script de génération du template de rapport d'expertise psychologique judiciaire.
-Exécuter ce script pour produire le fichier template_rapport_psychologie.docx
+Exécuter ce script pour produire le fichier TRE_template.docx
 
 Usage : python generate_template_rapport.py
 
@@ -254,7 +254,7 @@ def create_template():
     run.font.size = Pt(12)
 
     # --- Sauvegarde ---
-    output_path = "corpus/psychologie/template_rapport_psychologie.docx"
+    output_path = "client-site/web/backend/defaults/TRE_template.docx"
     doc.save(output_path)
     print(f"Template généré : {output_path}")
 

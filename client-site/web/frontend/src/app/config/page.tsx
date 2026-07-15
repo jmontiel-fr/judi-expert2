@@ -800,7 +800,7 @@ export default function ConfigPage() {
         throw new Error(err.detail);
       }
       const blob = await response.blob();
-      const file = new File([blob], "template_rapport_psychologie.docx", {
+      const file = new File([blob], "TRE_template.docx", {
         type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
       const data = await configApi.uploadTemplate(file);
@@ -997,11 +997,11 @@ export default function ConfigPage() {
         </div>
       </section>
 
-      {/* ---- Section 3: Template Rapport ---- */}
+      {/* ---- Section 3: TRE Template ---- */}
       <section className={styles.section} aria-labelledby="template-title">
         <h2 className={styles.sectionTitle} id="template-title">
           <span className={styles.sectionIcon} aria-hidden="true">📄</span>
-          Template Rapport
+          TRE (Template de Rapport d&apos;Expertise)
           {templateInfo && (
             <span style={{ marginLeft: 12, fontSize: "0.8rem", color: "#16a34a", fontWeight: 400 }}>
               ✔ Installé
@@ -1048,10 +1048,10 @@ export default function ConfigPage() {
           <div className={styles.defaultSuggestion}>
             <span className={styles.suggestionIcon} aria-hidden="true">💡</span>
             <div>
-              <strong>Fichier exemple disponible</strong>
+              <strong>TRE template disponible</strong>
               <p>
-                Un template de rapport par défaut pour le domaine psychologie est
-                disponible (template_rapport_psychologie.docx).
+                Template de Rapport d&apos;expertise avec exemple d&apos;annotations
+                de workflow (<code>TRE_template.docx</code>).
               </p>
               <div className={styles.defaultActions}>
                 <button
@@ -1060,8 +1060,8 @@ export default function ConfigPage() {
                   disabled={templateDefaultLoading || templateUploading}
                 >
                   {templateDefaultLoading
-                    ? "Installation…"
-                    : "Utiliser le template par défaut"}
+                    ? "Téléchargement…"
+                    : "Télécharger le TRE template"}
                 </button>
               </div>
             </div>

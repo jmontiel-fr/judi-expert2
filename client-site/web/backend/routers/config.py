@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+from pathlib import Path
 from typing import Optional
 
 import httpx
@@ -43,6 +44,12 @@ logger = logging.getLogger(__name__)
 
 SITE_CENTRAL_URL: str = os.environ.get("SITE_CENTRAL_URL", "https://www.judi-expert.fr")
 CONFIG_DIR: str = os.environ.get("CONFIG_DIR", "data/config")
+DEFAULTS_DIR: Path = Path(
+    os.environ.get(
+        "DEFAULTS_DIR",
+        str(Path(__file__).resolve().parent.parent / "defaults"),
+    )
+)
 
 # Module-level model download manager instance
 _download_manager = ModelDownloadManager()
@@ -891,61 +898,46 @@ async def list_corpus_documents(
     )
 
 
-# ---- GET /defaults/tpe — Télécharger le TPE par défaut depuis le Site Central
+# ---- GET /defaults/tpe — Télécharger le TPE par défaut (fichier local site-client)
 
 @router.get("/defaults/tpe")
 async def get_default_tpe(
     _user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Télécharge le TPE par défaut depuis le Site Central et le retourne."""
-    from fastapi.responses import Response
+    """Télécharge le TPE par défaut embarqué dans le site-client."""
+    from fastapi.responses import FileResponse
 
     config = await _get_config(db)
     domaine = config.domaine
+    tpe_path = DEFAULTS_DIR / f"TPE_{domaine}.tpl"
+    if not tpe_path.is_file():
+        raise HTTPException(status_code=404, detail="TPE par défaut non disponible")
 
-    client = SiteCentralClient()
-    try:
-        resp = await client.get(f"/api/corpus/{domaine}/fichier/TPE_{domaine}.tpl")
-    except SiteCentralError as exc:
-        raise HTTPException(status_code=503, detail=exc.message)
-
-    if resp.status_code != 200:
-        raise HTTPException(status_code=404, detail="TPE par défaut non trouvé sur le Site Central")
-
-    return Response(
-        content=resp.content,
+    return FileResponse(
+        path=str(tpe_path),
+        filename=f"TPE_{domaine}.md",
         media_type="text/markdown",
-        headers={"Content-Disposition": f'attachment; filename="TPE_{domaine}.md"'},
     )
 
 
-# ---- GET /defaults/template — Télécharger le Template par défaut depuis le Site Central
+# ---- GET /defaults/template — Télécharger le TRE template par défaut (site-client)
 
 @router.get("/defaults/template")
 async def get_default_template(
     _user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
-    """Télécharge le Template Rapport par défaut depuis le Site Central et le retourne."""
-    from fastapi.responses import Response
+    """Télécharge le TRE template par défaut embarqué dans le site-client."""
+    from fastapi.responses import FileResponse
 
-    config = await _get_config(db)
-    domaine = config.domaine
+    tre_path = DEFAULTS_DIR / "TRE_template.docx"
+    if not tre_path.is_file():
+        raise HTTPException(status_code=404, detail="TRE template par défaut non disponible")
 
-    client = SiteCentralClient()
-    try:
-        resp = await client.get(f"/api/corpus/{domaine}/fichier/template_rapport_{domaine}.docx")
-    except SiteCentralError as exc:
-        raise HTTPException(status_code=503, detail=exc.message)
-
-    if resp.status_code != 200:
-        raise HTTPException(status_code=404, detail="Template par défaut non trouvé sur le Site Central")
-
-    return Response(
-        content=resp.content,
+    return FileResponse(
+        path=str(tre_path),
+        filename="TRE_template.docx",
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="template_rapport_{domaine}.docx"'},
     )
 
 

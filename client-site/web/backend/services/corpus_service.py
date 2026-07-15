@@ -86,7 +86,7 @@ class CorpusService:
             if os.path.isfile(fpath) and not fname.startswith("."):
                 # Ignorer les templates (TPE/TRE)
                 fname_lower = fname.lower()
-                if "tpe" in fname_lower or "template_rapport" in fname_lower:
+                if "tpe" in fname_lower or "template_rapport" in fname_lower or "tre_template" in fname_lower:
                     continue
                 # Identifier les URLs (fichiers .url.txt ou provenant de urls/)
                 if fname_lower.endswith(".url.txt") or "urls_" in fname_lower:

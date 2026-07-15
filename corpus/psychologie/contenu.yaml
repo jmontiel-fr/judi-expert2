@@ -2,25 +2,6 @@
 # Ce fichier décrit l'ensemble des ressources du corpus psychologie.
 
 contenu:
-  # --- Templates ---
-
-  - nom: TPE_psychologie.tpl.md
-    description: >
-      Trame de plan d'entretien par défaut pour le domaine psychologie judiciaire.
-      Structurée selon les bonnes pratiques : identification, motif de l'expertise,
-      anamnèse, examen clinique, tests psychométriques, analyse et conclusions.
-    type: template
-    date_ajout: "2025-01-01"
-
-  - nom: template_rapport_psychologie.docx
-    description: >
-      Template Word du rapport d'expertise finale pour le domaine psychologie.
-      Contient les champs de fusion (placeholders) pour destinataire, QT,
-      réponses argumentées, analyse et conclusions. Ne contient pas d'identité
-      en dur.
-    type: template
-    date_ajout: "2025-01-01"
-
   # --- Documents de référence (copier-coller depuis sources non crawlables) ---
   # Ces fichiers .txt sont constitués par l'admin en copiant le texte brut
   # depuis les sites sources. Ils sont placés dans corpus/psychologie/documents/.
