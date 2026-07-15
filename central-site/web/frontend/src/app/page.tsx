@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { HomePageJsonLd } from "@/components/JsonLd";
 import { buildPageMetadata } from "@/lib/seo";
 import styles from "./landing.module.css";
@@ -42,6 +43,9 @@ export default function HomePage() {
             <span className={styles.heroBadge}>
               🕐 Service accessible en continu 24/7
             </span>
+            <Link href="/contact" className={styles.heroCta}>
+              Demander une démonstration (30 min)
+            </Link>
           </div>
         </div>
       </section>

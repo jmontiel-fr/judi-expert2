@@ -77,6 +77,27 @@
   backdrop-filter: blur(4px);
 }
 
+.heroCta {
+  display: inline-block;
+  margin-top: 24px;
+  padding: 14px 28px;
+  background: #ff8c00;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background-color 0.15s, transform 0.15s;
+  align-self: flex-start;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.heroCta:hover {
+  background: #e67e00;
+  transform: translateY(-1px);
+  color: #fff;
+}
+
 /* ===== Section common ===== */
 .section {
   margin-bottom: 64px;
@@ -360,6 +381,10 @@
     padding: 32px 20px;
     text-align: center;
     align-items: center;
+  }
+
+  .heroCta {
+    align-self: center;
   }
 
   .stepsRow {

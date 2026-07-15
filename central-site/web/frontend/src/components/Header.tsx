@@ -56,6 +56,11 @@ export default function Header() {
           Tarifs
         </Link>
       </li>
+      <li>
+        <Link href="/contact" className={linkClass("/contact")} onClick={() => setMenuOpen(false)}>
+          Contact
+        </Link>
+      </li>
 
       {!user && (
         <li>

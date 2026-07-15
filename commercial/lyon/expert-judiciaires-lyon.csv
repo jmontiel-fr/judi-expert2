@@ -1,0 +1,200 @@
+﻿domaine,nom,prenom,tribunal_enregistrement,numero_enregistrement,status_probation,email,tel,adresse,cp,ville
+batiment,ABEL,Thierry,LYON,2024-2024,en cours,thierry-abel@orange.fr,06 42 38 29 33,"OVAL INGENIERIE 48, rue Pomponne Serve",69680,CHASSIEU
+batiment,AL KHATIB,Nassim,LYON,2021-2024,OK,alkhatib.nassim@gmail.com,04 81 65 42 65,Vinci Energies 22 avenue Lionel Terray,69330,JONAGE
+batiment,ALBALADEJO,Eric,LYON,2024-2024,en cours,expertlyon.albaladejo@gmail.com,07 82 83 65 54,"CEAC 64, rue de Cuire",69004,LYON 04
+batiment,ALIOT,Patrick,LYON,2025-2025,en cours,expert@aliotarchitecte.fr,04.37.43.89.01,"41, rue Malesherbes",69006,LYON 06
+batiment,ANDREANI,Emmanuelle,LYON,2024-2024,en cours,direction@siz-ix.com,04 72 40 90 72,18 rue de la Quarantaine,69005,LYON 05
+batiment,ANNEQUIN,Christian,LYON,2018-2026,OK,annequin.christian@gmail.com,06 11 96 32 68,4 bis rue Jacquard,69004,LYON 04
+batiment,ARRIGONI,Gilles,BOURG EN BRESSE,2017-2023,OK,gilles.arrigoni@free.fr,04 78 55 46 73,170 rue du Midi,01700,BEYNOST
+batiment,AUCLERC,Guy,ST ETIENNE,2023-2026,OK,guy.auclerc@club-internet.fr,06 82 01 27 48,17 rue du Repos,42400,ST CHAMOND
+batiment,AUGUSTE,Sophie,BOURG EN BRESSE,2026-2026,en cours,sophie.auguste@trois-c.fr,04 72 52 12 12,750 Route de Rancé,01390,ST JEAN DE THURIGNEUX
+batiment,BANSAC,Laurent,LYON,2019-2022,OK,expert@bansac-archi.com,04 26 17 86 61,66 chemin des Rivières,69130,ECULLY
+batiment,BAYLE,François,ST ETIENNE,2024-2024,en cours,fbayle@gba-eco.com,04 77 93 08 90,GBA&CO 7 Rue Pablo Picasso - CS 70626,42000,ST ETIENNE
+batiment,BEAL,David,LYON,2025-2025,en cours,db.ae@outlook.fr,04.78.93.81.81,"AAMCO 20, rue Octavie",69100,VILLEURBANNE
+batiment,BEAUMONT,Laurent,LYON,2024-2024,en cours,lb@beaumont-ingenierie.fr,09.50.80.87.61,"Entreprise BEAUMONT INGENIERIE 38, rue des Acqueducs",69005,LYON 05
+batiment,BEERLI,Gilles,BOURG EN BRESSE,2025-2025,en cours,gilles.beerli@diagamo-expertise.fr,04 74 32 08 25,DIAGAMO 1879 route de la Bascule,01560,CORMOZ
+batiment,BENSENOUCI,Zohra,LYON,2026-2026,en cours,z.bensenouci@zb-architecte.fr,04 78 27 15 08,"Z&B Achitecte 5, rue Royale",69001,LYON 01
+batiment,BERGER,Laurent,VILLEFRANCHE SUR SAONE,2021-2024,OK,expert@berger-expertise.fr,06 82 37 00 86,7 rue de l'amitié,69380,LOZANNE
+batiment,BERNARD,Nathalie,ROANNE,2020-2023,OK,nate.bernard@orange.fr,06 74 31 91 02,BP 25,42190,CHARLIEU cedex
+batiment,BERTHELOT,Philippe,LYON,2023-2026,OK,pberthelot@agora-architecte.fr,04 78 38 38 80,84 Avenue de la Poterie,69890,LA TOUR DE SALVAGNY
+batiment,BINVIGNAT,Pierre,LYON,2021-2024,OK,pbinvignat.expert@gmail.com,06 26 55 30 34,297 rue Jean Jaurès,73190,CHALLES LES EAUX
+batiment,BOLIFRAUD,Sylvain,LYON,2023-2026,OK,bolifraud@pm.me,06 82 81 60 70,27 bis rue Antonins,69100,VILLEURBANNE
+batiment,BONCHE,Pierre,LYON,2023-2026,OK,pbonche.expert@gmail.com,04 72 11 72 93,109 rue Chantegrillet,69110,STE FOY LES LYON
+batiment,BORDET,Mathieu,LYON,2025-2025,en cours,m.bordet@voutay-bordet.fr,04 37 46 59 07,37 rue de la Chambre du Roy,69380,CHASSELAY
+batiment,BOUTEBA,Abdelnour,LYON,2023-2026,OK,ab_20051@hotmail.fr,04 72 08 59 75,8 rue Pierre Bourgeois Le Crystal,69300,CALUIRE ET CUIRE
+batiment,BOUYSSONIE,Thierry,BOURG EN BRESSE,2010-2022,OK,tbeb@orange.fr,04 78 88 12 44,TBE M BOUYSSONIE Thierry Domaine des Tamaris 6 Allée des Lauriers,01390,ST MARCEL EN DOMBES
+batiment,CADIC,Mathieu,LYON,2024-2024,en cours,expertises@airial-architectures.fr,04 72 33 18 31,"AIRIAL ARCHITECTURES 14, rue Martin",69003,LYON 03
+batiment,CASTILLO FENOY,Stéphane,LYON,2026-2026,en cours,scastillo@aldica.fr,06 80 91 90 93,"9, rue de Genève",69006,LYON 06
+batiment,CATHEBRAS,Mathias,ST ETIENNE,2026-2026,en cours,mathias.cathebras@cgmarchitectes.fr,04 77 32 04 04,145 rue de la Montat - L'Arche,42100,ST ETIENNE
+batiment,CEZARD,Edmond,LYON,2025-2025,en cours,e.cezard.expert.judiciaire@gmail.com,04.78.97.15.70,"L'ATELIER ARCHITECTES 18, rue Berjon",69009,LYON 09
+batiment,CHAZAL,Michèle,LYON,2015-2025,OK,mchazal@architecte69.com,04 26 18 87 18,23 Chemin de la Pomme,69160,TASSIN LA DEMI LUNE
+batiment,CLEMENSON ARCHITECTES,,ST ETIENNE,2025-2025,en cours,mclemenson-expert@clemenson-architectes.com,06 12 69 69 53,CLEMENSON ARCHITECTES - Maxime Clémenson 19 Cours Fauriel,42100,ST ETIENNE
+batiment,COMPIGNE,Christian,BOURG EN BRESSE,2018-2026,OK,contact@compigne-architecte.fr,04 72 26 89 39,49 Allée La Versanne,01390,CIVRIEUX
+batiment,DALMAIS,Jean,LYON,2001-2022,OK,jdexpertise@outlook.fr,06 07 86 33 24,72 rue de la charité,69002,LYON 02
+batiment,DEDENIS,Marc,LYON,2004-2024,OK,dedenis.architecte@orange.fr,04 72 33 76 48,239 Avenue Félix Faure,69003,LYON
+batiment,DESCHAMPS,Jean-Jacques,ST ETIENNE,2022-2025,OK,deschampsjjexpert@gmail.com,04 26 54 70 81,BP 73,42602,MONTBRISON cedex
+batiment,DIARD,Gaël,BOURG EN BRESSE,2025-2025,en cours,gaeldiard84@gmail.com,06 62 93 26 81,GD EXPERTISE 195 Chemin de Grange Debout,01700,BEYNOST
+batiment,DIVRY,Gery,LYON,2013-2026,OK,gdexpert@axaires.com,04 78 00 38 57,AXAIRES 75 rue Bataille,69008,LYON 08
+batiment,DUBOIS,Nicolas,ST ETIENNE,2023-2026,OK,AFP.expertise@outlook.fr,09 52 22 28 25,8 impasse de l'Etang,42140,CHAZELLES SUR LYON
+batiment,FONTAINE,Rémi,VILLEFRANCHE SUR SAONE,2016-2026,OK,expert.fontaine@gmail.com,06 07 19 77 36,328 route de la cépée,69790,ST CLEMENT DE VERS
+batiment,GABRIEL,Jean-François,LYON,2025-2025,en cours,jf.gabriel05@gmail.com,06.24.65.15.94,"13, rue Saint-Fulbert Bâtiment D",69008,LYON 08
+batiment,GENTIAL,Gilles,ST ETIENNE,2021-2024,OK,gilles.gential@orange.fr,04 77 39 06 05,163 Route de Créméat,42660,ST GENEST MALIFAUX
+batiment,GERY,Vincent,ROANNE,2020-2023,OK,contact@vg-expertise.fr,06 47 79 40 21,74 Impasse chez Reynaud,42260,(AMIONS) VEZELIN SUR LOIRE
+batiment,GODDE,Cyrille,LYON,2020-2023,OK,godde-expert@hotmail.com,04 72 34 44 56,ECCI 19 cours Vitton,69006,LYON 06
+batiment,JOURDAN,Thierry,LYON,2022-2025,OK,thierry.jourdan.expert@gmail.com,06 14 49 07 07,10 rue Docteur Bonhomme,69003,LYON 03
+batiment,KUZDZAL,Philippe,LYON,2024-2024,en cours,contact@pk-enr.fr,06 15 76 99 33,PK-ENR 4 Allée Valmerises,69160,TASSIN LA DEMI LUNE
+batiment,LAINE,Guillaume,BOURG EN BRESSE,2021-2024,OK,laineg.exp.judiciaire@gmail.com,06.98.16.60.47,216 chemin des Bouleaux,01330,STE OLIVE
+batiment,LAISNE,Christophe,LYON,2006-2023,OK,laisnechristophe@orange.fr,09 60 03 80 39,33 B chemin des petites brosses,69300,CALUIRE ET CUIRE
+batiment,LAPEYRIE,Bruno,LYON,2025-2025,en cours,bruno.lapeyrie@orange.fr,06 23 14 10 35,127 avenue du Maréchal de Saxe,69003,LYON 03
+batiment,LECUELLE,Corinne,LYON,2025-2025,en cours,acl@clecuelle.com,06.61.45.99.90,"4, rue Baraban",69003,LYON 03
+batiment,LEROUSSEAU,Isabelle,LYON,2023-2026,OK,isal@free.fr,06 65 29 43 02,319 Rue Paul Bert,69003,LYON 03
+batiment,MACRI,Pascal,LYON,2025-2025,en cours,expert.macri@agenor-architectures.fr,04.78.62.90.52,"24, cours de la Liberté",69003,LYON 03
+batiment,MANTINI,Patrick,LYON,2020-2023,OK,pmantini-architecte-expert@momalyon.fr,04 26 10 35 91,5 bis rue des Sports,69003,LYON 03
+batiment,MASSOT,Michaël,BOURG EN BRESSE,2026-2026,en cours,michaelmassot.expert@aecoma.fr,04 72 25 01 22,SASU AECOMA 509 Chemin de la Sereine,01700,BEYNOST
+batiment,MERMET,Jack,BOURG EN BRESSE,2024-2024,en cours,jack.mermet@free.fr,04.79.81.41.06,42 Rue St Jean,01300,BELLEY
+batiment,MICHEL,Didier,LYON,2023-2026,OK,didiermichel185@gmail.com,06 12 23 16 83,3 chemin de Volange,69370,ST DIDIER AU MONT D OR
+batiment,MIROUZE,Raphaël,LYON,2025-2025,en cours,raphael.mirouze@moduloarchitectes.com,06.11.63.25.28,"112, rue Moncey",69003,LYON 03
+batiment,NAOUN,Soumaya,LYON,2026-2026,en cours,s.naoun@ecco-eco.fr,06 23 21 60 54,La cachette 13 rue Dumenge,69004,LYON 04
+batiment,OXYGEN ARCHITECTURE,,LYON,2025-2025,en cours,expertises@oxygen-architecture.fr,04.72.04.13.65,"3, rue Dumont d'Urville",69004,LYON 04
+batiment,PASQUAL,Olivier,LYON,2026-2026,en cours,pasqual.olivier@gmail.com,06 76 70 94 77,"207, chemin de la Vérande",69380,CIVRIEUX D AZERGUES
+batiment,PERDRIX,Gérald,LYON,2020-2023,OK,gerald.perdrix@gmail.com,06 11 03 77 46,Péniche Esmeralda Port de plaisance,69730,GENAY
+batiment,PERRIN,Fabrice,LYON,2013-2026,OK,fabrice.perrin@expert-de-justice.org,09 50 96 40 24,Société ACROPOLE Spaces Part-Dieu 47 Bd Marius Vivier-Merle,69486,LYON Cedex 03
+batiment,PEYRET,Norbert,ST ETIENNE,2023-2026,OK,n.peyret@expertarchitecte.fr,04 77 74 29 76,"ATELIER D'ARCHITECTURE P2A 9 rue de la Télématique - ""Le Technopole""",42000,ST ETIENNE
+batiment,PIGEON,Christophe,ST ETIENNE,2016-2022,OK,christophe.pigeon@geometre-expert.fr,04 77 26 15 86,SCP PIGEON TOINON 8 bis rue du Montal,42110,FEURS
+batiment,PLANQUETTE,Martial,BOURG EN BRESSE,2023-2026,OK,planquette.martial@gmail.com,04 78 55 12 38,1170 Montée Neuve,01700,MIRIBEL
+batiment,PORTES,Frédéric,ST ETIENNE,2017-2025,OK,fr.portes@orange.fr,04 77 22 90 37,5 rue des jardiniers,42400,ST CHAMOND
+batiment,POULET,Patrick,LYON,2010-2025,OK,cledi@free.fr,04 72 78 31 10,CLEDI 320 avenue Berthelot,69008,LYON 08
+batiment,POY-TARDIEU,Ludovic,ST ETIENNE,2017-2025,OK,poytardieu.expert@gmail.com,07 68 31 77 72,125 Chemin de Vigelon,42740,ST PAUL EN JAREZ
+batiment,QUANTIN,Marie-Hélène,LYON,2026-2026,en cours,contact@expertisesacs.fr,06 18 78 49 31,Cabinet ACS 6 rue d'Arsonval - BP 50078,69686,CHASSIEU cedex
+batiment,RAOULT,Pierre-Paul,LYON,2026-2026,en cours,expert@raoult-architecture.com,04 78 58 37 07,"RAOULT ARCHITECTURE 5, rue Jules Vercherin",69007,LYON 07
+batiment,ROBERT,Emmanuel,LYON,2023-2026,OK,emmanuel.robert69@gmail.com,04 78 22 52 40,8 Chemin Neuf,69660,COLLONGES AU MONT D OR
+batiment,ROCHAS,Thierry,LYON,2006-2023,OK,rochasarchitectes@gmail.com,04 78 72 74 76,"ROCHAS ARCHITECTES 21, rue Duguesclin",69006,LYON
+batiment,ROLLAND,Jean-Pierre,BOURG EN BRESSE,2023-2026,OK,piscines.assistance01@gmail.com,04 27 53 11 82,22 rue Principale CUISIAT,01370,VALREVERMONT
+batiment,SCARATO,Pascal,LYON,1995-2022,OK,pascalscaratoeps@gmail.com,04 74 26 55 61,124 rue du luminaire,69610,HAUTE RIVOIRE
+batiment,SCHECK,Thomas,LYON,2018-2026,OK,thomas.scheck@expert-de-justice.org,06 86 17 71 91,13 Chemin de Bruyère,69130,ECULLY
+batiment,SEYMARC,Nicolas,BOURG EN BRESSE,2024-2024,en cours,nicolas.seymarc@sct-travaux.fr,04 72 88 43 91,SEYMARC CONSEIL TRAVAUX (SCT) 26 route de Genève,01700,NEYRON
+batiment,STORTI,Gilbert,VILLEFRANCHE SUR SAONE,2003-2023,OK,gilbertstorti@gmail.com,04 74 60 07 72,186 chemin de la pépinière,69400,VILLEFRANCHE SUR SAONE
+batiment,TEXIER,François,LYON,2026-2026,en cours,ft@francoistexier.fr,04 87 77 60 08,rue Pierre Blanc,69001,LYON 01
+batiment,THIELLAND,Nathalie,BOURG EN BRESSE,2022-2025,OK,atelier@metamorphoses-architectures.com,04 74 37 06 09,Porte d'en bas 224 Rue des Rondes,01800,PEROUGES
+batiment,TOURNIER,Christian,LYON,2016-2024,OK,solyamochristian@gmail.com,04 72 84 02 10,SOCIETE SOLYAMO 17 chemin Louis Chirpaz,69130,ECULLY
+batiment,TROUCHON,Eymeric,ST ETIENNE,2024-2024,en cours,contact@auda.fr,04 77 79 98 34,8 Rue du Soleil,42700,FIRMINY
+batiment,VALLET,Guillaume,LYON,2026-2026,en cours,guillaume.vallet@expertise-planning.fr,06 62 30 89 09,"INDEX Projet 231, avenue Jean Jaurès",69007,LYON 07
+batiment,VARIERAS,François,LYON,2015-2023,OK,francois.varieras@club.fr,04 78 27 85 73,3 rue Rivet,69001,LYON 01
+batiment,VIAL-VOIRON,Victor-John,LYON,2018-2026,OK,j3v.expert@orange.fr,04 78 43 43 39,5 rue Roger Salengro,69009,LYON 09
+batiment,VINCENT,Hervé,LYON,2024-2024,en cours,hvincent@architectes.org,04.72.68.02.06,"AAHV - Atelier d'Architecture Hervé Vincent 11, rue Viala",69003,LYON 03
+comptabilite,AUGER,Laurent,BOURG EN BRESSE,2026-2026,en cours,laurent.auger@cabinet-fipar.fr,04 74 46 87 12,FIPAR ZA en Beauvoir 120 rue de la Outarde,01500,Château Gaillard
+comptabilite,BACO-ANTONIALI,Véronique,LYON,2023-2026,OK,v.baco-antoniali@abacus-aec.com,04 26 65 32 46,25 bis rue du clos Varissan,69390,MILLERY
+comptabilite,BASSON,Georges,LYON,2006-2023,OK,gbasson@cabinetgbasson.fr,06 22 60 66 02,84 F rue d'Ypres - Bât F,69004,LYON 04
+comptabilite,BAU,Philippe,LYON,1993-2023,OK,philippe.bau@creavalue.com,04 72 20 10 20,Creavalue 26 Rue Berjon,69009,LYON 09
+comptabilite,BERGER,Didier,ST ETIENNE,2016-2024,OK,didier.berger@cabinetbbj.eu,04 77 74 43 41,3B Place JB Per,42270,ST PRIEST EN JAREZ
+comptabilite,BLONDEAU,Renaud,LYON,2023-2026,OK,renaud.blondeau@forvismazars.com,04 26 84 52 52,Forvis Mazars 109 rue Tête d'Or,69006,LYON 06
+comptabilite,BOISRAME,Olivier,VILLEFRANCHE SUR SAONE,2025-2025,en cours,oboisrame@goodmorningbusiness.com,04 74 68 47 99,Good Morning 506 rue des Grillons,69400,GLEIZE
+comptabilite,BONNET,Pierre,LYON,2009-2024,OK,pierre.bonnet@bm-associes.com,04 72 83 94 83,"Bruyas, Moncorgé et associés, 119 avenue Maréchal de Saxe",69003,LYON 03
+comptabilite,BOTTOLI,Serge,LYON,2006-2023,OK,sbottoli@experial.net,04 81 91 70 00,EXPERIAL 40 rue Laure Diebold,69009,LYON
+comptabilite,CASTEL-SAMES,Sylvie,LYON,2025-2025,en cours,scastel-sames@cabinet-escoffier.fr,04.81.91.70.00,"CABINET ESCOFFIER 40, rue Laure Diebold",69009,LYON 09
+comptabilite,COURBON,Mikael,ST ETIENNE,2021-2024,OK,mcourbon@rydge.fr,04 77 49 38 60,RYDGE - 6 Allée Drouot Parc Giron,42000,ST ETIENNE
+comptabilite,DAGNAUD,Alexandre,ST ETIENNE,2013-2026,OK,adagnaud@crowe-avvens.fr,04 77 57 47 48,BP 90266,42016,ST ETIENNE Cédex 1
+comptabilite,ELLUL,Hervé,LYON,2001-2024,OK,h.ellul@acticonseil.com,06 86 66 40 03,1 rue du docteur Pierre Fleury Papillon,69100,VILLEURBANNE
+comptabilite,FOURNIER,Philippe,LYON,2017-2025,OK,philifournier@outlook.fr,06 07 67 26 88,7 rue du Professeur Sisley,69003,LYON 03
+comptabilite,JERABEK,Roger-Pierre,LYON,2021-2024,OK,rp.jerabek@viji-audit.fr,06 60 99 84 60,Chez Vi Ji Audit et Conseils 122 rue Sully,69006,LYON 06
+comptabilite,LEROUX,Jean,LYON,2018-2026,OK,jleroux@abelia.fr,04 72 00 77 80,Cabinet ABELIA CONSULTING 17 rue de la République,69002,LYON
+comptabilite,MALLEN,Jean-François,BOURG EN BRESSE,2026-2026,en cours,jf.mallen@crowe-fideliance.fr,06 08 76 14 63,FIDELIANCE RHONE ALPES 131 A avenue de Parme,01000,BOURG-EN-BRESSE
+comptabilite,MECHIN,Françoise,LYON,2025-2025,en cours,francoise.mechin@fr.gt.com,04 72 13 11 11,Grant Thornton Cité internationale - CS 60095 - 44 quai Charles de Gaulle,69463,LYON CEDEX 06
+comptabilite,MOREL,Philippe,LYON,2008-2026,OK,cm-expertise@orange.fr,04 78 24 37 19,Cabinet CM expertise 52 rue Lieutenant Prévost,69009,LYON
+comptabilite,TOLLET,Gildas,VILLEFRANCHE SUR SAONE,2011-2023,OK,gildas.tollet@sogitec.org,04 74 65 36 38,215 Boulevard Burdeau,69400,VILLEFRANCHE SUR SAONE
+comptabilite,TRUCHOT,Nicolas,LYON,2018-2026,OK,nicolas.truchot@bm-associes.com,04 72 83 94 83,Immeube le Saxe 119 avenue Maréchal de Saxe,69003,LYON 03
+medecine_legale,ADVENIER,Anne-Sophie,LYON,2017-2025,OK,anne-sophie.advenier@chu-lyon.fr,04 78 01 17 89,Institut Médico Légal bat B10 hôpital Edouard Herriot 5 place d'Arsonval,69437,LYON CEDEX08
+medecine_legale,AMZALLAG,Edouard,LYON,2018-2026,OK,docteuredouardamzallag.expert@gmail.com,06 76 60 58 80,2 avenue du,69694,VENISSIEUX cedex
+medecine_legale,AUBERT,Caroline,LYON,2025-2025,en cours,docteur.aubert@yahoo.fr,04.78.84.50.13,"1, rue Flachet",69100,VILLEURBANNE
+medecine_legale,BIDAT,Carolyne,ST ETIENNE,2016-2024,OK,carolyne.bidat@chu-st-etienne.fr,04 77 12 05 99,CHU Bellevue 25 boulevard Pasteur,42100,ST ETIENNE
+medecine_legale,BILLET-CHATENAY,Camille,LYON,2019-2022,OK,c.chatenay@latlumtox.com,04 78 76 67 15,32 rue du,69500,BRON
+medecine_legale,BONTOUX,Edouard,LYON,2020-2023,OK,edouard.bontoux@chu-lyon.fr,06 19 85 13 01,Hôpital Edouard Herriot - Service de Médecine légale 5 Place d'Arsonval,69437,LYON cedex 03
+medecine_legale,BOTTINELLI,Charline,LYON,2024-2024,en cours,c.bottinelli@latlumtox.com,04.78.76.67.15,rue du,69500,BRON
+medecine_legale,CHAMBOST,Marc,VILLEFRANCHE SUR SAONE,2000-2025,OK,mchambost@hno.fr,04 74 09 29 31,L'Hôpital Nord-Ouest Service surveillance continue - BP 436,69655,VILLEFRANCHE SUR SAONE
+medecine_legale,CLAUDEL,Hervé,LYON,2016-2023,OK,drhclaudel@gmail.com,04 72 74 93 52,224 cours Lafayette,69003,LYON 03
+medecine_legale,DE FREMINVILLE,Humbert,VILLEFRANCHE SUR SAONE,2025-2025,en cours,humbert.defreminville@wanadoo.fr,04 74 68 30 96,335 rue Pré du Moulin,69400,ARNAS
+medecine_legale,DELAVENNE,Xavier,ST ETIENNE,2020-2026,OK,xavier.delavenne@chu-st-etienne.fr,04 77 12 74 64,Hôpital Nord CHU de SAINT ETIENNE,42000,ST ETIENNE
+medecine_legale,DESBOIS,Claire,ROANNE,2001-2024,OK,claire.desbois@orange.fr,04 77 64 01 57,48 Rue du Commerce,42620,ST MARTIN D' ESTREAUX
+medecine_legale,FANTON,Laurent,LYON,2002-2025,OK,laurent.fanton@chu-lyon.fr,04 72 11 01 17,Hôpital E.Herriot batiment 10 5 place d'Arsonval,69003,LYON 03
+medecine_legale,GUINET,Tiphaine,LYON,2015-2023,OK,tiphaine.guinet@gmail.com,04 78 01 17 89,"Service de Médecine Légale Bt 10, Hôpital Edouard Herriot 5 place d'Arsonval",69003,LYON 03
+medecine_legale,HACQUARD,Marion,ST ETIENNE,2023-2026,OK,docteur.marion.hacquard@chipeaux.fr,06 02 08 86 78,2 rue Nationale,42580,L ETRAT
+medecine_legale,HARTMANN-MERLIN,Chrystèle,LYON,2017-2025,OK,drhartmannchrystele@gmail.com,,Hôpital mère enfant Stomatologie et chirurgie maxillo-facial 59 boulevard Pinel,69500,BRON
+medecine_legale,HOIZEY,Guillaume,LYON,2007-2022,OK,g.hoizey@latlumtox.com,04 78 76 67 15,32 rue du,69500,BRON
+medecine_legale,HONYIGLO,Emma,LYON,2021-2024,OK,ehonyiglo.expertise@gmail.com,06 63 77 22 87,Centre Hospitalier de Roanne 28 rue de Charlieu,42300,ROANNE
+medecine_legale,LANCON,Virginie,ROANNE,2024-2024,en cours,virginie.lancon@ch-roanne.fr,04 77 44 30 36,CENTRE HOSPITALIER 28 route de Charlieu,42300,ROANNE
+medecine_legale,LAT LUMTOX,,LYON,2011-2024,OK,contact.lyon@latlumtox.com,04 78 76 67 15,32 rue du,69500,BRON
+medecine_legale,MASSON-SEYER,Marie-Françoise,BOURG EN BRESSE,1991-2026,OK,mf.massonseyer@orange.fr,04 74 32 87 00,Rue du point du jour,01000,ST DENIS LES BOURG
+medecine_legale,MENINI,Patricia,ST ETIENNE,2010-2022,OK,patricia.menini@orange.fr,04 77 93 54 39,49 bis avenue Henri Planchet,42340,VEAUCHE
+medecine_legale,NAHMANI,Isabelle,LYON,2024-2024,en cours,isabelle.nahmani@chu-lyon.fr,04.72.11.13.45,"HCL - HÔPITAL EDOUARD HERRIOT Service de médecine légal - Bât. B10 - 5, place d'Arsonal",69437,LYON CEDEX 03
+medecine_legale,PULCINI,Maël,ST ETIENNE,2024-2024,en cours,mael.pulcini@chu-st-etienne.fr,06 99 52 29 37,CHU de Saint Etienne - Secrétariat de l'UA1 - Bât L - pôle psychiatrie - Avenue Albert Raymond,42270,ST PRIEST EN JAREZ
+medecine_legale,RAOU,Didier,ROANNE,2015-2023,OK,didier.raou@gmail.com,04 77 44 30 33,Centre hospitalier de ROANNE 28 rue Charlieu,42328,ROANNE
+medecine_legale,RENOUX,Frédéric,ROANNE,2020-2025,OK,dr.renouxfr@yahoo.com,06.80.06.11.71,Centre Hospitalier de Roanne 28 rue de Charlieu,42328,ROANNE cedex
+medecine_legale,ROSATI,Françoise,ST ETIENNE,1994-2022,OK,rosati.francoise@wanadoo.fr,04 77 10 04 00,26 rue Verdier,42700,FIRMINY
+medecine_legale,TILHET-COARTET,Stéphane,LYON,2004-2026,OK,legiste.stc@gmail.com,04 72 11 13 42,Service de Médecine Légale Hôpital E.Herriot 5 Place d Arsonval,69003,LYON 03
+medecine_legale,VACHER,Pierrick,LYON,2021-2024,OK,vacher.expert@gmail.com,06 18 01 34 75,10 rue Condé,69002,LYON 02
+psychiatrie,BALAIS,Thierry,LYON,2013-2026,OK,docteurbalais@orange.fr,04 78 97 36 69,BP 30039,69678,BRON Cedex
+psychiatrie,BENGHANEM,Rim Echraf,LYON,2017-2025,OK,rymachraf@yahoo.fr,04 72 09 97 97,UHSA CH le Vinatier 95 Boulevard Pinel,69500,BRON
+psychiatrie,BIED,Clémence,LYON,2021-2024,OK,clemence.bied@gmail.com,06 58 72 78 39,BP 300,69678,BRON cedex
+psychiatrie,BOULAY,Richard-Pierre,LYON,2024-2024,en cours,docteur.rp.boulay@me.com,04 72 83 73 33,30 Boulevard des Brotteaux,69006,LYON 06
+psychiatrie,BREVET,Charlotte,LYON,2023-2026,OK,drbrevet.expertises@gmail.com,,24 rue Vendôme,69006,LYON 06
+psychiatrie,CHAULIAC,Nicolas,LYON,2025-2025,en cours,nicolas.chauliac@chu-lyon.fr,04.72.11.63.96,Centre Régional du Psychotraumatisme Auvergne Rhône-Alpes Hôpital Edouard Herriot -,69437,LYON
+psychiatrie,CLAUDEL,Hervé,LYON,2006-2023,OK,drhclaudel@gmail.com,04 72 74 93 52,224 cours Lafayette,69003,LYON 03
+psychiatrie,DANET,François,LYON,2011-2023,OK,francoisdanet@orange.fr,04 78 24 75 54,74 rue De Bonnel,69003,LYON 03
+psychiatrie,DEMILY,Caroline,LYON,2023-2026,OK,caroline.demily@ch-le-vinatier.fr,04 37 91 53 77,"Pôle HU-ADIS, CH Le Vinatier 95 Boulevard Pinel",69678,Bron Cedex
+psychiatrie,FORGEARD,Louis,LYON,2018-2026,OK,louis.forgeard@ch-le-vinatier.fr,07 66 06 74 08,CMP Enfants 10 cours de Verdun Rambaud,69002,LYON 02
+psychiatrie,GANSEL,Yannis,LYON,2020-2023,OK,docteur.gansel@orange.fr,07 72 72 93 88,77 rue Chevreul,69007,LYON 07
+psychiatrie,GILOUX,Natalie,LYON,2006-2023,OK,natalie.giloux@ch-le-vinatier.fr,04 37 91 53 77,BP 30039,69678,BRON CEDEX
+psychiatrie,JANAUD,Nicolas,LYON,2026-2026,en cours,mjanaud@ch-st-cyr69.fr,04 37 59 84 40,"CCOPS 49/51, rue des Docks",69009,LYON 09
+psychiatrie,LACERRE,Romain,LYON,2020-2023,OK,cabinet.docteurlacerre@gmail.com,04 37 91 53 47,CH Le Vinatier - Unité de soins intensifs psychiatriques Bâtiment 407 - 95 Boulevard Pinel,69500,BRON
+psychiatrie,LANCON,Virginie,ROANNE,2024-2024,en cours,virginie.lancon@ch-roanne.fr,04 77 44 30 36,CENTRE HOSPITALIER 28 route de Charlieu,42300,ROANNE
+psychiatrie,LAVIE,Marc,LYON,2007-2024,OK,marc.lavie@yahoo.fr,06 62 77 86 80,3 Chemin du Penthod,69300,CALUIRE ET CUIRE
+psychiatrie,LEDOUX,Arnaud,LYON,2024-2024,en cours,aledoux8@icloud.com,06 12 89 22 10,Centre pluridisciplinaire Via Sana 8 place des Terreaux,69001,LYON 01
+psychiatrie,MEUNIER,Frédéric,LYON,2006-2023,OK,frederic.meunier@ch-le-vinatier.fr,04 72 09 97 97,Centre Hospitalier le Vinatier - Pôle SMDPL - bât 338 95 boulevard Pinel - BP 300,69678,BRON cedex
+psychiatrie,MOUCHET,Sabine,LYON,2015-2023,OK,dr.sabine.mouchet@gmail.com,04 72 40 22 40,CMP 23 Rue Persoz,69100,VILLEURBANNE
+psychiatrie,NAHMANI,Isabelle,LYON,2024-2024,en cours,isabelle.nahmani@chu-lyon.fr,04.72.11.13.45,"HCL - HÔPITAL EDOUARD HERRIOT Service de médecine légal - Bât. B10 - 5, place d'Arsonal",69437,LYON CEDEX 03
+psychiatrie,PULCINI,Maël,ST ETIENNE,2024-2024,en cours,mael.pulcini@chu-st-etienne.fr,06 99 52 29 37,CHU de Saint Etienne - Secrétariat de l'UA1 - Bât L - pôle psychiatrie - Avenue Albert Raymond,42270,ST PRIEST EN JAREZ
+psychiatrie,RENAULT,François,LYON,2008-2025,OK,francois.renault@ch-le-vinatier.fr,04 37 91 54 88,BP 300,69678,BRON CEDEX
+psychiatrie,SAUTEREAU,Marie,LYON,2020-2023,OK,dre.sautereau@gmail.com,06 15 52 97 23,MSP de Saint Andéol le Chateau 194 rue Centrale,69700,BEAUVALLON
+psychiatrie,SIMON,Louis,LYON,2025-2025,en cours,louis.simon@chu-lyon.fr,04.72.11.00.75,"HÔPITAL EDOUARD HERRIOT - Pavillon M 5, place d'Arsonval",69003,LYON 03
+psychiatrie,VIGNAUD,Philippe,LYON,2025-2025,en cours,philippe.vignaud@chu-lyon.fr,04.72.11.63.96,Cellule d'Urgence médico psychologique - H. Edouard Herriot Place d'Arsonval,69337,LYON
+psychiatrie,ZEROUG VIAL,Halima,LYON,2024-2024,en cours,halima.zeroug-vial@ch-le-vinatier.fr,04 37 91 50 14,"Centre Hospitalier le Vinatier 95, boulevard Pinel",69678,BRON CEDEX
+psychologie,ALBERCA,Eloïse,LYON,2026-2026,en cours,eloise.alberca@chu-lyon.fr,04 72 11 04 88,"Hôpital Edouard Herriot Service de médecine légale - 5, place d'Arsonval",69003,LYON 03
+psychologie,ALGRAIN MILLIERE,Marie,ROANNE,2016-2024,OK,marie_algrain@yahoo.fr,06.88.05.40.15,MSP 289 rue de la République,42720,POUILLY SOUS CHARLIEU
+psychologie,AUDEJEAN,Claire,LYON,1993-2022,OK,claire-audejean@wanadoo.fr,04 72 71 45 73,20 rue Felix Faure,69007,LYON
+psychologie,BAZEX,Hélène,LYON,2017-2022,OK,helene.bazex@gmail.com,06 15 17 81 75,36 rue du Bastion,75017,PARIS 17
+psychologie,BELLET-DUBANCHET,Carine,LYON,2025-2025,en cours,carinebellet@gmail.com,06.66.76.76.34,rue du Boeuf,69005,LYON 05
+psychologie,BENZEMMA,Sonia,LYON,2016-2024,OK,sonia_benzemma@hotmail.fr,06 22 58 39 25,21 rue des Granges,69005,LYON 05
+psychologie,BESSET GALLOT,Nadine,ST ETIENNE,2008-2026,OK,nadinebesset@gmail.com,04 77 41 98 95,24B Place Massenet,42000,ST ETIENNE
+psychologie,CANAVESIO,Carole,BOURG EN BRESSE,2007-2025,OK,canavesio.carole@yahoo.fr,06 72 73 33 40,Chez Ain Secrétariat et Services 146 rue Pasteur,01500,CHATEAU GAILLARD
+psychologie,CHABOUD,Guillaume,LYON,2017-2025,OK,cabinetpsy@pm.me,06 16 80 01 83,112 rue de Créqui,69006,LYON 06
+psychologie,COMBE,Dominique,LYON,2025-2025,en cours,expertise.dcombe@outlook.fr,06.23.79.09.44,4 Allée Valmerises,69160,TASSIN LA DEMI LUNE
+psychologie,DESSEZ,Patrick,LYON,2024-2024,en cours,patrick.dessez.psy@gmail.com,06 28 35 66 28,BP 32,69922,OULLINS
+psychologie,DUBANCHET,Robert,LYON,2008-2025,OK,rdubanchet@gmail.com,04 72 41 82 77,11 rue du boeuf,69005,LYON
+psychologie,DUBOIS,Vanessa,ST ETIENNE,2021-2024,OK,vanessa.dubois1@sfr.fr,04 77 89 46 49,CMP adultes 5 rue nouvelle,42340,VEAUCHE
+psychologie,DUBOST,Hélène,LYON,1998-2024,OK,helene.dubost@hd-lyon.fr,04 78 95 40 68,BP 3109,69397,LYON CEDEX 03
+psychologie,DUCHENE,Annick,LYON,2021-2024,OK,annick@jacquesoudot.fr,04 78 52 60 89,114 rue Vauban,69006,LYON 06
+psychologie,FERRUCCI-GREVAZ,Sophie,LYON,2022-2025,OK,sophie.ferrucci@gmail.com,07 81 21 51 02,C.M.P Enfants et Adolescents 47 E rue louis FOUCRE,69210,L ARBRESLE
+psychologie,FRANCOLS,Julie,LYON,2024-2026,OK,jf.psy@orange.fr,06 18 87 25 95,Cabinet de psychotraumatologie et de victimologie 56 Cours Lafayette,69003,LYON 03
+psychologie,GURY,Marie-Anne,LYON,2024-2026,OK,magury@expertpsycho.fr,04 78 24 73 05,112 rue de Créqui,69006,LYON 06
+psychologie,HAFHOUF,Hindi,BOURG EN BRESSE,2022-2025,OK,hhindi@hotmail.com,04 50 40 57 78,55 rue du Mesnil,01280,PREVESSIN MOENS
+psychologie,LAUTERNIET,Catherine,BOURG EN BRESSE,2025-2025,en cours,cath.lauterniet@hotmail.fr,06 17 84 41 44,14 rue des Lazaristes,01000,BOURG EN BRESSE
+psychologie,LOISELOT,Raphaël,LYON,2026-2026,en cours,cabinetpsy.raphael.loiselot@gmail.com,06 17 14 67 37,Permanence Médicale Sud-Rhône 64 rue Jacques Prévert,69700,GIVORS
+psychologie,LOUIS-CORDONNIER,Marlène,LYON,2025-2025,en cours,mlouis.psychologue@gmail.com,07.69.28.58.97,"Institut de thérapies cognitives et comportementales 2, place Jules Ferry",69006,LYON 06
+psychologie,MAJAJI,Sara,ROANNE,2023-2026,OK,sara.majaji@gmail.com,06 07 61 87 19,70 Boulevard Baron du Marais,42300,ROANNE
+psychologie,MORENO,Mary,LYON,2025-2025,en cours,marymorenomartin@gmail.com,06.60.36.07.78,"194, avenue Félix Faure",69003,LYON 03
+psychologie,MOUNIER,Salomé,LYON,2024-2024,en cours,smounier@ch-st-cyr69.fr,,"CMP DUCHERE 5, rue Edith Piaf",69009,LYON 09
+psychologie,PAYSAN,Marianne,LYON,2021-2024,OK,marianne@psyformateam.com,06 10 11 25 97,22 rue du Commandant Ayasse,69007,LYON 07
+psychologie,PEREZ GUILLAUMET,Céline,LYON,2021-2024,OK,celineperezguillaumet@gmail.com,06 15 47 80 48,324 rue Garibaldi,69007,LYON 07
+psychologie,PICOCHE,Gaëlle,LYON,2023-2026,OK,gaellecerutti@ymail.com,06 30 70 00 39,4-6 avenue Joannes Humbert,69160,TASSIN LA DEMI LUNE
+psychologie,PINON,Chantal,ROANNE,2022-2025,OK,chpn@free.fr,06.09.10.94.91,74 Rue de Charlieu,42300,ROANNE
+psychologie,PLANCADE,Olivier,LYON,2024-2024,en cours,o.plancad@gmail.com,07 82 53 58 90,Adresse professionnelle à Lyon 02,,LYON 02
+psychologie,PRESAS RODRIGUEZ,José,BOURG EN BRESSE,2014-2022,OK,josepresasrodriguez.psycho@yahoo.com,06 50 52 34 15,238 rue Garibaldi,69003,LYON 03
+psychologie,RENAULT,Xavier,LYON,2015-2023,OK,xrenault.cmppbossuet@gmail.com,06 95 52 49 19,BP 70002,69530,BRIGNAIS
+psychologie,RIAMON,Blandine,LYON,2024-2024,en cours,blandine.riamon@gmail.com,06 85 47 91 04,BP 11,69450,ST CYR AU MONT D OR
+psychologie,RODRIGO MARTINEZ,Auréa,LYON,2026-2026,en cours,aurea.rodrigo-martinez@ch-le-vinatier.fr,04 26 73 85 20,"CSAPA SUAL - DETENTION (CH LE VINATIER) MAISON D'ARRÊT - 40, boulevard des Nations",69960,CORBAS
+psychologie,SAINT-ANDRE,Thomas,BOURG EN BRESSE,2022-2025,OK,saintandre.thomas@gmail.com,04 74 32 27 12,Cabinet Brou Victor Hugo 62 boulevard Victor Hugo,01000,BOURG EN BRESSE
+psychologie,SARRACO,Sophie,BOURG EN BRESSE,2021-2024,OK,sarraco.sophie@hotmail.fr,06 27 36 77 71,53 rue de l'Eglise Cras sur Reyssouze,01340,BRESSE VALLONS
+psychologie,SARRAZIN,Joe,VILLEFRANCHE SUR SAONE,2007-2024,OK,psyexp.sarrazin@yahoo.fr,04 74 68 06 54,108 bld Louis Blanc,69400,VILLEFRANCHE SUR SAONE
+psychologie,SILHOL,Marlène,LYON,2024-2024,en cours,msilhol@yahoo.fr,06 80 94 53 36,BP 4433,69241,LYON 04 PDC2
+psychologie,TAVERNIER,Malika,BOURG EN BRESSE,2026-2026,en cours,cabinetpsychotavernier@laposte.net,06 15 47 47 59,Cabinet de Psychologie Clinique Maison de santé du Fort,01550,COLLONGES
+psychologie,VERGIAT,Aurélie,LYON,2026-2026,en cours,psy-a.vergiat@outlook.fr,06 75 99 54 88,"Cabinet de Santé Europe Lyon6 17, place de l'Europe",69006,LYON 06

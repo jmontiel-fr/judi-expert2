@@ -10,7 +10,7 @@ const DOMAINES = [
   "psychologie", "psychiatrie", "médecine légale", "bâtiment", "comptabilité", "général",
 ] as const;
 
-const OBJETS = ["Problème", "Demande d'amélioration", "Autre"] as const;
+const OBJETS = ["Demander une démonstration", "Problème", "Demande d'amélioration", "Autre"] as const;
 
 interface FormData { domaine: string; objet: string; message: string; bloquant: boolean; urgent: boolean; }
 interface FormErrors { domaine?: string; objet?: string; message?: string; }

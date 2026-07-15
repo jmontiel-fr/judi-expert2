@@ -78,11 +78,6 @@ export default function Footer() {
               FAQ
             </Link>
           </li>
-          <li>
-            <Link href="/contact" className={styles.link}>
-              Contact
-            </Link>
-          </li>
         </ul>
       </div>
     </footer>
